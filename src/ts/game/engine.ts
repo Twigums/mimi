@@ -173,7 +173,6 @@ export function createGame(deps: GameDeps): GameHandle {
   let goodCount = 0;
   let missCount = 0;
   let comboCount = 0;
-  let playing = false;
 
   let lyricCharLookup: ((timeMs: number) => { text: string; distMs: number } | null) | null = null;
 
@@ -322,13 +321,11 @@ export function createGame(deps: GameDeps): GameHandle {
       goodCount    = 0;
       missCount    = 0;
       comboCount   = 0;
-      playing      = false;
       onComboChange(0);
       onPlayingChange(false);
     },
 
     start(): void {
-      playing = true;
       onPlayingChange(true);
     },
 

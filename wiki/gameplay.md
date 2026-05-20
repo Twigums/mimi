@@ -6,7 +6,7 @@ The gameplay will officially support these dimensions:
 - Monitor: 1920 x 1080 px
 
 ## Core Gameplay
-This is a rhythm game that focuses on mouse movement and and accuracy. Notes appear in relation to the beats in the selected song. The goal of the player is to accurately hit the notes and complete the song.
+This is a rhythm game that focuses on mouse movement and accuracy. Notes appear in relation to the beats in the selected song. The goal of the player is to accurately hit the notes and complete the song.
 
 The game should feel satisfying and rhythmic. The margins for the judgement window and the acceptable range of angles are the defining factor in making the gameplay feel satisfying.
 
@@ -25,7 +25,7 @@ Directions will have an acceptable margin of error window, so the player can hit
 
 The hold requirement differs between note types. Stream notes require the mouse button (or touch) to be held when the cursor crosses the note; click notes and lyric notes do not require holding.
 
-All types will appear and disappear in the same way. They will gradually appear as the song progresses. Each note will appear as a faint outline at first, and click/stream notes fill with color as the hit time approaches (defined by the judgement window). Lyric notes show only a circle outline throughout.
+All types will appear and disappear in the same way. They will gradually appear as the song progresses. Each note will appear as a faint outline at first, and click/stream notes fill with color as the hit time approaches (defined by the judgement window). Lyric notes show a dotted circle throughout; the character stroke snaps into view early and fills inward from a growing radial clip as the hit time approaches.
 
 ## Judgement Window
 The judgement window is the acceptable margin of error for valid hits. Score is determined by when a note is correctly hit relative to the judgement window. The judgement window and scores are defined as such:
@@ -75,7 +75,7 @@ Mods are optional gameplay modifiers toggled from the options panel under the **
 
 | Mod    | Effect |
 |--------|--------|
-| Hidden | Notes show only their outline; the fill animation is suppressed. For lyric notes, only the character stroke outline is shown (no fill, no circle). |
+| Hidden | Notes show only their outline; the fill animation is suppressed. For lyric notes, the character fill is suppressed (stroke outline and dotted circle remain visible). |
 
 Mod states persist across sessions via `localStorage`.
 
@@ -87,7 +87,7 @@ A short sound plays on every successful hit (perfect or good).
 
 ## Story File (`.story`)
 
-An optional per-song `.story` file (`src/songs/<name>/story.story`) controls storyboard highlights and character position overrides. It is compiled by Hakyll to `songs/<name>/story.json` and loaded at runtime alongside the chart.
+An optional per-song `.story` file (`src/songs/<name>/chart.story`) controls storyboard highlights and character position overrides. It is compiled by Hakyll to `songs/<name>/chart.json` and loaded at runtime alongside the chart.
 
 Each non-blank, non-comment (`#`) line is one entry:
 

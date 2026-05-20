@@ -1,6 +1,5 @@
 import type { Note } from "./engine";
 
-// Shared between hit detection in engine.ts and rendering here
 export const NOTE_RADIUS  = 42;
 export const LYRIC_RADIUS = 28;
 

@@ -33,6 +33,10 @@ Charts can be authored in the [osu! editor](https://osu.ppy.sh/home/download) us
 npm run --silent convert:osu -- path/to/file.osu > src/songs/<name>/chart.mimi
 ```
 
+## Storyboard Story Files
+
+An optional `src/songs/<name>/chart.story` file controls the TextAlive lyric storyboard. It is compiled to `songs/<name>/chart.json` alongside the chart. See `wiki/gameplay.md` for the full format reference.
+
 ## Common Issues
 
 While building, `The program 'pkg-config' version >= ??? is required but it could not be found.`: This indicates that you need to install `pkg-config`.

@@ -100,30 +100,19 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPla
   let playerReady = false;
   let songLengthMs = 0;
   let finished = false;
-  let resultsActive = false;
   let finishTimeout: ReturnType<typeof setTimeout> | null = null;
   let lastSongMs = 0;
 
   let isPlaying = false;
 
-  const setPlayingState = (playing: boolean): void => {
-    isPlaying = playing;
-  };
-
-  const setResultsActive = (active: boolean): void => {
-    resultsActive = active;
-    if (active) setPlayingState(false);
-  };
-
   const triggerFinish = (): void => {
     if (finished) return;
     finished = true;
-    setResultsActive(true);
+    isPlaying = false;
     onSongFinish(game.getStats());
   };
 
   const dismissResult = (): void => {
-    setResultsActive(false);
     hideResult();
   };
 
@@ -188,7 +177,7 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPla
         if (player) player.volume = loadVolume();
       },
       onPlay() {
-        setPlayingState(true);
+        isPlaying = true;
         finished = false;
         if (finishTimeout !== null) { clearTimeout(finishTimeout); finishTimeout = null; }
         if (songLengthMs > 0) {
@@ -196,8 +185,8 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPla
           finishTimeout = setTimeout(triggerFinish, remaining);
         }
       },
-      onPause() { setPlayingState(false); },
-      onStop()  { setPlayingState(false); finished = false; },
+      onPause() { isPlaying = false; },
+      onStop()  { isPlaying = false; finished = false; },
     });
   } else {
     setTimeout(dismissLoading, 15000);

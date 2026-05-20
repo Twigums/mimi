@@ -129,6 +129,9 @@ export function GameSurface({ onReady, returnHref, onTryAgain }: Props) {
     }
   }, [combo]);
 
+  const displayName   = lang === "jp" && songInfo.nameJp   ? songInfo.nameJp   : songInfo.name;
+  const displayAuthor = lang === "jp" && songInfo.authorJp ? songInfo.authorJp : songInfo.author;
+
   const handleTryAgain = (): void => {
     setResult(null);
     onTryAgain();
@@ -159,8 +162,8 @@ export function GameSurface({ onReady, returnHref, onTryAgain }: Props) {
         </button>
 
         <div className={`game-song-info${infoFaded ? " faded" : ""}`}>
-          <span className="game-song-name">{lang === "jp" && songInfo.nameJp ? songInfo.nameJp : songInfo.name}</span>
-          <span className="game-song-author">{lang === "jp" && songInfo.authorJp ? songInfo.authorJp : songInfo.author}</span>
+          <span className="game-song-name">{displayName}</span>
+          <span className="game-song-author">{displayAuthor}</span>
           {songInfo.mapper && <span className="game-song-mapper">{songInfo.mapper}</span>}
         </div>
 
@@ -192,8 +195,8 @@ export function GameSurface({ onReady, returnHref, onTryAgain }: Props) {
             stats={result}
             returnHref={returnHref}
             onTryAgain={handleTryAgain}
-            songName={lang === "jp" && songInfo.nameJp ? songInfo.nameJp : songInfo.name}
-            artist={lang === "jp" && songInfo.authorJp ? songInfo.authorJp : songInfo.author}
+            songName={displayName}
+            artist={displayAuthor}
           />
         )}
       </div>

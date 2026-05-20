@@ -59,7 +59,7 @@ stack build --system-ghc
 ### Content Structure
 
 - `src/tabs/` — Top-level pages. `home.md` → `index.html`, `kotaete.md` → `kotaete/index.html`, etc.
-- `src/songs/<name>/` — Per-song assets. `.mimi` chart files compiled to `.json`; optional `story.story` compiled to `story.json`; other files copied verbatim
+- `src/songs/<name>/` — Per-song assets. `.mimi` chart files compiled to `.json`; optional `chart.story` compiled to `chart.json`; other files copied verbatim
 - `src/templates/` — Hakyll HTML templates: `home.html`, `song.html`, `tutorial.html`, `lang_toggle.html`, `settings_toggle.html`, `imports.html`, `sitemap.xml`
 - `src/scss/` — SCSS partials; `default.scss` is the entry point, imports all `_*.scss` partials
 - `src/ts/main.ts` — TypeScript entry point, compiled to `js/main.js`
@@ -70,7 +70,7 @@ stack build --system-ghc
   - `lang.ts` — Language toggle initialization; persists `en`/`jp` in `localStorage`
 - `src/ts/game/` — Rhythm game engine island:
   - `engine.ts` — Note rendering, hit detection, scoring; instantiates `CursorRenderer` and calls `cursor.render(now)` after each frame draw
-  - `draw.ts` — Canvas drawing utilities (`drawArrow`, `NOTE_RADIUS`, `drawFireworks`); cursor helpers: `drawCursorOrb` (inner solid + fuzzy shadow halo), `drawCursorParticle` (flat alpha circle)
+  - `draw.ts` — Canvas drawing utilities (`drawArrow`, `drawLyricNote`, `NOTE_RADIUS`, `LYRIC_RADIUS`, `drawFireworks`); cursor helpers: `drawCursorOrb` (inner solid + fuzzy shadow halo), `drawCursorParticle` (flat alpha circle)
   - `cursor.ts` — Custom cursor renderer (`createCursorRenderer`): tracks pointer over the canvas, maintains a 64-slot ring-buffer particle trail, exposes `render(now)` / `destroy()`; subscribes to cursor settings
   - `grade.ts` — Grade and accuracy computation (`computeGrade`, `computeAccuracy`)
 - `src/ts/song/` — Song page / TextAlive island:
@@ -123,7 +123,7 @@ l, 5500,     0, 400.0, 300.0, か
 
 ### Story Format (`.story`)
 
-An optional `src/songs/<name>/story.story` file compiled by `StoryCompiler.hs` to `songs/<name>/story.json`. Loaded at runtime by `controller.ts` and applied via `storyboard.setStoryData()`.
+An optional `src/songs/<name>/chart.story` file compiled by `StoryCompiler.hs` to `songs/<name>/chart.json`. Loaded at runtime by `controller.ts` and applied via `storyboard.setStoryData()`.
 
 ```
 # kind, args…
