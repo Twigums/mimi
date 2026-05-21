@@ -341,3 +341,39 @@
   width: 100%;
   aspect-ratio: 4 / 3;
 }
+
+.options-chip-group {
+  display: flex;
+}
+
+.options-chip {
+  flex: 1;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: rgba(255, 255, 255, 0.5);
+  font-family: inherit;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  padding: 0.3rem 0.4rem;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+
+  &:not(:first-child) { margin-left: -1px; }
+  &:first-child { border-radius: 3px 0 0 3px; }
+  &:last-child  { border-radius: 0 3px 3px 0; }
+
+  &:hover {
+    position: relative;
+    z-index: 1;
+    background: rgba(255, 255, 255, 0.11);
+    color: rgba(255, 255, 255, 0.8);
+  }
+
+  &.options-chip--active {
+    position: relative;
+    z-index: 2;
+    background: rgba(255, 255, 255, 0.22);
+    border-color: rgba(255, 255, 255, 0.5);
+    color: #fff;
+  }
+}

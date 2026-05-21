@@ -65,13 +65,13 @@ stack build --system-ghc
 - `src/ts/main.ts` — TypeScript entry point, compiled to `js/main.js`
 - `src/ts/core/` — Shared primitives (no inter-island dependencies):
   - `utils.ts` — Math utilities (`clamp`, `angleDiff`)
-  - `settings.ts` — Shared localStorage/event helpers for all settings. Numeric: `loadAr/Vol`, `saveAr/Vol`, `subscribeAr/Vol`, `arToMs`, `volToFactor`, hitsound volume, cursor size (`loadCursorSize/saveCursorSize/subscribeCursorSize`, range 4–20), cursor color channels (`loadCursorR/G/B`, `saveCursorR/G/B`, `subscribeCursorR/G/B`, each 0–255, defaults 0/255/255 = cyan), trail fade speed (`loadTrailFadeSpeed/saveTrailFadeSpeed/subscribeTrailFadeSpeed`, range 1–10). Boolean mod: `loadHiddenMod`, `saveHiddenMod`, `subscribeHiddenMod`
+  - `settings.ts` — Shared localStorage/event helpers for all settings. Numeric: `loadAr/Vol`, `saveAr/Vol`, `subscribeAr/Vol`, `arToMs`, `volToFactor`, hitsound volume, cursor size (`loadCursorSize/saveCursorSize/subscribeCursorSize`, range 4–20), cursor color channels (`loadCursorR/G/B`, `saveCursorR/G/B`, `subscribeCursorR/G/B`, each 0–255, defaults 0/255/255 = cyan), trail fade speed (`loadTrailFadeSpeed/saveTrailFadeSpeed/subscribeTrailFadeSpeed`, range 1–10). Boolean mod: `loadHiddenMod`, `saveHiddenMod`, `subscribeHiddenMod`. String: trail shape (`TrailShape`: `"circle"` | `"star"` | `"square"`, `loadTrailShape/saveTrailShape/subscribeTrailShape`, default `"circle"`); trail decay (`TrailDecay`: `"fade"` | `"scatter"`, `loadTrailDecay/saveTrailDecay/subscribeTrailDecay`, default `"fade"`; scatter tosses particles in random directions at random speed ≤ 0.15 canvas px/ms; trail fade speed only affects fade decay)
   - `sitePath.ts` — Site sub-path helpers (`getSitePath`, `withPath`)
   - `lang.ts` — Language toggle initialization; persists `en`/`jp` in `localStorage`
 - `src/ts/game/` — Rhythm game engine island:
   - `engine.ts` — Note rendering, hit detection, scoring; instantiates `CursorRenderer` and calls `cursor.render(now)` after each frame draw
-  - `draw.ts` — Canvas drawing utilities (`drawArrow`, `drawLyricNote`, `NOTE_RADIUS`, `LYRIC_RADIUS`, `drawFireworks`); cursor helpers: `drawCursorOrb` (inner solid + fuzzy shadow halo), `drawCursorParticle` (flat alpha circle)
-  - `cursor.ts` — Custom cursor renderer (`createCursorRenderer`): tracks pointer over the canvas, maintains a 64-slot ring-buffer particle trail, exposes `render(now)` / `destroy()`; subscribes to cursor settings
+  - `draw.ts` — Canvas drawing utilities (`drawArrow`, `drawLyricNote`, `NOTE_RADIUS`, `LYRIC_RADIUS`, `drawFireworks`); cursor helpers: `drawCursorOrb` (inner solid + fuzzy shadow halo), `drawCursorParticle` (dispatches to circle/star/square by `TrailShape`; accepts optional `shape` and `angle` params)
+  - `cursor.ts` — Custom cursor renderer (`createCursorRenderer`): tracks pointer over the canvas, maintains particle trail, exposes `render(now)` / `destroy()`; subscribes to cursor settings including `trailShape` and `trailDecay`; scatter decay assigns random velocity (≤ 0.15 px/ms) at spawn; each particle stores a random `angle` for star/square orientation
   - `grade.ts` — Grade and accuracy computation (`computeGrade`, `computeAccuracy`)
 - `src/ts/song/` — Song page / TextAlive island:
   - `controller.ts` — Song page controller: TextAlive integration, chart loading, story loading, game loop, fullscreen toggle
@@ -81,13 +81,13 @@ stack build --system-ghc
 - `src/ts/react/` — React components:
   - `GameSurface.tsx` — canvas + score display + hit feedback toasts + `ResultsOverlay`
   - `HomeLayoutSwitcher.tsx` — home page layout state (original / play / info)
-  - `OptionsPanel.tsx` — settings modal with volume/hitsound sliders always visible, plus three `<details>` accordions: Mods (Hidden mod checkbox), Notes (AR slider + animated approach preview; AR locked on song page), Cursor (size slider, HSV color picker, trail fade speed slider, animated cursor preview); accordion open/closed states persist in localStorage
+  - `OptionsPanel.tsx` — settings modal with volume/hitsound sliders always visible, plus three `<details>` accordions: Mods (Hidden mod checkbox), Notes (AR slider + animated approach preview; AR locked on song page), Cursor (size slider, HSV color picker, trail shape segmented buttons [Circle/Star/Square], trail decay segmented buttons [Fade/Scatter], trail fade speed slider, animated cursor preview); accordion open/closed states persist in localStorage
   - `ColorPicker.tsx` — inline HSV color picker: SV square canvas + hue bar canvas, both draggable with pointer capture; converts HSV↔RGB; preserves hue across low-saturation colors via `localH` state
   - `ResultsOverlay.tsx` — post-song results screen (grade, stats, share, try again)
   - `ApproachPreview.tsx` — animated arrow canvas preview for AR setting; accepts `hidden` prop to mirror Hidden mod state
-  - `CursorPreview.tsx` — animated canvas preview of the custom cursor; renders a Lissajous path with orb + trail using current cursor settings; uses refs so rAF loop survives prop changes
+  - `CursorPreview.tsx` — animated canvas preview of the custom cursor; renders a Lissajous path with orb + trail using current cursor settings; accepts `trailShape` and `trailDecay` props; uses refs so rAF loop survives prop changes
   - `hooks/useLang.ts` — hook: current language from `localStorage`, re-reads on toggle click
-  - `hooks/useSettings.ts` — consolidated setting hooks: `useApproachRate`, `useVolume`, `useHitsoundVolume` (numeric, shared `useNumericSetting` helper); `useHiddenMod` (boolean); `useCursorSize`, `useCursorR`, `useCursorG`, `useCursorB`, `useTrailFadeSpeed` (numeric)
+  - `hooks/useSettings.ts` — consolidated setting hooks: `useApproachRate`, `useVolume`, `useHitsoundVolume` (numeric, shared `useNumericSetting` helper); `useHiddenMod` (boolean); `useCursorSize`, `useCursorR`, `useCursorG`, `useCursorB`, `useTrailFadeSpeed` (numeric); `useTrailShape`, `useTrailDecay` (string, shared `useStringSetting` helper)
 - `src/tools/osu2mimi.ts` — CLI converter from `.osu` format to `.mimi`: sliders → `c` (click) notes with computed direction, hit circles → `l` (lyric) notes
 - `static/` — Copied verbatim to output (images, audio, `robots.txt`, etc.)
 

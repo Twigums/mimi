@@ -1,4 +1,5 @@
 import type { Note } from "./engine";
+import type { TrailShape } from "../core/settings";
 
 export const NOTE_RADIUS  = 42;
 export const LYRIC_RADIUS = 28;
@@ -160,6 +161,30 @@ export function drawCursorOrb(
   ctx.restore();
 }
 
+function drawStar5(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number, angle: number): void {
+  const inner = r * 0.4;
+  ctx.beginPath();
+  for (let i = 0; i < 10; i++) {
+    const a   = angle + (i * Math.PI) / 5;
+    const rad = i % 2 === 0 ? r : inner;
+    if (i === 0) ctx.moveTo(cx + Math.cos(a) * rad, cy + Math.sin(a) * rad);
+    else         ctx.lineTo(cx + Math.cos(a) * rad, cy + Math.sin(a) * rad);
+  }
+  ctx.closePath();
+  ctx.fill();
+}
+
+function drawSquare(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number, angle: number): void {
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(angle);
+  const s = Math.max(0.5, r);
+  ctx.beginPath();
+  ctx.rect(-s, -s, s * 2, s * 2);
+  ctx.fill();
+  ctx.restore();
+}
+
 export function drawCursorParticle(
   ctx: CanvasRenderingContext2D,
   x: number,
@@ -167,11 +192,19 @@ export function drawCursorParticle(
   radius: number,
   alpha: number,
   rgb: string,
+  shape: TrailShape = "circle",
+  angle = 0,
 ): void {
-  ctx.beginPath();
-  ctx.arc(x, y, Math.max(0.5, radius), 0, Math.PI * 2);
   ctx.fillStyle = `rgba(${rgb}, ${alpha})`;
-  ctx.fill();
+  if (shape === "star") {
+    drawStar5(ctx, x, y, Math.max(0.5, radius), angle);
+  } else if (shape === "square") {
+    drawSquare(ctx, x, y, Math.max(0.5, radius), angle);
+  } else {
+    ctx.beginPath();
+    ctx.arc(x, y, Math.max(0.5, radius), 0, Math.PI * 2);
+    ctx.fill();
+  }
 }
 
 export function drawFireworks(
