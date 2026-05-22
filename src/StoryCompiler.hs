@@ -20,9 +20,19 @@ showNum d
     | otherwise           = show d
   where n = round d :: Int
 
+escapeJson :: String -> String
+escapeJson = concatMap esc
+  where
+    esc '"'  = "\\\""
+    esc '\\' = "\\\\"
+    esc c    = [c]
+
 data StoryEntry
     = HighlightEntry { heFrom :: Double, heTo :: Double }
     | MoveEntry      { meTime :: Double, meX :: Double, meY :: Double }
+    | LyricEntry     { leFrom :: Double, leTo :: Double
+                     , leX :: Double, leY :: Double
+                     , leText :: String, leChars :: [Double] }
 
 parseEntry :: String -> Either String StoryEntry
 parseEntry line = case map trim (splitOn ',' line) of
@@ -35,13 +45,25 @@ parseEntry line = case map trim (splitOn ',' line) of
         nx   <- readDouble "x"    x
         ny   <- readDouble "y"    y
         Right $ MoveEntry time nx ny
-    _ -> Left $ "Expected 'h, time1, time2' or 'm, time, x, y': " ++ line
+    ("l":fromS:toS:xS:yS:textS:charStrs) -> do
+        from <- readDouble "from"      fromS
+        to   <- readDouble "to"        toS
+        nx   <- readDouble "x"         xS
+        ny   <- readDouble "y"         yS
+        cs   <- mapM (readDouble "char_time") charStrs
+        Right $ LyricEntry from to nx ny (trim textS) cs
+    _ -> Left $ "Expected 'h, t1, t2', 'm, t, x, y', or 'l, from, to, x, y, text[, char_times...]': " ++ line
 
 renderEntry :: StoryEntry -> String
 renderEntry (HighlightEntry from to) =
     "  { \"type\": \"h\", \"from\": " ++ showNum from ++ ", \"to\": " ++ showNum to ++ " }"
 renderEntry (MoveEntry time x y) =
     "  { \"type\": \"m\", \"time\": " ++ showNum time ++ ", \"x\": " ++ showNum x ++ ", \"y\": " ++ showNum y ++ " }"
+renderEntry (LyricEntry from to x y text chars) =
+    "  { \"type\": \"l\", \"from\": " ++ showNum from ++ ", \"to\": " ++ showNum to ++
+    ", \"x\": " ++ showNum x ++ ", \"y\": " ++ showNum y ++
+    ", \"text\": \"" ++ escapeJson text ++ "\"" ++
+    ", \"chars\": [" ++ intercalate ", " (map showNum chars) ++ "] }"
 
 compileStory :: String -> Either String String
 compileStory content = do

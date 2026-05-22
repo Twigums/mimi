@@ -75,7 +75,7 @@ stack build --system-ghc
   - `grade.ts` — Grade and accuracy computation (`computeGrade`, `computeAccuracy`)
 - `src/ts/song/` — Song page / TextAlive island:
   - `controller.ts` — Song page controller: TextAlive integration, chart loading, story loading, game loop, fullscreen toggle
-  - `storyboard.ts` — TextAlive lyrics storyboard renderer; exports `StoryEntry`, `StoryHighlight`, `StoryMove` types; `setStoryData(entries)` applies highlight ranges and character position moves from the story file
+  - `storyboard.ts` — TextAlive lyrics storyboard renderer; exports `StoryEntry`, `StoryHighlight`, `StoryMove`, `StoryLyric` types; `setStoryData(entries)` applies highlight ranges, character position moves, and manual lyric segments; manual lyrics (`StoryLyric`) are fully independent of TextAlive — each has a `from`/`to` window, absolute position, text, and per-character activation times
   - `textalive.ts` — TypeScript type declarations for the TextAlive App API
   - `share.ts` — Share / clipboard fallback for result sharing
 - `src/ts/react/` — React components:
@@ -133,6 +133,7 @@ m, 63000, 550, 300
 
 - `h, time1, time2` — highlight: while song position is in `[time1, time2]`, any storyboard character whose `startTime` is also in that range gets the technicolor `.approach` style
 - `m, time, x, y` — move: within the current phrase, characters with `startTime >= time` break into a separate vertical segment absolutely positioned at logical `(x, y)` (800 × 600 space); multiple `m` entries divide the phrase into multiple segments
+- `l, from, to, x, y, text[, char_time1, char_time2, ...]` — manual lyric: a self-contained lyric segment, completely independent of TextAlive; appears at `from` ms, fades out at `to` ms, absolutely positioned at logical `(x, y)`; `text` is the lyric string (must not contain commas); each optional `char_time` is the ms when the corresponding character becomes `.active` (prior character transitions to `.sung`); the last character stays `.active` until `to`
 
 ### SCSS
 
