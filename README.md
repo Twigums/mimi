@@ -1,6 +1,6 @@
 ## How to Build
 
-Requires `node`/`npm` and `stack`/`ghc`.
+Requires `node`/`npm` and `stack`. Stack will use a compatible GHC from `~/.stack` (or a compatible system GHC if you already have one).
 
 1. Install dependencies + build haskell binary:
    ```bash
@@ -40,3 +40,10 @@ An optional `src/songs/<name>/chart.story` file controls the TextAlive lyric sto
 ## Common Issues
 
 While building, `The program 'pkg-config' version >= ??? is required but it could not be found.`: This indicates that you need to install `pkg-config`.
+
+On WSL/Linux, `sh: 1: esbuild: Permission denied` or `sh: 1: sass: Permission denied`: npm installed local bin targets without executable bits. From the repo root, repair the local install and rebuild:
+
+```bash
+find node_modules/.bin -type l -exec sh -c 'chmod +x "$(readlink -f "$1")"' sh {} \;
+npm run rebuild
+```
