@@ -89,6 +89,17 @@ parseMimiDifficulty content =
         (key, ':':val) -> Just (safeTrim key, safeTrim val)
         _              -> Nothing
 
+parseMimiBpm :: String -> Maybe String
+parseMimiBpm content =
+    case [v | l <- takeWhile (not . null) (lines content),
+              Just (k, v) <- [parseHeader l], k == "bpm"] of
+        (v:_) -> Just v
+        []    -> Nothing
+  where
+    parseHeader line = case break (== ':') line of
+        (key, ':':val) -> Just (safeTrim key, safeTrim val)
+        _              -> Nothing
+
 buildManifest :: String -> IO String
 buildManifest sitePath = do
     let songsDir = "src/songs"
@@ -109,7 +120,11 @@ buildManifest sitePath = do
                     authorJp = lookupFM "song-author-jp" fm
 
                 avail <- filterM (\d -> doesFileExist $ songsDir </> songId </> "chart-" ++ d ++ ".mimi") difficultyIds
-                if null avail then return Nothing else do
+                case avail of
+                  [] -> return Nothing
+                  (firstDiff:_) -> do
+                    firstContent <- readFile (songsDir </> songId </> "chart-" ++ firstDiff ++ ".mimi")
+                    let bpmJson = maybe "null" id (parseMimiBpm firstContent)
                     diffs <- forM avail $ \d -> do
                         level <- fmap parseMimiDifficulty $ readFile (songsDir </> songId </> "chart-" ++ d ++ ".mimi")
                         return $ "{\"id\":\"" ++ d ++ "\",\"level\":" ++ show level ++ "}"
@@ -122,6 +137,7 @@ buildManifest sitePath = do
                         ++ "\"authorEn\":\"" ++ escapeForJson authorEn ++ "\","
                         ++ "\"authorJp\":\"" ++ escapeForJson authorJp ++ "\","
                         ++ "\"href\":\"" ++ href ++ "\","
+                        ++ "\"bpm\":" ++ bpmJson ++ ","
                         ++ "\"difficulties\":" ++ diffsJson
                         ++ "}"
 

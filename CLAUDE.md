@@ -75,12 +75,12 @@ stack build --system-ghc
   - `grade.ts` — Grade and accuracy computation (`computeGrade`, `computeAccuracy`)
 - `src/ts/song/` — Song page / TextAlive island:
   - `controller.ts` — Song page controller: TextAlive integration, chart loading, story loading, game loop, fullscreen toggle
-  - `storyboard.ts` — TextAlive lyrics storyboard renderer; exports `StoryEntry`, `StoryHighlight`, `StoryMove`, `StoryLyric` types; `setStoryData(entries)` applies highlight ranges, character position moves, and manual lyric segments; manual lyrics (`StoryLyric`) are fully independent of TextAlive — each has a `from`/`to` window, absolute position, text, and per-character activation times
+  - `storyboard.ts` — TextAlive lyrics storyboard renderer; exports `StoryEntry`, `StoryHighlight`, `StoryMove`, `StoryLyric` types; `setStoryData(entries)` applies highlight ranges, character position moves, and manual lyric segments; `h` entries apply the technicolor `.approach` highlight only to the currently active character (the one being sung whose `startTime` falls in the `h` range) — not to upcoming chars; manual lyrics (`StoryLyric`) are fully independent of TextAlive — each has a `from`/`to` window, absolute position, text, and per-character activation times (`active` while being sung, `sung` after)
   - `textalive.ts` — TypeScript type declarations for the TextAlive App API
   - `share.ts` — Share / clipboard fallback for result sharing
 - `src/ts/react/` — React components:
   - `GameSurface.tsx` — canvas + score display + hit feedback toasts + `ResultsOverlay`
-  - `HomeLayoutSwitcher.tsx` — home page layout state (original / play / info)
+  - `HomeLayoutSwitcher.tsx` — home page layout state (original / play / info); song selection buttons show song title (large) with artist name smaller below; BPM displayed as dimmed text to the right of each song button, sourced from the `bpm` field in the songs manifest
   - `OptionsPanel.tsx` — settings modal with volume/hitsound sliders always visible, plus three `<details>` accordions: Mods (Hidden mod checkbox), Notes (AR slider + animated approach preview; AR locked on song page), Cursor (size slider, HSV color picker, trail shape segmented buttons [Circle/Star/Square], trail decay segmented buttons [Fade/Scatter], trail fade speed slider, animated cursor preview); accordion open/closed states persist in localStorage
   - `ColorPicker.tsx` — inline HSV color picker: SV square canvas + hue bar canvas, both draggable with pointer capture; converts HSV↔RGB; preserves hue across low-saturation colors via `localH` state
   - `ResultsOverlay.tsx` — post-song results screen (grade, stats, share, try again)
@@ -111,6 +111,7 @@ l, 5000,     0, 300.0, 250.0
 l, 5500,     0, 400.0, 300.0, か
 ```
 
+- `bpm`: song tempo; read by `site.hs` from the first available difficulty file and included as a numeric `bpm` field in the songs manifest JSON
 - `time_unit`: always `ms`
 - `difficulty`: integer level shown on the difficulty selection button
 - `beats_per_measure`: optional, informational only
@@ -131,7 +132,7 @@ h, 62500, 63200
 m, 63000, 550, 300
 ```
 
-- `h, time1, time2` — highlight: while song position is in `[time1, time2]`, any storyboard character whose `startTime` is also in that range gets the technicolor `.approach` style
+- `h, time1, time2` — highlight: while song position is in `[time1, time2]`, any storyboard character (TextAlive or manual `l`) that is currently **active** (being sung) and whose `startTime` is also in that range gets the technicolor `.approach` style; upcoming characters in the range are not highlighted
 - `m, time, x, y` — move: within the current phrase, characters with `startTime >= time` break into a separate vertical segment absolutely positioned at logical `(x, y)` (800 × 600 space); multiple `m` entries divide the phrase into multiple segments
 - `l, from, to, x, y, text[, char_time1, char_time2, ...]` — manual lyric: a self-contained lyric segment, completely independent of TextAlive; appears at `from` ms, fades out at `to` ms, absolutely positioned at logical `(x, y)`; `text` is the lyric string (must not contain commas); each optional `char_time` is the ms when the corresponding character becomes `.active` (prior character transitions to `.sung`); the last character stays `.active` until `to`
 
