@@ -1,6 +1,5 @@
 bpm: 130
 time_unit: ms
-difficulty: 12
 beats_per_measure: 4
 
 # kind, time_ms, degrees, x, y
