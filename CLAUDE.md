@@ -111,6 +111,7 @@ l, 5000,     0, 300.0, 250.0
 l, 5500,     0, 400.0, 300.0, か
 ```
 
+- `bpm`: song tempo; read by `site.hs` from the first available difficulty file and included as a numeric `bpm` field in the songs manifest JSON
 - `time_unit`: always `ms`
 - `difficulty`: integer level shown on the difficulty selection button
 - `beats_per_measure`: optional, informational only
