@@ -151,3 +151,34 @@ const musicOffsetSetting = createNumericSetting("musicOffset", "musicOffsetChang
 export const loadMusicOffset      = musicOffsetSetting.load;
 export const saveMusicOffset      = musicOffsetSetting.save;
 export const subscribeMusicOffset = musicOffsetSetting.subscribe;
+
+export type TrailShape = "circle" | "star" | "square";
+export type TrailDecay = "fade" | "scatter";
+
+const TRAIL_SHAPES: readonly TrailShape[] = ["circle", "star", "square"];
+const TRAIL_DECAYS: readonly TrailDecay[] = ["fade", "scatter"];
+
+function loadStringSetting<T extends string>(key: string, valid: readonly T[], def: T): T {
+  const raw = localStorage.getItem(key);
+  if (raw !== null && (valid as readonly string[]).includes(raw)) return raw as T;
+  return def;
+}
+
+function saveStringSetting<T extends string>(key: string, event: string, value: T): void {
+  localStorage.setItem(key, value);
+  window.dispatchEvent(new CustomEvent<T>(event, { detail: value }));
+}
+
+function subscribeStringSetting<T>(event: string, cb: (v: T) => void): () => void {
+  const handler = (e: Event) => cb((e as CustomEvent<T>).detail);
+  window.addEventListener(event, handler);
+  return () => window.removeEventListener(event, handler);
+}
+
+export const loadTrailShape      = (): TrailShape => loadStringSetting("trailShape", TRAIL_SHAPES, "circle");
+export const saveTrailShape      = (v: TrailShape): void => saveStringSetting("trailShape", "trailShapeChange", v);
+export const subscribeTrailShape = (cb: (v: TrailShape) => void): (() => void) => subscribeStringSetting<TrailShape>("trailShapeChange", cb);
+
+export const loadTrailDecay      = (): TrailDecay => loadStringSetting("trailDecay", TRAIL_DECAYS, "fade");
+export const saveTrailDecay      = (v: TrailDecay): void => saveStringSetting("trailDecay", "trailDecayChange", v);
+export const subscribeTrailDecay = (cb: (v: TrailDecay) => void): (() => void) => subscribeStringSetting<TrailDecay>("trailDecayChange", cb);

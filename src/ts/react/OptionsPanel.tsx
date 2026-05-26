@@ -5,7 +5,7 @@ import {
   TRAIL_FADE_MIN, TRAIL_FADE_MAX,
   OFFSET_MIN, OFFSET_MAX, OFFSET_STEP,
 } from "../core/settings";
-import { useApproachRate, useVolume, useHitsoundVolume, useHiddenMod, useCursorSize, useCursorR, useCursorG, useCursorB, useTrailFadeSpeed, useMusicOffset } from "./hooks/useSettings";
+import { useApproachRate, useVolume, useHitsoundVolume, useHiddenMod, useCursorSize, useCursorR, useCursorG, useCursorB, useTrailFadeSpeed, useTrailShape, useTrailDecay, useMusicOffset } from "./hooks/useSettings";
 import { ApproachPreview } from "./ApproachPreview";
 import { CursorPreview } from "./CursorPreview";
 import { ColorPicker } from "./ColorPicker";
@@ -44,6 +44,8 @@ export function OptionsPanel({ isSongPage = false }: Props) {
   const [cursorG, setCursorG]               = useCursorG();
   const [cursorB, setCursorB]               = useCursorB();
   const [trailFadeSpeed, setTrailFadeSpeed] = useTrailFadeSpeed();
+  const [trailShape, setTrailShape]         = useTrailShape();
+  const [trailDecay, setTrailDecay]         = useTrailDecay();
   const [musicOffset, setMusicOffset] = useMusicOffset();
   const lang = useLang();
 
@@ -305,7 +307,45 @@ export function OptionsPanel({ isSongPage = false }: Props) {
 
               <div className="options-row">
                 <label className="options-label">
-                  <span>{isJp ? "トレイルフェード" : "Trail Fade Speed"}</span>
+                  <span>{isJp ? "トレイル形状" : "Trail Shape"}</span>
+                </label>
+                <div className="options-chip-group">
+                  {(["circle", "star", "square"] as const).map(s => (
+                    <button
+                      key={s}
+                      className={`options-chip${trailShape === s ? " options-chip--active" : ""}`}
+                      onClick={() => setTrailShape(s)}
+                    >
+                      {isJp
+                        ? s === "circle" ? "丸" : s === "star" ? "星" : "四角"
+                        : s === "circle" ? "Circle" : s === "star" ? "Star" : "Square"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="options-row">
+                <label className="options-label">
+                  <span>{isJp ? "トレイル動作" : "Trail Decay"}</span>
+                </label>
+                <div className="options-chip-group">
+                  {(["fade", "scatter"] as const).map(d => (
+                    <button
+                      key={d}
+                      className={`options-chip${trailDecay === d ? " options-chip--active" : ""}`}
+                      onClick={() => setTrailDecay(d)}
+                    >
+                      {isJp
+                        ? d === "fade" ? "フェード" : "散布"
+                        : d === "fade" ? "Fade" : "Scatter"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="options-row">
+                <label className="options-label">
+                  <span>{isJp ? "フェード速度" : "Trail Fade Speed"}</span>
                   <span className="options-setting-value">{trailFadeSpeed}</span>
                 </label>
                 <input
@@ -318,13 +358,20 @@ export function OptionsPanel({ isSongPage = false }: Props) {
                   style={sliderFill(trailFadeSpeed, TRAIL_FADE_MIN, TRAIL_FADE_MAX)}
                   onChange={e => setTrailFadeSpeed(Number(e.target.value))}
                 />
+                {trailDecay === "scatter" && (
+                  <p className="options-note">
+                    {isJp
+                      ? "フェード速度はフェードモードのみ適用されます。"
+                      : "Trail fade speed only applies in Fade decay mode."}
+                  </p>
+                )}
               </div>
 
               <p className="options-preview-label">
                 {isJp ? "プレビュー" : "Preview"}
               </p>
               <div className="options-preview-wrap">
-                <CursorPreview r={cursorR} g={cursorG} b={cursorB} cursorSize={cursorSize} trailFadeSpeed={trailFadeSpeed} />
+                <CursorPreview r={cursorR} g={cursorG} b={cursorB} cursorSize={cursorSize} trailFadeSpeed={trailFadeSpeed} trailShape={trailShape} trailDecay={trailDecay} />
               </div>
 
             </div>

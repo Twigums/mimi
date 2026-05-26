@@ -30,12 +30,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
     createRoot(gameRoot).render(
       createElement(GameSurface, {
-        onReady: (game, show, hide) => {
+        onReady: (game, show, hide, setSongInfoJp, registerToggle, setPlayerReady) => {
           const handle = initSongPage({
             game,
             onSongFinish: show,
             hideResult: hide,
+            onSongInfo: setSongInfoJp,
+            onPlayerReady: setPlayerReady,
           });
+          registerToggle(() => handle.togglePlay());
 
           stopSong = () => handle.stop();
         },

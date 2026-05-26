@@ -11,17 +11,13 @@ interface Props {
   stats: GameStats;
   returnHref: string;
   onTryAgain: () => void;
+  songName: string;
+  artist: string;
 }
 
-export function ResultsOverlay({ stats, returnHref, onTryAgain }: Props) {
+export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, artist }: Props) {
   const lang = useLang();
   const [shareStatus, setShareStatus] = useState<"idle" | "copied" | "failed">("idle");
-
-  const songNameEl = document.querySelector<HTMLElement>(".song-name");
-  const artistEl   = document.querySelector<HTMLElement>(".song-author");
-  const nameKey    = lang === "jp" ? "jp" : "en";
-  const songName   = songNameEl?.dataset[nameKey] ?? songNameEl?.textContent ?? "";
-  const artist     = artistEl?.dataset[nameKey]   ?? artistEl?.textContent   ?? "";
 
   const grade = computeGrade(stats);
   const accuracy = computeAccuracy(stats);

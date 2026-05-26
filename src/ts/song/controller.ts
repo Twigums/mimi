@@ -1,19 +1,47 @@
 import type { GameHandle, GameStats, Note } from "../game/engine";
 import { loadVolume, subscribeVolume, loadMusicOffset, subscribeMusicOffset } from "../core/settings";
-import { createStoryboardRenderer } from "./storyboard";
-import type { TextAlivePlayer, TextAlivePlayerOptions } from "./textalive";
+import { createStoryboardRenderer, type StoryEntry } from "./storyboard";
+import type { TextAliveChar, TextAlivePlayer, TextAlivePlayerOptions, TextAliveVideo } from "./textalive";
+
+function charDist(c: TextAliveChar, timeMs: number): number {
+  if (timeMs >= c.startTime && timeMs <= c.endTime) return 0;
+  return Math.min(Math.abs(c.startTime - timeMs), Math.abs(c.endTime - timeMs));
+}
+
+function makeCharLookup(video: TextAliveVideo): (timeMs: number) => { text: string; distMs: number } | null {
+  const chars: TextAliveChar[] = [];
+  let phrase = video.firstPhrase;
+  while (phrase) {
+    let c = phrase.firstChar;
+    while (c) { chars.push(c); c = c.next; }
+    phrase = phrase.next;
+  }
+  if (chars.length === 0) return () => null;
+  return (timeMs: number) => {
+    let best = chars[0];
+    let bestDist = charDist(best, timeMs);
+    for (let i = 1; i < chars.length; i++) {
+      const dist = charDist(chars[i], timeMs);
+      if (dist < bestDist) { bestDist = dist; best = chars[i]; }
+    }
+    return { text: best.text, distMs: bestDist };
+  };
+}
 
 interface SongPageDeps {
   game: GameHandle;
   onSongFinish: (stats: GameStats) => void;
   hideResult: () => void;
+  onSongInfo?: (nameJp: string, authorJp: string) => void;
+  onPlayerReady?: () => void;
 }
 
 interface SongPageHandle {
   stop(): void;
+  togglePlay(): void;
 }
 
-export function initSongPage({ game, onSongFinish, hideResult }: SongPageDeps): SongPageHandle {
+export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPlayerReady }: SongPageDeps): SongPageHandle {
   const body    = document.body;
   const songUrl = body.dataset.songUrl ?? "";
   const chartDir = body.dataset.songChartDir ?? "";
@@ -28,12 +56,22 @@ export function initSongPage({ game, onSongFinish, hideResult }: SongPageDeps): 
   const lyricDiffId          = parseInt(body.dataset.textaliveLyricDiffId ?? "");
   const hasVideoIds = !isNaN(beatId) && !isNaN(chordId) && !isNaN(repetitiveSegmentId) && !isNaN(lyricId) && !isNaN(lyricDiffId);
 
-  const btnPlay      = document.getElementById("btn-play-song")   as HTMLButtonElement | null;
-  const btnStop      = document.getElementById("btn-stop-song")   as HTMLButtonElement | null;
+  const btnHudToggle = document.getElementById("btn-hud-toggle")  as HTMLButtonElement | null;
+  const songHud      = document.querySelector<HTMLElement>(".song-hud");
   const progressFill = document.getElementById("progress-fill")   as HTMLElement       | null;
   const storyboardEl = document.getElementById("song-storyboard") as HTMLElement       | null;
 
-  if (!btnPlay || !btnStop || !progressFill) return { stop() { /* no-op */ } };
+  if (!progressFill) return { stop() { /* no-op */ }, togglePlay() { /* no-op */ } };
+
+  if (btnHudToggle && songHud) {
+    btnHudToggle.addEventListener("click", (e) => {
+      e.stopPropagation();
+      songHud.classList.toggle("is-open");
+    });
+    document.addEventListener("click", (e) => {
+      if (!songHud.contains(e.target as Node)) songHud.classList.remove("is-open");
+    });
+  }
 
   const storyboard = storyboardEl ? createStoryboardRenderer(storyboardEl) : null;
 
@@ -62,25 +100,19 @@ export function initSongPage({ game, onSongFinish, hideResult }: SongPageDeps): 
   let playerReady = false;
   let songLengthMs = 0;
   let finished = false;
-  let resultsActive = false;
   let finishTimeout: ReturnType<typeof setTimeout> | null = null;
   let lastSongMs = 0;
 
-  const setResultsActive = (active: boolean): void => {
-    resultsActive = active;
-    btnPlay.disabled = active;
-    btnStop.disabled = active;
-  };
+  let isPlaying = false;
 
   const triggerFinish = (): void => {
     if (finished) return;
     finished = true;
-    setResultsActive(true);
+    isPlaying = false;
     onSongFinish(game.getStats());
   };
 
   const dismissResult = (): void => {
-    setResultsActive(false);
     hideResult();
   };
 
@@ -100,9 +132,8 @@ export function initSongPage({ game, onSongFinish, hideResult }: SongPageDeps): 
   const TextAliveApp = window.TextAliveApp;
   if (!songUrl || !token) {
     dismissLoading();
+    onPlayerReady?.();
   } else if (TextAliveApp) {
-    btnPlay.disabled = true;
-
     const mediaElement = document.getElementById("textalive-media");
     const opts: TextAlivePlayerOptions = {
       app: { token },
@@ -111,7 +142,7 @@ export function initSongPage({ game, onSongFinish, hideResult }: SongPageDeps): 
 
     const loadTimeout = setTimeout(() => {
       playerReady = true;
-      btnPlay.disabled = false;
+      onPlayerReady?.();
       dismissLoading();
     }, 15000);
 
@@ -131,25 +162,22 @@ export function initSongPage({ game, onSongFinish, hideResult }: SongPageDeps): 
       onVideoReady(video) {
         setProgress(70);
         storyboard?.setVideo(video);
+        game.setLyricVideo(makeCharLookup(video));
         songLengthMs = video.duration;
         if (player?.data.song) {
-          const songNameEl   = document.querySelector(".song-name")   as HTMLElement | null;
-          const songAuthorEl = document.querySelector(".song-author") as HTMLElement | null;
           const { name, artist } = player.data.song;
-          const isJp = (localStorage.getItem("lang") ?? "en") === "jp";
-          if (songNameEl)   { songNameEl.dataset.jp   = name;        if (isJp) songNameEl.textContent   = name;        }
-          if (songAuthorEl) { songAuthorEl.dataset.jp = artist.name; if (isJp) songAuthorEl.textContent = artist.name; }
+          onSongInfo?.(name, artist.name);
         }
       },
       onTimerReady() {
         clearTimeout(loadTimeout);
         playerReady = true;
-        btnPlay.disabled = false;
+        onPlayerReady?.();
         dismissLoading();
         if (player) player.volume = loadVolume();
       },
       onPlay() {
-        btnPlay.disabled = true;
+        isPlaying = true;
         finished = false;
         if (finishTimeout !== null) { clearTimeout(finishTimeout); finishTimeout = null; }
         if (songLengthMs > 0) {
@@ -157,8 +185,8 @@ export function initSongPage({ game, onSongFinish, hideResult }: SongPageDeps): 
           finishTimeout = setTimeout(triggerFinish, remaining);
         }
       },
-      onPause() { btnPlay.disabled = false; },
-      onStop()  { if (!resultsActive) btnPlay.disabled = false; finished = false; },
+      onPause() { isPlaying = false; },
+      onStop()  { isPlaying = false; finished = false; },
     });
   } else {
     setTimeout(dismissLoading, 15000);
@@ -179,6 +207,19 @@ export function initSongPage({ game, onSongFinish, hideResult }: SongPageDeps): 
     }
   })();
 
+  if (storyboard && chartDir) {
+    (async () => {
+      try {
+        const res = await fetch(`${chartDir}chart.json`);
+        if (!res.ok) return;
+        const entries = await res.json() as StoryEntry[];
+        storyboard.setStoryData(entries);
+      } catch (err) {
+        console.error("[mimi] story load failed:", err);
+      }
+    })();
+  }
+
   const btnFullscreen = document.getElementById("btn-fullscreen") as HTMLButtonElement | null;
   if (btnFullscreen) {
     const syncFullscreenIcon = (): void => {
@@ -193,19 +234,6 @@ export function initSongPage({ game, onSongFinish, hideResult }: SongPageDeps): 
       }
     });
   }
-
-  btnPlay.addEventListener("click", () => {
-    if (!playerReady || !player) return;
-    player.requestPlay();
-    game.start();
-  });
-
-  btnStop.addEventListener("click", () => {
-    if (!playerReady || !player) return;
-    dismissResult();
-    resetPlayback();
-    player.requestStop();
-  });
 
   const loop = (): void => {
     const songMs = player?.timer.position ?? 0;
@@ -232,6 +260,17 @@ export function initSongPage({ game, onSongFinish, hideResult }: SongPageDeps): 
       dismissResult();
       resetPlayback();
       player.requestStop();
+    },
+    togglePlay(): void {
+      if (!playerReady || !player) return;
+      if (isPlaying) {
+        dismissResult();
+        resetPlayback();
+        player.requestStop();
+      } else {
+        player.requestPlay();
+        game.start();
+      }
     },
   };
 }

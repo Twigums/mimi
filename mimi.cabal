@@ -19,3 +19,4 @@ executable site
                   , Config
                   , Compilers
                   , ChartCompiler
+                  , StoryCompiler

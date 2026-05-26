@@ -9,7 +9,10 @@ import {
   loadCursorG, saveCursorG, subscribeCursorG,
   loadCursorB, saveCursorB, subscribeCursorB,
   loadTrailFadeSpeed, saveTrailFadeSpeed, subscribeTrailFadeSpeed,
+  loadTrailShape, saveTrailShape, subscribeTrailShape,
+  loadTrailDecay, saveTrailDecay, subscribeTrailDecay,
   loadMusicOffset, saveMusicOffset, subscribeMusicOffset,
+  type TrailShape, type TrailDecay,
 } from "../../core/settings";
 
 function useNumericSetting(
@@ -62,4 +65,22 @@ export function useTrailFadeSpeed(): [number, (v: number) => void] {
 
 export function useMusicOffset(): [number, (v: number) => void] {
   return useNumericSetting(loadMusicOffset, saveMusicOffset, subscribeMusicOffset);
+}
+
+function useStringSetting<T>(
+  load: () => T,
+  save: (v: T) => void,
+  subscribe: (cb: (v: T) => void) => () => void,
+): [T, (v: T) => void] {
+  const [value, setValue] = useState<T>(load);
+  useEffect(() => subscribe(setValue), [subscribe]);
+  return [value, save];
+}
+
+export function useTrailShape(): [TrailShape, (v: TrailShape) => void] {
+  return useStringSetting(loadTrailShape, saveTrailShape, subscribeTrailShape);
+}
+
+export function useTrailDecay(): [TrailDecay, (v: TrailDecay) => void] {
+  return useStringSetting(loadTrailDecay, saveTrailDecay, subscribeTrailDecay);
 }

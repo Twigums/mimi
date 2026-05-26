@@ -24,6 +24,7 @@ interface SongEntry {
   authorEn: string;
   authorJp: string;
   href: string;
+  bpm: number | null;
   difficulties: DifficultyInfo[];
 }
 
@@ -34,6 +35,7 @@ interface ManifestSong {
   authorEn: string;
   authorJp: string;
   href: string;
+  bpm: number | null;
   difficulties: { id: string; level: number }[];
 }
 
@@ -54,6 +56,7 @@ function parseManifest(json: string): SongEntry[] {
       authorEn: s.authorEn,
       authorJp: s.authorJp,
       href: s.href,
+      bpm: s.bpm ?? null,
       difficulties: s.difficulties
         .filter(d => d.id in DIFF_LABELS)
         .map(d => ({ id: d.id, level: d.level, ...DIFF_LABELS[d.id] })),
@@ -154,13 +157,18 @@ export function HomeLayoutSwitcher({ infoContent, tutorialContent, songsManifest
               <>
                 <div className="song-list">
                   {songs.map(song => (
-                    <button
-                      key={song.id}
-                      className="btn-main"
-                      onClick={() => setSelectedSong(song)}
-                    >
-                      {t(`${song.titleEn} — ${song.authorEn}`, `${song.titleJp} — ${song.authorJp}`)}
-                    </button>
+                    <div key={song.id} className="song-list-entry">
+                      <button
+                        className="btn-main"
+                        onClick={() => setSelectedSong(song)}
+                      >
+                        <span className="song-btn-title">{t(song.titleEn, song.titleJp)}</span>
+                        <span className="song-btn-artist">{t(song.authorEn, song.authorJp)}</span>
+                      </button>
+                      {song.bpm !== null && (
+                        <span className="song-bpm">BPM: {song.bpm}</span>
+                      )}
+                    </div>
                   ))}
                   {songs.length === 0 && (
                     <p className="placeholder-text">

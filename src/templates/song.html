@@ -18,7 +18,12 @@
     data-textalive-chord-id="$textalive-chord-id$"
     data-textalive-repetitive-segment-id="$textalive-repetitive-segment-id$"
     data-textalive-lyric-id="$textalive-lyric-id$"
-    data-textalive-lyric-diff-id="$textalive-lyric-diff-id$">
+    data-textalive-lyric-diff-id="$textalive-lyric-diff-id$"
+    data-song-name="$song-name$"
+    data-song-name-jp="$song-name-jp$"
+    data-song-author="$song-author$"
+    data-song-author-jp="$song-author-jp$"
+    data-song-mapper="$song-mapper$">
 
     <div id="loading-screen">
         <div class="loading-bar-track">
@@ -30,30 +35,26 @@
 
     <div id="textalive-media"></div>
     <div class="bg-overlay"></div>
-    <div class="song-storyboard" id="song-storyboard"></div>
 
     <div class="song-progress-bar">
         <div class="song-progress-fill" id="progress-fill"></div>
     </div>
 
-    <div class="song-lang">
-        $partial("src/templates/lang_toggle.html")$
-        $partial("src/templates/settings_toggle.html")$
+    <div class="song-hud">
+        <button class="btn-hud-toggle" id="btn-hud-toggle" aria-label="Menu" title="Menu">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <polyline points="6 9 12 15 18 9"/>
+            </svg>
+        </button>
+        <div class="hud-panel">
+            <div class="hud-top-row">
+                $partial("src/templates/lang_toggle.html")$
+                $partial("src/templates/settings_toggle.html")$
+            </div>
+        </div>
     </div>
 
-    <div class="song-controls">
-        <button class="btn-play-song" id="btn-play-song" data-title-en="Play" data-title-jp="プレイ" title="Play"><img
-                src="$path$/images/start-button.svg" alt="Play"></button>
-        <button class="btn-stop-song" id="btn-stop-song" data-title-en="Stop" data-title-jp="ストップ" title="Stop"><img
-                src="$path$/images/stop-button.svg" alt="Stop"></button>
-    </div>
-
-    <div class="song-info">
-        <a href="$path$/" class="site-name-link">mimi</a>
-        <span class="song-name" data-en="$song-name$" data-jp="$song-name-jp$">$song-name$</span>
-        <span class="song-author" data-en="$song-author$" data-jp="$song-author-jp$">$song-author$</span>
-        <span class="song-mapper">$song-mapper$</span>
-    </div>
+    <a href="$path$/" class="site-name-link">mimi</a>
 
     <div class="small-screen-warning">
         <p data-en="Please play in fullscreen or increase your window size."

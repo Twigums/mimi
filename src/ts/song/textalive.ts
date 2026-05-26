@@ -20,6 +20,7 @@ export interface TextAlivePhrase {
   endTime: number;
   firstChar: TextAliveChar | null;
   text: string;
+  next: TextAlivePhrase | null;
 }
 
 export interface TextAliveVideo {

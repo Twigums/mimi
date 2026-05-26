@@ -67,7 +67,7 @@ function parseHitObject(line: string): Note | null {
             degrees = Math.atan2(-dy, dx) * (180 / Math.PI);
         }
     } else {
-        noDir = true;  // hit circle: no direction from curve
+        noDir = true;
     }
 
     const xm = parseFloat((osuX * SCALE + OFFSET_X).toFixed(1));
@@ -118,8 +118,8 @@ function main(): void {
     ];
 
     for (const note of notes) {
-        const suffix = note.noDir ? "  # circle: set degrees manually" : "";
-        out.push(`c, ${note.time}, ${note.degrees}, ${note.x}, ${note.y}${suffix}`);
+        const kind = note.noDir ? "l" : "c";
+        out.push(`${kind}, ${note.time}, ${note.degrees}, ${note.x}, ${note.y}`);
     }
 
     process.stdout.write(out.join("\n") + "\n");

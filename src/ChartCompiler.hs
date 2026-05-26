@@ -38,24 +38,29 @@ data NoteEntry = NoteEntry
     , neX         :: Double
     , neY         :: Double
     , neDirection :: Double
+    , neLyricChar :: Maybe String
     }
 
 parseNote :: (Double -> Double) -> String -> Either String NoteEntry
 parseNote toMs line =
     case map trim (splitOn ',' line) of
-        [k, t, d, x, y] -> do
-            t'  <- readDouble "time"    t
-            deg <- readDouble "degrees" d
-            nx  <- readDouble "x"       x
-            ny  <- readDouble "y"       y
-            let kind = case map toLower k of
-                    "c" -> "click"
-                    "s" -> "stream"
-                    _   -> map toLower k
-            let timeMs  = toMs t'
-            let radians = normalizeAngle (-(deg * pi / 180.0))
-            Right $ NoteEntry kind timeMs nx ny radians
-        _ -> Left $ "Expected 5 comma-separated fields: " ++ line
+        [k, t, d, x, y]    -> go k t d x y Nothing
+        [k, t, d, x, y, c] -> go k t d x y (Just c)
+        _                   -> Left $ "Expected 5 or 6 comma-separated fields: " ++ line
+  where
+    go k t d x y mChar = do
+        t'  <- readDouble "time"    t
+        deg <- readDouble "degrees" d
+        nx  <- readDouble "x"       x
+        ny  <- readDouble "y"       y
+        let kind = case map toLower k of
+                "c" -> "click"
+                "s" -> "stream"
+                "l" -> "lyric"
+                _   -> map toLower k
+        let timeMs  = toMs t'
+        let radians = normalizeAngle (-(deg * pi / 180.0))
+        Right $ NoteEntry kind timeMs nx ny radians mChar
 
 normalizeAngle :: Double -> Double
 normalizeAngle a
@@ -76,6 +81,7 @@ renderNote n =
     ", \"x\": "            ++ showNum (neX         n) ++
     ", \"y\": "            ++ showNum (neY         n) ++
     ", \"direction\": "    ++ show    (neDirection n) ++
+    maybe "" (\c -> ", \"lyricChar\": \"" ++ c ++ "\"") (neLyricChar n) ++
     ", \"state\": \"pending\" }"
 
 compileChart :: String -> Either String String
