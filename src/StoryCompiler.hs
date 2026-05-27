@@ -56,11 +56,11 @@ parseEntry line = case map trim (splitOn ',' line) of
 
 renderEntry :: StoryEntry -> String
 renderEntry (HighlightEntry from to) =
-    "  { \"type\": \"h\", \"from\": " ++ showNum from ++ ", \"to\": " ++ showNum to ++ " }"
+    "  { \"type\": \"highlight\", \"from\": " ++ showNum from ++ ", \"to\": " ++ showNum to ++ " }"
 renderEntry (MoveEntry time x y) =
-    "  { \"type\": \"m\", \"time\": " ++ showNum time ++ ", \"x\": " ++ showNum x ++ ", \"y\": " ++ showNum y ++ " }"
+    "  { \"type\": \"move\", \"time\": " ++ showNum time ++ ", \"x\": " ++ showNum x ++ ", \"y\": " ++ showNum y ++ " }"
 renderEntry (LyricEntry from to x y text chars) =
-    "  { \"type\": \"l\", \"from\": " ++ showNum from ++ ", \"to\": " ++ showNum to ++
+    "  { \"type\": \"lyric\", \"from\": " ++ showNum from ++ ", \"to\": " ++ showNum to ++
     ", \"x\": " ++ showNum x ++ ", \"y\": " ++ showNum y ++
     ", \"text\": \"" ++ escapeJson text ++ "\"" ++
     ", \"chars\": [" ++ intercalate ", " (map showNum chars) ++ "] }"
