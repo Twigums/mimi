@@ -59,7 +59,7 @@ stack build --system-ghc
 ### Content Structure
 
 - `src/tabs/` — Top-level pages. `home.md` → `index.html`, `kotaete.md` → `kotaete/index.html`, etc.
-- `src/songs/<name>/` — Per-song assets. `.mimi` chart files compiled to `.json`; optional `chart.story` compiled to `chart.json`; other files copied verbatim
+- `src/songs/<name>/` — Per-song assets. `.mimi` chart files compiled to `.json`; optional per-difficulty `.story` files compiled to `.story.json`; other files copied verbatim
 - `src/templates/` — Hakyll HTML templates: `home.html`, `song.html`, `tutorial.html`, `lang_toggle.html`, `settings_toggle.html`, `imports.html`, `sitemap.xml`
 - `src/scss/` — SCSS partials; `default.scss` is the entry point, imports all `_*.scss` partials
 - `src/ts/main.ts` — TypeScript entry point, compiled to `js/main.js`
@@ -97,7 +97,7 @@ All output goes to `docs/` (configured in `Config.hs` via `hakyllConfig`).
 
 ### Chart Format (`.mimi`)
 
-Each difficulty is a separate file: `src/songs/<name>/chart-<difficulty>.mimi` (e.g. `chart-easy.mimi`, `chart-expert.mimi`). `site.hs` scans for these files to build the song manifest; `ChartCompiler.hs` compiles each to `songs/<name>/chart-<difficulty>.json`.
+Each difficulty is a separate file: `src/songs/<name>/<difficulty>.mimi` (e.g. `easy.mimi`, `expert.mimi`). `site.hs` scans for these files to build the song manifest; `ChartCompiler.hs` compiles each to `songs/<name>/<difficulty>.json`.
 
 ```
 time_unit: ms
@@ -124,7 +124,7 @@ l, 5500,     0, 400.0, 300.0, か
 
 ### Story Format (`.story`)
 
-An optional `src/songs/<name>/chart.story` file compiled by `StoryCompiler.hs` to `songs/<name>/chart.json`. Loaded at runtime by `controller.ts` and applied via `storyboard.setStoryData()`.
+An optional per-difficulty `src/songs/<name>/<difficulty>.story` file compiled by `StoryCompiler.hs` to `songs/<name>/<difficulty>.story.json`. Loaded at runtime by `controller.ts` alongside the matching chart and applied via `storyboard.setStoryData()`.
 
 ```
 # kind, args…

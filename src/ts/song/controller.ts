@@ -46,7 +46,7 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPla
   const songUrl = body.dataset.songUrl ?? "";
   const chartDir = body.dataset.songChartDir ?? "";
   const difficulty = new URL(window.location.href).searchParams.get("d") ?? "expert";
-  const chartUrl = chartDir ? `${chartDir}chart-${difficulty}.json` : "";
+  const chartUrl = chartDir ? `${chartDir}${difficulty}.json` : "";
   const token   = body.dataset.textaliveToken ?? "";
 
   const beatId               = parseInt(body.dataset.textaliveBeatId ?? "");
@@ -197,7 +197,7 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPla
     try {
       let res = await fetch(chartUrl);
       if (!res.ok && difficulty !== "expert") {
-        res = await fetch(`${chartDir}chart-expert.json`);
+        res = await fetch(`${chartDir}expert.json`);
       }
       if (!res.ok) return;
       const notes = await res.json() as Note[];
@@ -210,7 +210,7 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPla
   if (storyboard && chartDir) {
     (async () => {
       try {
-        const res = await fetch(`${chartDir}chart.json`);
+        const res = await fetch(`${chartDir}${difficulty}.story.json`);
         if (!res.ok) return;
         const entries = await res.json() as StoryEntry[];
         storyboard.setStoryData(entries);

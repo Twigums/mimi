@@ -119,14 +119,14 @@ buildManifest sitePath = do
                     authorEn = lookupFM "song-author" fm
                     authorJp = lookupFM "song-author-jp" fm
 
-                avail <- filterM (\d -> doesFileExist $ songsDir </> songId </> "chart-" ++ d ++ ".mimi") difficultyIds
+                avail <- filterM (\d -> doesFileExist $ songsDir </> songId </> d ++ ".mimi") difficultyIds
                 case avail of
                   [] -> return Nothing
                   (firstDiff:_) -> do
-                    firstContent <- readFile (songsDir </> songId </> "chart-" ++ firstDiff ++ ".mimi")
+                    firstContent <- readFile (songsDir </> songId </> firstDiff ++ ".mimi")
                     let bpmJson = maybe "null" id (parseMimiBpm firstContent)
                     diffs <- forM avail $ \d -> do
-                        level <- fmap parseMimiDifficulty $ readFile (songsDir </> songId </> "chart-" ++ d ++ ".mimi")
+                        level <- fmap parseMimiDifficulty $ readFile (songsDir </> songId </> d ++ ".mimi")
                         return $ "{\"id\":\"" ++ d ++ "\",\"level\":" ++ show level ++ "}"
                     let diffsJson = "[" ++ intercalate "," diffs ++ "]"
                     let href = sitePath ++ "/" ++ songId ++ "/"
@@ -175,9 +175,9 @@ rules sitePath = do
         route   $ gsubRoute "src/" (const "") `composeRoutes` setExtension "json"
         compile chartCompiler
 
-    -- story files: compile .story -> .json
+    -- story files: compile .story -> .story.json
     match "src/songs/**/*.story" $ do
-        route   $ gsubRoute "src/" (const "") `composeRoutes` setExtension "json"
+        route   $ gsubRoute "src/" (const "") `composeRoutes` setExtension "story.json"
         compile storyCompiler
 
     -- song data (audio, timing json, etc.) — excludes .mimi and .story (matched above)
