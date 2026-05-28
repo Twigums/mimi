@@ -162,7 +162,7 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPla
       onVideoReady(video) {
         setProgress(70);
         storyboard?.setVideo(video);
-        game.setLyricVideo(makeCharLookup(video));
+        game.setCharLookup(makeCharLookup(video));
         songLengthMs = video.duration;
         if (player?.data.song) {
           const { name, artist } = player.data.song;
