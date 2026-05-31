@@ -292,7 +292,8 @@ html body.home-page {
     line-height: 1.7;
   }
 
-  strong {
+  strong,
+  a[href^="spawn:"] {
     color: #fff;
     cursor: pointer;
     text-decoration: underline dotted rgba(255, 255, 255, 0.4);

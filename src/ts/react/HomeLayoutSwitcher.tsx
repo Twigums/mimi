@@ -234,10 +234,22 @@ export function HomeLayoutSwitcher({ infoContent, tutorialContent, songsManifest
                 dangerouslySetInnerHTML={{ __html: tutorialContent }}
                 onClick={(e) => {
                   const el = e.target as HTMLElement;
-                  if (el.tagName !== "STRONG") return;
-                  const kind = el.textContent?.toLowerCase() as Note["kind"] | undefined;
-                  if (kind === "flick" || kind === "stream" || kind === "lyric") {
-                    tutorialRef.current?.spawnNote(kind);
+                  if (el.tagName === "A") {
+                    const href = (el as HTMLAnchorElement).getAttribute("href") ?? "";
+                    if (href.startsWith("spawn:")) {
+                      e.preventDefault();
+                      const kind = href.slice(6) as Note["kind"];
+                      if (kind === "flick" || kind === "stream" || kind === "lyric") {
+                        tutorialRef.current?.spawnNote(kind);
+                      }
+                    }
+                    return;
+                  }
+                  if (el.tagName === "STRONG") {
+                    const kind = el.textContent?.toLowerCase() as Note["kind"] | undefined;
+                    if (kind === "flick" || kind === "stream" || kind === "lyric") {
+                      tutorialRef.current?.spawnNote(kind);
+                    }
                   }
                 }}
               />

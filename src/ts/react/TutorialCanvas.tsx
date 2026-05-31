@@ -29,12 +29,17 @@ interface JudgeAnim {
 
 const JUDGE_COLORS: Record<string, string> = {
   PERFECT: "#ffd94a",
+  GOOD:    "#8cf0ff",
   MISS:    "#ff6b6b",
 };
 const JUDGE_DURATION = 700;
 
 const DURATION_MS    = 2500;
 const NOTE_SCALE     = 3.0;
+// progress=0.6 is when the note is fully filled — ideal hit moment
+const HIT_PROGRESS   = 0.6;
+const PERFECT_WINDOW = 0.08;  // ±200 ms at DURATION_MS=2500
+const GOOD_WINDOW    = 0.18;  // ±450 ms — generous for tutorial
 const DEMO_CHAR      = "か";
 const ANGULAR_MARGIN = Math.PI / 6;
 const CX             = LOGICAL_W / (2 * NOTE_SCALE);
@@ -74,6 +79,7 @@ export const TutorialCanvas = forwardRef<TutorialCanvasHandle, {}>((_, ref) => {
     };
 
     const pointer = { x: 0, y: 0, prevX: 0, prevY: 0, held: false };
+    let clickedThisFrame = false;
 
     const toLogical = (clientX: number, clientY: number): [number, number] => {
       const rect = canvas.getBoundingClientRect();
@@ -84,10 +90,10 @@ export const TutorialCanvas = forwardRef<TutorialCanvasHandle, {}>((_, ref) => {
     };
 
     const onMouseMove  = (e: MouseEvent): void => { [pointer.x, pointer.y] = toLogical(e.clientX, e.clientY); };
-    const onMouseDown  = (e: MouseEvent): void => { [pointer.x, pointer.y] = toLogical(e.clientX, e.clientY); pointer.held = true; };
+    const onMouseDown  = (e: MouseEvent): void => { [pointer.x, pointer.y] = toLogical(e.clientX, e.clientY); pointer.held = true; clickedThisFrame = true; };
     const onMouseUp    = (): void => { pointer.held = false; };
     const onTouchMove  = (e: TouchEvent): void => { const t = e.touches[0]; if (t) [pointer.x, pointer.y] = toLogical(t.clientX, t.clientY); e.preventDefault(); };
-    const onTouchStart = (e: TouchEvent): void => { const t = e.touches[0]; if (t) { [pointer.x, pointer.y] = toLogical(t.clientX, t.clientY); pointer.held = true; } e.preventDefault(); };
+    const onTouchStart = (e: TouchEvent): void => { const t = e.touches[0]; if (t) { [pointer.x, pointer.y] = toLogical(t.clientX, t.clientY); pointer.held = true; clickedThisFrame = true; } e.preventDefault(); };
     const onTouchEnd   = (): void => { pointer.held = false; };
 
     canvas.addEventListener("mousemove",  onMouseMove);
@@ -97,35 +103,31 @@ export const TutorialCanvas = forwardRef<TutorialCanvasHandle, {}>((_, ref) => {
     canvas.addEventListener("touchstart", onTouchStart, { passive: false });
     window.addEventListener("touchend",   onTouchEnd);
 
-    const tryHit = (note: Note): boolean => {
+    const tryHit = (note: Note, progress: number): "PERFECT" | "GOOD" | null => {
+      const delta = progress - HIT_PROGRESS;
+      if (Math.abs(delta) > GOOD_WINDOW) return null;
+
       if (note.kind === "lyric") {
-        const moveDx = pointer.x - pointer.prevX;
-        const moveDy = pointer.y - pointer.prevY;
-        const lenSq  = moveDx * moveDx + moveDy * moveDy;
-        if (lenSq < 0.5) return false;
-        const t = clamp(
-          ((note.x - pointer.prevX) * moveDx + (note.y - pointer.prevY) * moveDy) / lenSq,
-          0, 1,
-        );
-        const closestX = pointer.prevX + t * moveDx;
-        const closestY = pointer.prevY + t * moveDy;
-        return (closestX - note.x) ** 2 + (closestY - note.y) ** 2 <= LYRIC_RADIUS * LYRIC_RADIUS;
+        if (!clickedThisFrame) return null;
+        if ((pointer.x - note.x) ** 2 + (pointer.y - note.y) ** 2 > LYRIC_RADIUS * LYRIC_RADIUS) return null;
       } else {
-        if (note.kind === "stream" && !pointer.held) return false;
+        if (note.kind === "stream" && !pointer.held) return null;
         const dx    = Math.cos(note.direction);
         const dy    = Math.sin(note.direction);
         const pPrev = (pointer.prevX - note.x) * dx + (pointer.prevY - note.y) * dy;
         const pCurr = (pointer.x     - note.x) * dx + (pointer.y     - note.y) * dy;
-        if (pPrev >= 0 || pCurr < 0) return false;
+        if (pPrev >= 0 || pCurr < 0) return null;
         const perpPrev = -(pointer.prevX - note.x) * dy + (pointer.prevY - note.y) * dx;
         const perpCurr = -(pointer.x     - note.x) * dy + (pointer.y     - note.y) * dx;
         const perpAtCross = perpPrev + (perpCurr - perpPrev) * (-pPrev / (pCurr - pPrev));
-        if (Math.abs(perpAtCross) > NOTE_RADIUS) return false;
+        if (Math.abs(perpAtCross) > NOTE_RADIUS) return null;
         const moveDx = pointer.x - pointer.prevX;
         const moveDy = pointer.y - pointer.prevY;
-        if (moveDx * moveDx + moveDy * moveDy < 0.5) return false;
-        return Math.abs(angleDiff(Math.atan2(moveDy, moveDx), note.direction)) <= ANGULAR_MARGIN;
+        if (moveDx * moveDx + moveDy * moveDy < 0.5) return null;
+        if (Math.abs(angleDiff(Math.atan2(moveDy, moveDx), note.direction)) > ANGULAR_MARGIN) return null;
       }
+
+      return Math.abs(delta) <= PERFECT_WINDOW ? "PERFECT" : "GOOD";
     };
 
     const loop = () => {
@@ -134,12 +136,16 @@ export const TutorialCanvas = forwardRef<TutorialCanvasHandle, {}>((_, ref) => {
 
       for (let i = activeNotes.length - 1; i >= 0; i--) {
         const { note, startMs } = activeNotes[i];
-        if (tryHit(note)) {
-          hitAnims.push({ note: { ...note }, startMs: now });
-          pushJudge("PERFECT", note.x, note.y, now);
-          activeNotes.splice(i, 1);
-        } else if ((now - startMs) / DURATION_MS >= 1) {
+        const progress = (now - startMs) / DURATION_MS;
+        if (progress > HIT_PROGRESS + GOOD_WINDOW) {
           pushJudge("MISS", note.x, note.y, now);
+          activeNotes.splice(i, 1);
+          continue;
+        }
+        const result = tryHit(note, progress);
+        if (result !== null) {
+          hitAnims.push({ note: { ...note }, startMs: now });
+          pushJudge(result, note.x, note.y, now);
           activeNotes.splice(i, 1);
         }
       }
@@ -149,7 +155,6 @@ export const TutorialCanvas = forwardRef<TutorialCanvasHandle, {}>((_, ref) => {
       for (let i = activeNotes.length - 1; i >= 0; i--) {
         const { note, startMs } = activeNotes[i];
         const progress = (now - startMs) / DURATION_MS;
-        if (progress >= 1) continue; // already removed above
         const appearProgress = Math.min(progress / 0.6, 1);
         const alpha = progress > 0.7 ? 1 - (progress - 0.7) / 0.3 : 1;
         ctx.save();
@@ -186,8 +191,9 @@ export const TutorialCanvas = forwardRef<TutorialCanvasHandle, {}>((_, ref) => {
       }
 
       cursor.render(now);
-      pointer.prevX = pointer.x;
-      pointer.prevY = pointer.y;
+      pointer.prevX    = pointer.x;
+      pointer.prevY    = pointer.y;
+      clickedThisFrame = false;
       rafId = requestAnimationFrame(loop);
     };
 
@@ -200,10 +206,11 @@ export const TutorialCanvas = forwardRef<TutorialCanvasHandle, {}>((_, ref) => {
         const spacing = NOTE_RADIUS * 1.4;
         const offX    = Math.cos(direction) * spacing;
         const offY    = Math.sin(direction) * spacing;
-        for (const [ox, oy] of [[-offX, -offY], [offX, offY]] as const) {
+        const offsets: [number, number, number][] = [[-offX, -offY, 0], [offX, offY, 75]];
+        for (const [ox, oy, delay] of offsets) {
           activeNotes.push({
             note: { kind, time: 0, x: CX + ox, y: CY + oy, direction, state: "pending" },
-            startMs: now,
+            startMs: now + delay,
           });
         }
       } else {
