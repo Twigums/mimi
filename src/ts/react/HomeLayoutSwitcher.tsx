@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLang } from "./hooks/useLang";
 import { OptionsPanel } from "./OptionsPanel";
+import { TutorialCanvas } from "./TutorialCanvas";
+import type { TutorialCanvasHandle } from "./TutorialCanvas";
+import type { Note } from "../game/engine";
 
 type Layout = "original" | "play" | "info" | "tutorial";
 
@@ -73,7 +76,8 @@ export function HomeLayoutSwitcher({ infoContent, tutorialContent, songsManifest
   const [currentLayout, setCurrentLayout] = useState<Layout>(layout);
   const [exiting, setExiting] = useState(false);
   const [paneKey, setPaneKey] = useState(0);
-  const exitTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const exitTimer    = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const tutorialRef  = useRef<TutorialCanvasHandle>(null);
 
   const [selectedSong, setSelectedSong] = useState<SongEntry | null>(null);
   const [renderedSong, setRenderedSong] = useState<SongEntry | null>(null);
@@ -135,7 +139,7 @@ export function HomeLayoutSwitcher({ infoContent, tutorialContent, songsManifest
   };
 
   return (
-    <div className="layout-container">
+    <div className={`layout-container${layout === "tutorial" || currentLayout === "tutorial" ? " layout-container--tutorial" : ""}`}>
       <OptionsPanel />
       <div className={`layout-pane${exiting ? " exiting" : ""}`} key={paneKey}>
         {currentLayout === "original" && (
@@ -224,10 +228,21 @@ export function HomeLayoutSwitcher({ infoContent, tutorialContent, songsManifest
         )}
         {currentLayout === "tutorial" && (
           <>
-            <div
-              className="info-content"
-              dangerouslySetInnerHTML={{ __html: tutorialContent }}
-            />
+            <div className="tutorial-layout">
+              <div
+                className="tutorial-info"
+                dangerouslySetInnerHTML={{ __html: tutorialContent }}
+                onClick={(e) => {
+                  const el = e.target as HTMLElement;
+                  if (el.tagName !== "STRONG") return;
+                  const kind = el.textContent?.toLowerCase() as Note["kind"] | undefined;
+                  if (kind === "click" || kind === "stream" || kind === "lyric") {
+                    tutorialRef.current?.spawnNote(kind);
+                  }
+                }}
+              />
+              <TutorialCanvas ref={tutorialRef} />
+            </div>
             <button className="btn-back" onClick={() => setLayout("original")}>
               {t("Back", "戻る")}
             </button>
