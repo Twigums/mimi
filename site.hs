@@ -207,23 +207,24 @@ rules sitePath = do
         match "src/tabs/home.md" $ do
             route   $ constRoute "index.html"
             compile $ do
-                infoContent      <- loadSnapshotBody (fromFilePath "src/tabs/info.md") "content"
-                tutorialContent  <- loadSnapshotBody (fromFilePath "src/tabs/tutorial.md") "content"
-                manifest         <- unsafeCompiler $ buildManifest sitePath
-                let homeCtx = constField "info-content"      (escapeForAttr infoContent)
-                           <> constField "tutorial-content"  (escapeForAttr tutorialContent)
-                           <> constField "songs-manifest"    (escapeForAttr manifest)
+                let tabNames = ["info", "tutorial"]
+                tabCtx <- fmap mconcat $ forM tabNames $ \name -> do
+                    en <- loadSnapshotBody (fromFilePath $ "src/tabs/" ++ name ++ ".md")     "content"
+                    jp <- loadSnapshotBody (fromFilePath $ "src/tabs/" ++ name ++ ".jp.md")  "content"
+                    return $ constField (name ++ "-content")     (escapeForAttr en)
+                          <> constField (name ++ "-content-jp")  (escapeForAttr jp)
+                manifest <- unsafeCompiler $ buildManifest sitePath
+                let homeCtx = tabCtx
+                           <> constField "songs-manifest" (escapeForAttr manifest)
                            <> baseCtx
                 pandocCompiler
                     >>= loadAndApplyTemplate (makeIdentifier templateDir "home.html") homeCtx
 
-    match "src/tabs/tutorial.md" $ do
-        compile $ pandocCompiler
-            >>= saveSnapshot "content"
+    match ("src/tabs/tutorial.md" .||. "src/tabs/info.md") $
+        compile $ pandocCompiler >>= saveSnapshot "content"
 
-    match "src/tabs/info.md" $ do
-        compile $ pandocCompiler
-            >>= saveSnapshot "content"
+    match "src/tabs/*.jp.md" $
+        compile $ pandocCompiler >>= saveSnapshot "content"
 
     match "src/tabs/songs/*.md" $ do
         route   $ customRoute $ \ident ->

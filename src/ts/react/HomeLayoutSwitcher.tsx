@@ -8,9 +8,11 @@ import type { Note } from "../game/engine";
 type Layout = "original" | "play" | "info" | "tutorial";
 
 interface Props {
-  infoContent: string;
-  tutorialContent: string;
-  songsManifest: string;
+  infoContent:        string;
+  infoContentJp:      string;
+  tutorialContent:    string;
+  tutorialContentJp:  string;
+  songsManifest:      string;
 }
 
 interface DifficultyInfo {
@@ -69,7 +71,7 @@ function parseManifest(json: string): SongEntry[] {
   }
 }
 
-export function HomeLayoutSwitcher({ infoContent, tutorialContent, songsManifest }: Props) {
+export function HomeLayoutSwitcher({ infoContent, infoContentJp, tutorialContent, tutorialContentJp, songsManifest }: Props) {
   const songs = useMemo(() => parseManifest(songsManifest), [songsManifest]);
 
   const [layout, setLayout] = useState<Layout>("original");
@@ -131,6 +133,9 @@ export function HomeLayoutSwitcher({ infoContent, tutorialContent, songsManifest
 
   const lang = useLang();
   const t = (en: string, jp: string) => lang === "jp" ? jp : en;
+
+  const activeInfoContent     = lang === "jp" && infoContentJp     ? infoContentJp     : infoContent;
+  const activeTutorialContent = lang === "jp" && tutorialContentJp ? tutorialContentJp : tutorialContent;
 
   const handlePlayClick = () => {
     setSelectedSong(null);
@@ -219,7 +224,7 @@ export function HomeLayoutSwitcher({ infoContent, tutorialContent, songsManifest
           <>
             <div
               className="info-content"
-              dangerouslySetInnerHTML={{ __html: infoContent }}
+              dangerouslySetInnerHTML={{ __html: activeInfoContent }}
             />
             <button className="btn-back" onClick={() => setLayout("original")}>
               {t("Back", "戻る")}
@@ -231,7 +236,7 @@ export function HomeLayoutSwitcher({ infoContent, tutorialContent, songsManifest
             <div className="tutorial-layout">
               <div
                 className="tutorial-info"
-                dangerouslySetInnerHTML={{ __html: tutorialContent }}
+                dangerouslySetInnerHTML={{ __html: activeTutorialContent }}
                 onClick={(e) => {
                   const el = e.target as HTMLElement;
                   if (el.tagName === "A") {

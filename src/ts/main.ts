@@ -10,11 +10,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const homeRoot = document.getElementById("home-root");
   if (homeRoot) {
-    const infoContent      = homeRoot.dataset.infoContent ?? "";
-    const tutorialContent  = homeRoot.dataset.tutorialContent ?? "";
-    const songsManifest    = homeRoot.dataset.songsManifest ?? "{\"songs\":[]}";
+    const infoContent       = homeRoot.dataset.infoContent       ?? "";
+    const infoContentJp     = homeRoot.dataset.infoContentJp     ?? "";
+    const tutorialContent   = homeRoot.dataset.tutorialContent   ?? "";
+    const tutorialContentJp = homeRoot.dataset.tutorialContentJp ?? "";
+    const songsManifest     = homeRoot.dataset.songsManifest     ?? "{\"songs\":[]}";
     createRoot(homeRoot).render(
-      createElement(HomeLayoutSwitcher, { infoContent, tutorialContent, songsManifest })
+      createElement(HomeLayoutSwitcher, { infoContent, infoContentJp, tutorialContent, tutorialContentJp, songsManifest })
     );
   }
 
