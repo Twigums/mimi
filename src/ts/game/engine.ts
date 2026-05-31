@@ -14,7 +14,7 @@ export const LOGICAL_H = 600;
 
 const ANGULAR_MARGIN = Math.PI / 6;
 
-type NoteKind          = "click" | "stream" | "lyric";
+type NoteKind          = "flick" | "stream" | "lyric";
 export type HitResult  = "perfect" | "good" | "miss";
 type NoteState         = "pending" | "hit" | "missed";
 

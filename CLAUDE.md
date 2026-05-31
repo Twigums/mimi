@@ -88,7 +88,7 @@ stack build --system-ghc
   - `CursorPreview.tsx` — animated canvas preview of the custom cursor; renders a Lissajous path with orb + trail using current cursor settings; accepts `trailShape` and `trailDecay` props; uses refs so rAF loop survives prop changes
   - `hooks/useLang.ts` — hook: current language from `localStorage`, re-reads on toggle click
   - `hooks/useSettings.ts` — consolidated setting hooks: `useApproachRate`, `useVolume`, `useHitsoundVolume` (numeric, shared `useNumericSetting` helper); `useHiddenMod` (boolean); `useCursorSize`, `useCursorR`, `useCursorG`, `useCursorB`, `useTrailFadeSpeed` (numeric); `useTrailShape`, `useTrailDecay` (string, shared `useStringSetting` helper)
-- `src/tools/osu2mimi.ts` — CLI converter from `.osu` format to `.mimi`: sliders → `c` (click) notes with computed direction, hit circles → `l` (lyric) notes
+- `src/tools/osu2mimi.ts` — CLI converter from `.osu` format to `.mimi`: sliders → `f` (flick) notes with computed direction, hit circles → `l` (lyric) notes
 - `static/` — Copied verbatim to output (images, audio, `robots.txt`, etc.)
 
 ### Output
@@ -105,7 +105,7 @@ difficulty: 12
 beats_per_measure: 4
 
 # kind, time_ms, degrees, x, y[, char]
-c, 2388, -30.6, 396.9,  92.2
+f, 2388, -30.6, 396.9,  92.2
 s, 3080,  68.2, 381.3, 425.0
 l, 5000,     0, 300.0, 250.0
 l, 5500,     0, 400.0, 300.0, か
@@ -115,7 +115,7 @@ l, 5500,     0, 400.0, 300.0, か
 - `time_unit`: always `ms`
 - `difficulty`: integer level shown on the difficulty selection button
 - `beats_per_measure`: optional, informational only
-- `kind`: `c` (click, red — no hold required), `s` (stream, blue — requires holding), or `l` (lyric, white circle — swipe-through, no hold, char from TextAlive within ±80 ms)
+- `kind`: `f` (flick, red — no hold required), `s` (stream, blue — requires holding), or `l` (lyric, white circle — swipe-through, no hold, char from TextAlive within ±80 ms)
 - `char` (lyric notes only, optional): overrides the TextAlive character lookup; baked into the compiled JSON as `"lyricChar"`
 - `time_ms`: milliseconds from song start when the note should be hit
 - `degrees`: direction in standard math convention (0 = right, 90 = up, CCW); converted to canvas radians on compile

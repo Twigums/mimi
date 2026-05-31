@@ -236,7 +236,7 @@ export function HomeLayoutSwitcher({ infoContent, tutorialContent, songsManifest
                   const el = e.target as HTMLElement;
                   if (el.tagName !== "STRONG") return;
                   const kind = el.textContent?.toLowerCase() as Note["kind"] | undefined;
-                  if (kind === "click" || kind === "stream" || kind === "lyric") {
+                  if (kind === "flick" || kind === "stream" || kind === "lyric") {
                     tutorialRef.current?.spawnNote(kind);
                   }
                 }}

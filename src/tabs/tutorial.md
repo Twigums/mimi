@@ -6,7 +6,7 @@ title: tutorial
 
 Mimi is a rhythm game that focuses on moving your cursor to swipe notes! In mimi, we have 3 types of notes:
 
-**Click**: Swipe through the red arrow in the marked direction.
+**Flick**: Swipe through the red arrow in the marked direction.
 
 **Stream**: Hold left click while swiping. Don't go too fast!
 
