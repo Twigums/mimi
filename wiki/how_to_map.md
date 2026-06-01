@@ -4,6 +4,20 @@ A chart is a JSON file containing an array of `Note` objects. Place it under `sr
 
 Charts may be authored in the osu! editor using linear sliders and converted with `npm run convert:osu`. See `README.md` for the command. The osu play area (512×384) is scaled to fit inside the mimi canvas (800×600) — both are 4:3, so the scale factor is uniform (1.5625×) with no offset. The direction of each note is the angle of the osu slider from its start point `(x, y)` to its linear endpoint `(cx, cy)`, expressed in standard math convention (CCW from right, y-axis pointing up). This requires negating the osu y-component before taking `atan2`, since osu uses screen coordinates (y increases downward).
 
+## Chart Header Metadata
+
+`.mimi` chart files begin with header fields before the first blank line. The home screen reads this header to build the difficulty selector.
+
+| Field | Required | Meaning |
+|-------|----------|---------|
+| `bpm` | Yes for beat-timed charts; recommended for all charts | Song BPM shown in the song list and used when `time_unit` is `beat` |
+| `time_unit` | No | `ms` or `beat`; defaults to `beat` |
+| `offset` | Yes when `time_unit` is `beat` | First beat time in milliseconds |
+| `difficulty` | Recommended | Numeric difficulty level shown on the difficulty badge |
+| `ar` | Optional | Chart-recommended approach rate, AR 1-20 |
+
+The difficulty selector also computes note count, click/stream/lyric breakdown, playable length, and note density from the note rows. If `ar` is not present, the selector should display AR as unavailable rather than assuming the player's current setting or a default.
+
 ## Note Format
 
 ```typescript
