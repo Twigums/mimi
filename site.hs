@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
+import Data.Char            (toLower)
 import Data.List            (dropWhileEnd, intercalate, isPrefixOf)
-import Data.Maybe           (catMaybes, fromMaybe)
+import Data.Maybe           (catMaybes, fromMaybe, mapMaybe)
 import System.Directory     (doesDirectoryExist, doesFileExist, listDirectory)
 import System.Environment   (getArgs, lookupEnv, withArgs)
 import System.FilePath      ((</>), (<.>), takeBaseName)
@@ -59,6 +60,17 @@ normalizeSitePath path =
 safeTrim :: String -> String
 safeTrim = dropWhileEnd (== ' ') . dropWhile (== ' ')
 
+splitOn :: Char -> String -> [String]
+splitOn _ "" = [""]
+splitOn c (x:xs) = case splitOn c xs of
+    []     -> [[x]]
+    (r:rs) -> if x == c then "" : r : rs else (x : r) : rs
+
+parseHeader :: String -> Maybe (String, String)
+parseHeader line = case break (== ':') line of
+    (key, ':':val) -> Just (safeTrim key, safeTrim val)
+    _              -> Nothing
+
 parseFrontmatter :: String -> [(String, String)]
 parseFrontmatter content =
     let ls = lines content
@@ -76,29 +88,137 @@ lookupFM key fm = fromMaybe "" $ lookup key fm
 difficultyIds :: [String]
 difficultyIds = ["easy", "medium", "hard", "expert"]
 
-parseMimiDifficulty :: String -> Int
-parseMimiDifficulty content =
-    case [v | l <- takeWhile (not . null) (lines content),
-              Just (k, v) <- [parseHeader l], k == "difficulty"] of
-        (v:_) -> case reads v of
-                    [(n, "")] -> n
-                    _         -> 0
-        []    -> 0
-  where
-    parseHeader line = case break (== ':') line of
-        (key, ':':val) -> Just (safeTrim key, safeTrim val)
-        _              -> Nothing
-
-parseMimiBpm :: String -> Maybe String
-parseMimiBpm content =
-    case [v | l <- takeWhile (not . null) (lines content),
-              Just (k, v) <- [parseHeader l], k == "bpm"] of
+lookupMimiHeader :: String -> String -> Maybe String
+lookupMimiHeader key content =
+    case [v | l <- takeWhile (not . null . safeTrim) (lines content),
+              Just (k, v) <- [parseHeader l], k == key] of
         (v:_) -> Just v
         []    -> Nothing
+
+parseMimiDifficulty :: String -> Int
+parseMimiDifficulty content =
+    case lookupMimiHeader "difficulty" content of
+        Just v -> case reads v of
+                    [(n, "")] -> n
+                    _         -> 0
+        Nothing -> 0
+
+parseMimiNumber :: String -> Maybe Double
+parseMimiNumber s = case reads (safeTrim s) of
+    [(n, "")] -> Just n
+    _         -> Nothing
+
+jsonNumber :: Double -> String
+jsonNumber d
+    | d == fromIntegral n = show n
+    | otherwise           = show d
+  where n = round d :: Int
+
+jsonMaybeNumber :: Maybe Double -> String
+jsonMaybeNumber = maybe "null" jsonNumber
+
+parseMimiBpm :: String -> Maybe String
+parseMimiBpm content = jsonNumber <$> (lookupMimiHeader "bpm" content >>= parseMimiNumber)
+
+parseMimiAr :: String -> Maybe Double
+parseMimiAr content =
+    case lookupMimiHeader "ar" content <|> lookupMimiHeader "approach_rate" content of
+        Just v -> parseMimiNumber v
+        Nothing -> Nothing
+
+infixl 3 <|>
+(<|>) :: Maybe a -> Maybe a -> Maybe a
+Just x  <|> _ = Just x
+Nothing <|> y = y
+
+data ChartStats = ChartStats
+    { csLevel       :: Int
+    , csAr          :: Maybe Double
+    , csNoteCount   :: Int
+    , csClickCount  :: Int
+    , csStreamCount :: Int
+    , csLyricCount  :: Int
+    , csFirstMs     :: Maybe Double
+    , csLastMs      :: Maybe Double
+    }
+
+data NoteRow = NoteRow
+    { nrKind :: String
+    , nrTime :: Maybe Double
+    }
+
+parseChartStats :: String -> ChartStats
+parseChartStats content =
+    let ls        = lines content
+        hLines    = takeWhile (not . null . safeTrim) ls
+        rest      = dropWhile (null . safeTrim) (drop (length hLines) ls)
+        noteRows  = mapMaybe parseNoteRow $ filter isDataLine rest
+        times     = mapMaybe nrTime noteRows
+        countKind k = length [() | row <- noteRows, nrKind row == k]
+    in ChartStats
+        { csLevel       = parseMimiDifficulty content
+        , csAr          = parseMimiAr content
+        , csNoteCount   = length noteRows
+        , csClickCount  = countKind "click"
+        , csStreamCount = countKind "stream"
+        , csLyricCount  = countKind "lyric"
+        , csFirstMs     = if null times then Nothing else Just (minimum times)
+        , csLastMs      = if null times then Nothing else Just (maximum times)
+        }
   where
-    parseHeader line = case break (== ':') line of
-        (key, ':':val) -> Just (safeTrim key, safeTrim val)
-        _              -> Nothing
+    isDataLine l = let t = safeTrim l
+                   in not (null t) && not ("#" `isPrefixOf` t)
+
+    timeUnit = map toLower $ fromMaybe "beat" (lookupMimiHeader "time_unit" content)
+    bpm      = lookupMimiHeader "bpm" content >>= parseMimiNumber
+    offset   = lookupMimiHeader "offset" content >>= parseMimiNumber
+
+    toMs t = case timeUnit of
+        "ms"   -> Just t
+        "beat" -> case (bpm, offset) of
+                    (Just b, Just o) -> Just $ o + (t - 1.0) * (60000.0 / b)
+                    _                -> Nothing
+        _      -> Nothing
+
+    parseNoteRow line =
+        case map safeTrim (splitOn ',' line) of
+            (k:t:_:_:_:_) ->
+                let kind = case map toLower k of
+                        "c" -> "click"
+                        "s" -> "stream"
+                        "l" -> "lyric"
+                        other -> other
+                in Just $ NoteRow kind (parseMimiNumber t >>= toMs)
+            _ -> Nothing
+
+chartDurationMs :: ChartStats -> Maybe Double
+chartDurationMs stats = do
+    firstMs <- csFirstMs stats
+    lastMs  <- csLastMs stats
+    return $ max 0 (lastMs - firstMs)
+
+chartDensity :: ChartStats -> Maybe Double
+chartDensity stats = do
+    duration <- chartDurationMs stats
+    if duration <= 0
+      then Nothing
+      else Just $ fromIntegral (csNoteCount stats) / (duration / 1000.0)
+
+renderDifficulty :: String -> ChartStats -> String
+renderDifficulty diffId stats =
+    "{"
+    ++ "\"id\":\"" ++ diffId ++ "\","
+    ++ "\"level\":" ++ show (csLevel stats) ++ ","
+    ++ "\"ar\":" ++ jsonMaybeNumber (csAr stats) ++ ","
+    ++ "\"noteCount\":" ++ show (csNoteCount stats) ++ ","
+    ++ "\"clickCount\":" ++ show (csClickCount stats) ++ ","
+    ++ "\"streamCount\":" ++ show (csStreamCount stats) ++ ","
+    ++ "\"lyricCount\":" ++ show (csLyricCount stats) ++ ","
+    ++ "\"firstNoteMs\":" ++ jsonMaybeNumber (csFirstMs stats) ++ ","
+    ++ "\"lastNoteMs\":" ++ jsonMaybeNumber (csLastMs stats) ++ ","
+    ++ "\"playableMs\":" ++ jsonMaybeNumber (chartDurationMs stats) ++ ","
+    ++ "\"density\":" ++ jsonMaybeNumber (chartDensity stats)
+    ++ "}"
 
 buildManifest :: String -> IO String
 buildManifest sitePath = do
@@ -118,6 +238,8 @@ buildManifest sitePath = do
                     titleJp  = lookupFM "song-name-jp" fm
                     authorEn = lookupFM "song-author" fm
                     authorJp = lookupFM "song-author-jp" fm
+                    mapper   = lookupFM "song-mapper" fm
+                    sourceUrl = lookupFM "song-url" fm
 
                 avail <- filterM (\d -> doesFileExist $ songsDir </> songId </> "chart-" ++ d ++ ".mimi") difficultyIds
                 case avail of
@@ -126,8 +248,8 @@ buildManifest sitePath = do
                     firstContent <- readFile (songsDir </> songId </> "chart-" ++ firstDiff ++ ".mimi")
                     let bpmJson = maybe "null" id (parseMimiBpm firstContent)
                     diffs <- forM avail $ \d -> do
-                        level <- fmap parseMimiDifficulty $ readFile (songsDir </> songId </> "chart-" ++ d ++ ".mimi")
-                        return $ "{\"id\":\"" ++ d ++ "\",\"level\":" ++ show level ++ "}"
+                        chart <- readFile (songsDir </> songId </> "chart-" ++ d ++ ".mimi")
+                        return $ renderDifficulty d (parseChartStats chart)
                     let diffsJson = "[" ++ intercalate "," diffs ++ "]"
                     let href = sitePath ++ "/" ++ songId ++ "/"
                     return $ Just $ "{"
@@ -136,6 +258,8 @@ buildManifest sitePath = do
                         ++ "\"titleJp\":\"" ++ escapeForJson titleJp ++ "\","
                         ++ "\"authorEn\":\"" ++ escapeForJson authorEn ++ "\","
                         ++ "\"authorJp\":\"" ++ escapeForJson authorJp ++ "\","
+                        ++ "\"mapper\":\"" ++ escapeForJson mapper ++ "\","
+                        ++ "\"sourceUrl\":\"" ++ escapeForJson sourceUrl ++ "\","
                         ++ "\"href\":\"" ++ href ++ "\","
                         ++ "\"bpm\":" ++ bpmJson ++ ","
                         ++ "\"difficulties\":" ++ diffsJson

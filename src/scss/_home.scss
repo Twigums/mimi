@@ -196,11 +196,60 @@ html body.home-page {
   white-space: nowrap;
 }
 
-.song-title {
-  color: rgba(255, 255, 255, 0.85);
-  font-size: 1.1rem;
+.song-detail-header {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.2rem 0 0.4rem;
+  color: rgba(255, 255, 255, 0.86);
   text-align: center;
-  margin-bottom: 0.2rem;
+}
+
+.song-title {
+  max-width: 100%;
+  color: #fff;
+  font-size: 1.2rem;
+  font-weight: 700;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+
+.song-artist {
+  font-size: 0.85rem;
+  color: rgba(255, 255, 255, 0.62);
+  letter-spacing: 0.06em;
+  overflow-wrap: anywhere;
+}
+
+.song-static-meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.45rem 0.8rem;
+  font-size: 0.72rem;
+  color: rgba(255, 255, 255, 0.48);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.song-source-link {
+  color: rgba(255, 255, 255, 0.72);
+  text-decoration: underline;
+  text-underline-offset: 0.18em;
+
+  &:hover,
+  &:focus-visible {
+    color: #fff;
+  }
+}
+
+.difficulty-select {
+  width: 100%;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.85rem;
 }
 
 .difficulty-list {
@@ -251,11 +300,60 @@ html body.home-page {
   overflow: hidden;
   min-height: $diff-btn-height;
 
+  &.active,
+  &:focus-visible {
+    background: rgba(255, 255, 255, 0.22);
+  }
+
   @each $id, $color in $diff-colors {
     &--#{$id} .diff-level {
       background: $color;
       color: #fff;
     }
+  }
+}
+
+.difficulty-detail {
+  min-height: 7.8rem;
+  width: 100%;
+  padding: 0.85rem 1rem;
+  box-sizing: border-box;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  background: rgba(0, 0, 0, 0.18);
+  color: rgba(255, 255, 255, 0.82);
+}
+
+.difficulty-detail-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.65rem;
+  font-size: 0.85rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+
+  strong {
+    flex: 0 0 auto;
+    min-width: 2rem;
+    color: #fff;
+    font-size: 1.3rem;
+    line-height: 1;
+    text-align: right;
+  }
+}
+
+.difficulty-stats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.42rem 0.85rem;
+  font-size: 0.72rem;
+  line-height: 1.25;
+  color: rgba(255, 255, 255, 0.64);
+
+  span {
+    min-width: 0;
+    overflow-wrap: anywhere;
   }
 }
 
