@@ -3,7 +3,7 @@ import { LOGICAL_W, LOGICAL_H } from "../game/engine";
 import type { Note } from "../game/engine";
 import { drawArrow, drawLyricNote, drawFireworks, NOTE_RADIUS, LYRIC_RADIUS } from "../game/draw";
 import { createCursorRenderer } from "../game/cursor";
-import { angleDiff, clamp } from "../core/utils";
+import { angleDiff } from "../core/utils";
 
 export interface TutorialCanvasHandle {
   spawnNote(kind: Note["kind"]): void;

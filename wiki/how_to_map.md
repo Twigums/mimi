@@ -1,6 +1,6 @@
 # How to Map a Song
 
-A chart is a JSON file containing an array of `Note` objects. Place it under `src/songs/<song-id>/` and reference it via the `song-chart` field in the song's markdown frontmatter.
+A chart is authored as a `.mimi` text file under `src/songs/<song-id>/` — one file per difficulty (e.g. `expert.mimi`). `site.hs` discovers it automatically and `ChartCompiler.hs` compiles it to a JSON array of `Note` objects (the shape documented below). See `CLAUDE.md` for the `.mimi` chart format.
 
 Charts may be authored in the osu! editor using linear sliders and converted with `npm run convert:osu`. See `README.md` for the command. The osu play area (512×384) is scaled to fit inside the mimi canvas (800×600) — both are 4:3, so the scale factor is uniform (1.5625×) with no offset. The direction of each note is the angle of the osu slider from its start point `(x, y)` to its linear endpoint `(cx, cy)`, expressed in standard math convention (CCW from right, y-axis pointing up). This requires negating the osu y-component before taking `atan2`, since osu uses screen coordinates (y increases downward).
 
@@ -8,7 +8,7 @@ Charts may be authored in the osu! editor using linear sliders and converted wit
 
 ```typescript
 {
-  kind:      "click" | "stream",  // note type (see below)
+  kind:      "flick" | "stream" | "lyric",  // note type (see below)
   time:      number,              // hit time in milliseconds from song start
   x:         number,              // horizontal position, 0–800 (left → right)
   y:         number,              // vertical position, 0–600 (top → bottom)
@@ -36,8 +36,9 @@ Keep notes away from edges — the game uses an 80 px padding margin on all side
 
 | Kind | Use when |
 |------|----------|
-| `"click"` | Single isolated hit — one syllable standing alone |
+| `"flick"` | Single isolated hit — one syllable standing alone |
 | `"stream"` | Part of a rapid sequence — multiple syllables in one word/burst |
+| `"lyric"` | Directionless note tapped on the beat; displays the TextAlive character |
 
 ## Direction
 
@@ -62,7 +63,7 @@ Common values:
 | `Math.PI / 4` | ↘ down-right |
 | `-Math.PI / 4` | ↗ up-right |
 
-The player must swipe **through the center of the note** in this direction while holding a key or mouse button. A tolerance of ±45° is accepted.
+The player must swipe **through the center of the note** in this direction while holding a key or mouse button. A tolerance of ±30° is accepted.
 
 ## Timing from TextAlive
 
@@ -86,8 +87,8 @@ Use those `startTime` values directly as `time` in each note.
 
 ```json
 [
-  { "kind": "click",  "time": 4200,  "x": 400, "y": 200, "direction": 0,           "state": "pending" },
-  { "kind": "click",  "time": 4800,  "x": 560, "y": 320, "direction": -0.785,      "state": "pending" },
+  { "kind": "flick",  "time": 4200,  "x": 400, "y": 200, "direction": 0,           "state": "pending" },
+  { "kind": "flick",  "time": 4800,  "x": 560, "y": 320, "direction": -0.785,      "state": "pending" },
   { "kind": "stream", "time": 5100,  "x": 300, "y": 400, "direction": 1.571,       "state": "pending" },
   { "kind": "stream", "time": 5300,  "x": 300, "y": 500, "direction": 1.571,       "state": "pending" }
 ]
