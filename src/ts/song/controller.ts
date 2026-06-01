@@ -6,6 +6,12 @@ import type { TextAliveChar, TextAlivePlayer, TextAlivePlayerOptions, TextAliveV
 const JUDGEMENT_WINDOW_MS      = 100;
 const GAP_SKIP_SAFETY_MS      = 120;
 const GAP_SKIP_MIN_BREAK_MS   = 3000;
+const TEXTALIVE_READY_TIMEOUT_MS = 15000;
+const LOAD_MARK_PREFIX           = "mimi:song-load";
+
+function loadErrorMessage(err: unknown): string {
+  return err instanceof Error ? err.message : String(err);
+}
 
 export type BreakSkipKind = "gap" | "finish";
 
@@ -69,6 +75,29 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPla
   const lyricDiffId          = parseInt(body.dataset.textaliveLyricDiffId ?? "");
   const hasVideoIds = !isNaN(beatId) && !isNaN(chordId) && !isNaN(repetitiveSegmentId) && !isNaN(lyricId) && !isNaN(lyricDiffId);
 
+  const loadStartMs = performance.now();
+  const loadStartMark = `${LOAD_MARK_PREFIX}:start`;
+  if (typeof performance.mark === "function") performance.mark(loadStartMark);
+  const markLoad = (stage: string, detail?: Record<string, unknown>): void => {
+    const elapsedMs = Math.round(performance.now() - loadStartMs);
+    const markName = `${LOAD_MARK_PREFIX}:${stage}`;
+    if (typeof performance.mark === "function") {
+      try {
+        performance.mark(markName);
+        if (typeof performance.measure === "function") {
+          performance.measure(`${LOAD_MARK_PREFIX}:start-to-${stage}`, loadStartMark, markName);
+        }
+      } catch {
+        // Performance marks are diagnostic-only and must never affect playback.
+      }
+    }
+    if (detail === undefined) {
+      console.debug(`[mimi:load] ${stage} +${elapsedMs}ms`);
+    } else {
+      console.debug(`[mimi:load] ${stage} +${elapsedMs}ms`, detail);
+    }
+  };
+
   const btnHudToggle = document.getElementById("btn-hud-toggle")  as HTMLButtonElement | null;
   const songHud      = document.querySelector<HTMLElement>(".song-hud");
   const progressFill = document.getElementById("progress-fill")   as HTMLElement       | null;
@@ -90,21 +119,35 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPla
 
   const loadingScreen = document.getElementById("loading-screen");
   const loadingBar    = document.getElementById("loading-bar-fill") as HTMLElement | null;
+  let loadingProgress = 0;
+  let loadingDismissed = false;
 
   const setProgress = (pct: number): void => {
-    if (loadingBar) loadingBar.style.width = `${pct}%`;
+    loadingProgress = Math.max(loadingProgress, Math.max(0, Math.min(100, pct)));
+    if (loadingBar) loadingBar.style.width = `${loadingProgress}%`;
   };
 
-  const dismissLoading = (): void => {
-    if (!loadingScreen) return;
+  const dismissLoading = (reason: string): void => {
+    if (loadingDismissed) return;
+    loadingDismissed = true;
+    markLoad("loading-overlay-dismiss", { reason });
     setProgress(100);
+    if (!loadingScreen) return;
     setTimeout(() => {
       loadingScreen.classList.add("loaded");
       loadingScreen.addEventListener("transitionend", () => loadingScreen.remove(), { once: true });
     }, 400);
   };
 
-  if (loadingBar) setProgress(30);
+  markLoad("controller-start", {
+    chartUrl: Boolean(chartUrl),
+    difficulty,
+    hasStoryboard: Boolean(storyboardEl && chartDir),
+    hasSongUrl: Boolean(songUrl),
+    hasTextAliveToken: Boolean(token),
+    hasTextAliveScript: Boolean(window.TextAliveApp),
+  });
+  setProgress(5);
 
   let musicOffsetMs = loadMusicOffset();
   const unsubMusicOffset = subscribeMusicOffset(v => { musicOffsetMs = v; });
@@ -122,6 +165,13 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPla
   let publishedBreakSkipKind: BreakSkipKind | null = null;
 
   let isPlaying = false;
+
+  const markPlayerReady = (reason: string): void => {
+    if (playerReady) return;
+    playerReady = true;
+    markLoad("player-ready", { reason });
+    onPlayerReady?.();
+  };
 
   const triggerFinish = (): void => {
     if (finished) return;
@@ -164,8 +214,8 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPla
 
   const TextAliveApp = window.TextAliveApp;
   if (!songUrl || !token) {
-    dismissLoading();
-    onPlayerReady?.();
+    markLoad("textalive-skipped", { reason: songUrl ? "missing-token" : "missing-song-url" });
+    dismissLoading("missing-textalive-config");
   } else if (TextAliveApp) {
     const mediaElement = document.getElementById("textalive-media");
     const opts: TextAlivePlayerOptions = {
@@ -174,25 +224,36 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPla
     };
 
     const loadTimeout = setTimeout(() => {
-      playerReady = true;
-      onPlayerReady?.();
-      dismissLoading();
-    }, 15000);
+      markLoad("textalive-timeout", { timeoutMs: TEXTALIVE_READY_TIMEOUT_MS });
+      markPlayerReady("textalive-timeout");
+      dismissLoading("textalive-timeout");
+    }, TEXTALIVE_READY_TIMEOUT_MS);
 
+    markLoad("textalive-player-create", { hasVideoIds });
     player = new TextAliveApp.Player(opts);
     subscribeVolume(v => { if (player) player.volume = v; });
     player.addListener({
       onAppReady(app) {
+        markLoad("textalive-app-ready", { managed: app.managed, hasSongUrl: Boolean(app.songUrl) });
+        setProgress(45);
         if (!app.songUrl && player) {
           const videoOpts = hasVideoIds ? {
             video: { beatId, chordId, repetitiveSegmentId, lyricId, lyricDiffId }
           } : undefined;
+          markLoad("textalive-create-from-song-url", { hasVideoIds });
           player.createFromSongUrl(songUrl, videoOpts).catch(err => {
+            clearTimeout(loadTimeout);
+            markLoad("textalive-create-failed", { error: loadErrorMessage(err) });
             console.error("[mimi] createFromSongUrl failed:", err);
+            dismissLoading("textalive-create-failed");
           });
         }
       },
       onVideoReady(video) {
+        markLoad("textalive-video-ready", {
+          durationMs: video.duration,
+          charCount: video.charCount,
+        });
         setProgress(70);
         storyboard?.setVideo(video);
         game.setLyricVideo(makeCharLookup(video));
@@ -204,9 +265,10 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPla
       },
       onTimerReady() {
         clearTimeout(loadTimeout);
-        playerReady = true;
-        onPlayerReady?.();
-        dismissLoading();
+        markLoad("textalive-timer-ready");
+        setProgress(90);
+        markPlayerReady("textalive-timer-ready");
+        dismissLoading("textalive-timer-ready");
         if (player) player.volume = loadVolume();
       },
       onPlay() {
@@ -223,37 +285,69 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPla
       onStop()  { isPlaying = false; finished = false; setBreakSkipTarget(null); },
     });
   } else {
-    setTimeout(dismissLoading, 15000);
+    markLoad("textalive-script-missing");
+    dismissLoading("missing-textalive-script");
   }
 
   (async () => {
-    if (!chartUrl) return;
+    if (!chartUrl) {
+      markLoad("chart-skipped", { reason: "missing-chart-url" });
+      setProgress(20);
+      return;
+    }
+    markLoad("chart-fetch-start", { url: chartUrl, difficulty });
     try {
       let res = await fetch(chartUrl);
+      markLoad("chart-fetch-response", { url: chartUrl, ok: res.ok, status: res.status });
       if (!res.ok && difficulty !== "expert") {
-        res = await fetch(`${chartDir}chart-expert.json`);
+        const fallbackUrl = `${chartDir}chart-expert.json`;
+        markLoad("chart-fetch-fallback-start", { url: fallbackUrl });
+        res = await fetch(fallbackUrl);
+        markLoad("chart-fetch-fallback-response", { url: fallbackUrl, ok: res.ok, status: res.status });
       }
-      if (!res.ok) return;
+      if (!res.ok) {
+        markLoad("chart-fetch-failed", { status: res.status });
+        setProgress(20);
+        return;
+      }
       const notes = (await res.json() as Note[]).slice().sort((a, b) => a.time - b.time);
       noteTimes = notes.map(note => note.time);
       chartLoaded = true;
       game.setChart(notes);
+      markLoad("chart-ready", { notes: notes.length });
+      setProgress(20);
     } catch (err) {
+      markLoad("chart-fetch-error", { error: loadErrorMessage(err) });
       console.error("[mimi] chart load failed:", err);
+      setProgress(20);
     }
   })();
 
   if (storyboard && chartDir) {
     (async () => {
+      const storyUrl = `${chartDir}chart.json`;
+      markLoad("story-fetch-start", { url: storyUrl });
       try {
-        const res = await fetch(`${chartDir}chart.json`);
-        if (!res.ok) return;
+        const res = await fetch(storyUrl);
+        markLoad("story-fetch-response", { url: storyUrl, ok: res.ok, status: res.status });
+        if (!res.ok) {
+          markLoad("story-fetch-failed", { status: res.status });
+          setProgress(30);
+          return;
+        }
         const entries = await res.json() as StoryEntry[];
         storyboard.setStoryData(entries);
+        markLoad("story-ready", { entries: entries.length });
+        setProgress(30);
       } catch (err) {
+        markLoad("story-fetch-error", { error: loadErrorMessage(err) });
         console.error("[mimi] story load failed:", err);
+        setProgress(30);
       }
     })();
+  } else {
+    markLoad("story-skipped", { reason: storyboard ? "missing-chart-dir" : "missing-storyboard-root" });
+    setProgress(30);
   }
 
   const btnFullscreen = document.getElementById("btn-fullscreen") as HTMLButtonElement | null;
