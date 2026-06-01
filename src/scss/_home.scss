@@ -260,7 +260,7 @@ html body.home-page {
 }
 
 .layout-container--tutorial {
-  max-width: 720px;
+  max-width: min(calc(100vw - 4rem), 1200px);
   align-self: flex-start;
   padding: 6rem 1.5rem 3rem;
   box-sizing: border-box;
@@ -277,6 +277,10 @@ html body.home-page {
 .tutorial-info {
   flex: 1;
   min-width: 0;
+  overflow-y: auto;
+  max-height: calc(100vh - 12rem);
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
   color: rgba(255, 255, 255, 0.85);
 
   h2 {
@@ -292,7 +296,17 @@ html body.home-page {
     line-height: 1.7;
   }
 
-  strong,
+  svg.inline-icon {
+    width: 1em;
+    height: 1em;
+    vertical-align: -0.15em;
+    fill: currentColor;
+  }
+
+  mark.flick  { background: rgb(255, 82,  82);  color: #fff; }
+  mark.stream { background: rgb(82,  162, 255); color: #fff; }
+  mark.lyric  { background: rgb(180, 180, 180); color: #111; }
+
   a[href^="spawn:"] {
     color: #fff;
     cursor: pointer;
@@ -331,6 +345,9 @@ html body.home-page {
   background: var(--bg-gradient-song);
   border: 1px solid rgba(255, 255, 255, 0.15);
   cursor: none;
+
+  @media (min-width: 900px)  { width: 360px; height: 270px; }
+  @media (min-width: 1200px) { width: 480px; height: 360px; }
 }
 
 .placeholder-text {

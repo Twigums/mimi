@@ -78,8 +78,9 @@ export function HomeLayoutSwitcher({ infoContent, infoContentJp, tutorialContent
   const [currentLayout, setCurrentLayout] = useState<Layout>(layout);
   const [exiting, setExiting] = useState(false);
   const [paneKey, setPaneKey] = useState(0);
-  const exitTimer    = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const tutorialRef  = useRef<TutorialCanvasHandle>(null);
+  const exitTimer       = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const tutorialRef     = useRef<TutorialCanvasHandle>(null);
+  const tutorialInfoRef = useRef<HTMLDivElement>(null);
 
   const [selectedSong, setSelectedSong] = useState<SongEntry | null>(null);
   const [renderedSong, setRenderedSong] = useState<SongEntry | null>(null);
@@ -136,6 +137,29 @@ export function HomeLayoutSwitcher({ infoContent, infoContentJp, tutorialContent
 
   const activeInfoContent     = lang === "jp" && infoContentJp     ? infoContentJp     : infoContent;
   const activeTutorialContent = lang === "jp" && tutorialContentJp ? tutorialContentJp : tutorialContent;
+
+  useEffect(() => {
+    if (currentLayout !== "tutorial") return;
+    const el = tutorialInfoRef.current;
+    if (!el) return;
+    const update = (): void => {
+      const top    = el.scrollTop > 0;
+      const bottom = el.scrollTop + el.clientHeight < el.scrollHeight - 1;
+      const t = top    ? "transparent 0, black 2rem," : "";
+      const b = bottom ? ", black calc(100% - 2rem), transparent" : "";
+      const mask = `linear-gradient(to bottom, ${t}black${b})`;
+      el.style.setProperty("mask-image", mask);
+      el.style.setProperty("-webkit-mask-image", mask);
+    };
+    const raf = requestAnimationFrame(update);
+    el.addEventListener("scroll", update);
+    window.addEventListener("resize", update);
+    return () => {
+      cancelAnimationFrame(raf);
+      el.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+    };
+  }, [currentLayout, activeTutorialContent]);
 
   const handlePlayClick = () => {
     setSelectedSong(null);
@@ -235,26 +259,18 @@ export function HomeLayoutSwitcher({ infoContent, infoContentJp, tutorialContent
           <>
             <div className="tutorial-layout">
               <div
+                ref={tutorialInfoRef}
                 className="tutorial-info"
                 dangerouslySetInnerHTML={{ __html: activeTutorialContent }}
                 onClick={(e) => {
                   const el = e.target as HTMLElement;
-                  if (el.tagName === "A") {
-                    const href = (el as HTMLAnchorElement).getAttribute("href") ?? "";
-                    if (href.startsWith("spawn:")) {
-                      e.preventDefault();
-                      const kind = href.slice(6) as Note["kind"];
-                      if (kind === "flick" || kind === "stream" || kind === "lyric") {
-                        tutorialRef.current?.spawnNote(kind);
-                      }
-                    }
-                    return;
-                  }
-                  if (el.tagName === "STRONG") {
-                    const kind = el.textContent?.toLowerCase() as Note["kind"] | undefined;
-                    if (kind === "flick" || kind === "stream" || kind === "lyric") {
-                      tutorialRef.current?.spawnNote(kind);
-                    }
+                  if (el.tagName !== "A") return;
+                  const href = (el as HTMLAnchorElement).getAttribute("href") ?? "";
+                  if (!href.startsWith("spawn:")) return;
+                  e.preventDefault();
+                  const kind = href.slice(6) as Note["kind"];
+                  if (kind === "flick" || kind === "stream" || kind === "lyric") {
+                    tutorialRef.current?.spawnNote(kind);
                   }
                 }}
               />

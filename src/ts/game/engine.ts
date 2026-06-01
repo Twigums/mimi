@@ -132,6 +132,7 @@ export function createGame(deps: GameDeps): GameHandle {
   const getScale = (): number => canvas.width / LOGICAL_W;
 
   const pointer = { x: 0, y: 0, prevX: 0, prevY: 0, held: false };
+  let clickedThisFrame = false;
   const keysHeld = new Set<string>();
   const actionHeld = (): boolean => pointer.held || keysHeld.size > 0;
 
@@ -142,13 +143,13 @@ export function createGame(deps: GameDeps): GameHandle {
   };
 
   const onMouseMove  = (e: MouseEvent): void => setPointer(e.clientX, e.clientY);
-  const onMouseDown  = (e: MouseEvent): void => { setPointer(e.clientX, e.clientY); pointer.held = true; };
+  const onMouseDown  = (e: MouseEvent): void => { setPointer(e.clientX, e.clientY); pointer.held = true; clickedThisFrame = true; };
   const onMouseUp    = (): void => { pointer.held = false; };
   const onTouchMove  = (e: TouchEvent): void => {
     const t = e.touches[0]; if (t) setPointer(t.clientX, t.clientY); e.preventDefault();
   };
   const onTouchStart = (e: TouchEvent): void => {
-    const t = e.touches[0]; if (t) { setPointer(t.clientX, t.clientY); pointer.held = true; } e.preventDefault();
+    const t = e.touches[0]; if (t) { setPointer(t.clientX, t.clientY); pointer.held = true; clickedThisFrame = true; } e.preventDefault();
   };
   const onTouchEnd   = (): void => { pointer.held = false; };
   const onKeyDown    = (e: KeyboardEvent): void => { if (!e.repeat) keysHeld.add(e.key); };
@@ -209,17 +210,8 @@ export function createGame(deps: GameDeps): GameHandle {
     if (Math.abs(songMs - note.time) > GOOD_MS) return;
 
     if (note.kind === "lyric") {
-      const moveDx = pointer.x - pointer.prevX;
-      const moveDy = pointer.y - pointer.prevY;
-      const lenSq  = moveDx * moveDx + moveDy * moveDy;
-      if (lenSq < 0.5) return;
-      const t = clamp(
-        ((note.x - pointer.prevX) * moveDx + (note.y - pointer.prevY) * moveDy) / lenSq,
-        0, 1,
-      );
-      const closestX = pointer.prevX + t * moveDx;
-      const closestY = pointer.prevY + t * moveDy;
-      if ((closestX - note.x) ** 2 + (closestY - note.y) ** 2 > LYRIC_RADIUS * LYRIC_RADIUS) return;
+      if (!clickedThisFrame) return;
+      if ((pointer.x - note.x) ** 2 + (pointer.y - note.y) ** 2 > LYRIC_RADIUS * LYRIC_RADIUS) return;
     } else {
       if (NOTE_STYLE[note.kind].requiresHold && !actionHeld()) return;
       const dx = Math.cos(note.direction);
@@ -362,6 +354,7 @@ export function createGame(deps: GameDeps): GameHandle {
       cursor.render(performance.now());
       pointer.prevX = pointer.x;
       pointer.prevY = pointer.y;
+      clickedThisFrame = false;
     },
 
     destroy(): void {
