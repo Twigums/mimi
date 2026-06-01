@@ -40,7 +40,9 @@ When the viewport is smaller than 1800 px wide or 990 px tall on a song tab, a f
 A settings button sits in the top-right header area of both the home and song tabs, next to the language toggle. Clicking it opens a modal overlay with collapsible accordion sections: Mods (Hidden mod toggle), Notes (approach rate slider with animated preview), and Cursor (size slider, HSV color picker, trail shape [Circle/Star/Square], trail decay [Fade/Scatter], trail fade speed slider, and animated cursor preview). All settings persist across sessions. Accordion open/closed states also persist across page navigation.
 
 ## Loading Screen (Song Tab)
-When a song tab loads, a full-screen overlay is shown with a progress bar while assets load. Once all assets are ready, the screen fades out. If loading takes too long, the screen is dismissed automatically.
+When a song tab loads, a full-screen overlay is shown with a progress bar while the chart, optional storyboard data, and TextAlive player initialize. The page logs timing diagnostics for the local fetches, TextAlive app readiness, TextAlive video readiness, TextAlive timer readiness, and loading overlay dismissal so slow starts can be attributed to the correct stage without adding visible debug text.
+
+The overlay should represent known progress truthfully. Local chart/story fetch failures are logged and should not keep the player waiting once TextAlive is ready. If TextAlive is unavailable or the song URL/token is missing, the overlay is dismissed quickly and the page falls back to a non-playing state instead of pretending that media is still loading. If TextAlive app/video/timer processing is still pending, the overlay may stay up until the existing timeout exposes the game surface; that wait is expected to be dominated by TextAlive's external media and lyric analysis pipeline rather than local chart rendering.
 
 ## Hit Feedback (Song Tab)
 After each note is resolved, a brief label floats up from the note's position and fades out, indicating the judgement result.
