@@ -1,7 +1,12 @@
 import type { GameHandle, GameStats, Note } from "../game/engine";
-import { loadVolume, subscribeVolume, loadMusicOffset, subscribeMusicOffset } from "../core/settings";
+import { arToMs, loadAr, loadVolume, subscribeVolume, loadMusicOffset, subscribeMusicOffset } from "../core/settings";
 import { createStoryboardRenderer, type StoryEntry } from "./storyboard";
 import type { TextAliveChar, TextAlivePlayer, TextAlivePlayerOptions, TextAliveVideo } from "./textalive";
+
+const JUDGEMENT_WINDOW_MS      = 100;
+const GAP_SKIP_SAFETY_MS      = 120;
+const GAP_SKIP_MIN_ADVANCE_MS = 500;
+const GAP_SEEK_COOLDOWN_MS    = 500;
 
 function charDist(c: TextAliveChar, timeMs: number): number {
   if (timeMs >= c.startTime && timeMs <= c.endTime) return 0;
@@ -38,7 +43,7 @@ interface SongPageDeps {
 
 interface SongPageHandle {
   stop(): void;
-  togglePlay(): void;
+  start(): void;
 }
 
 export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPlayerReady }: SongPageDeps): SongPageHandle {
@@ -61,7 +66,7 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPla
   const progressFill = document.getElementById("progress-fill")   as HTMLElement       | null;
   const storyboardEl = document.getElementById("song-storyboard") as HTMLElement       | null;
 
-  if (!progressFill) return { stop() { /* no-op */ }, togglePlay() { /* no-op */ } };
+  if (!progressFill) return { stop() { /* no-op */ }, start() { /* no-op */ } };
 
   if (btnHudToggle && songHud) {
     btnHudToggle.addEventListener("click", (e) => {
@@ -95,6 +100,7 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPla
 
   let musicOffsetMs = loadMusicOffset();
   const unsubMusicOffset = subscribeMusicOffset(v => { musicOffsetMs = v; });
+  const gapSkipLeadInMs = arToMs(loadAr()) + JUDGEMENT_WINDOW_MS + GAP_SKIP_SAFETY_MS;
 
   let player: TextAlivePlayer | null = null;
   let playerReady = false;
@@ -102,6 +108,8 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPla
   let finished = false;
   let finishTimeout: ReturnType<typeof setTimeout> | null = null;
   let lastSongMs = 0;
+  let noteTimes: number[] = [];
+  let lastGapSeekAt = -Infinity;
 
   let isPlaying = false;
 
@@ -118,6 +126,9 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPla
 
   const resetPlayback = (): void => {
     if (finishTimeout !== null) { clearTimeout(finishTimeout); finishTimeout = null; }
+    finished = false;
+    isPlaying = false;
+    lastGapSeekAt = -Infinity;
     game.reset();
     storyboard?.reset();
     progressFill.style.width = "0%";
@@ -179,6 +190,7 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPla
       onPlay() {
         isPlaying = true;
         finished = false;
+        game.start();
         if (finishTimeout !== null) { clearTimeout(finishTimeout); finishTimeout = null; }
         if (songLengthMs > 0) {
           const remaining = Math.max(0, songLengthMs - (player?.timer.position ?? 0));
@@ -200,7 +212,8 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPla
         res = await fetch(`${chartDir}chart-expert.json`);
       }
       if (!res.ok) return;
-      const notes = await res.json() as Note[];
+      const notes = (await res.json() as Note[]).slice().sort((a, b) => a.time - b.time);
+      noteTimes = notes.map(note => note.time);
       game.setChart(notes);
     } catch (err) {
       console.error("[mimi] chart load failed:", err);
@@ -235,11 +248,54 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPla
     });
   }
 
+  const findNextJudgableNoteIndex = (gameSongMs: number): number => {
+    let lo = 0;
+    let hi = noteTimes.length;
+    const cutoff = gameSongMs - JUDGEMENT_WINDOW_MS;
+    while (lo < hi) {
+      const mid = Math.floor((lo + hi) / 2);
+      if (noteTimes[mid] < cutoff) lo = mid + 1;
+      else hi = mid;
+    }
+    return lo;
+  };
+
+  const requestGapSeek = (fromSongMs: number, targetSongMs: number): void => {
+    if (!player || songLengthMs <= 0) return;
+    const now = performance.now();
+    if (now - lastGapSeekAt < GAP_SEEK_COOLDOWN_MS) return;
+
+    const clampedTarget = Math.max(0, Math.min(songLengthMs, Math.floor(targetSongMs)));
+    if (clampedTarget - fromSongMs < GAP_SKIP_MIN_ADVANCE_MS) return;
+
+    lastGapSeekAt = now;
+    player.requestMediaSeek(clampedTarget);
+  };
+
+  const skipQuietGap = (songMs: number, gameSongMs: number): void => {
+    if (!playerReady || !player || !isPlaying || finished || noteTimes.length === 0) return;
+
+    const nextIndex = findNextJudgableNoteIndex(gameSongMs);
+    const nextNoteTime = noteTimes[nextIndex];
+
+    if (nextNoteTime !== undefined) {
+      if (nextNoteTime <= gameSongMs + JUDGEMENT_WINDOW_MS) return;
+      requestGapSeek(songMs, nextNoteTime - gapSkipLeadInMs - musicOffsetMs);
+      return;
+    }
+
+    const lastNoteTime = noteTimes[noteTimes.length - 1];
+    if (songLengthMs > 0 && gameSongMs > lastNoteTime + JUDGEMENT_WINDOW_MS) {
+      requestGapSeek(songMs, songLengthMs);
+    }
+  };
+
   const loop = (): void => {
     const songMs = player?.timer.position ?? 0;
     if (songMs > 0) lastSongMs = songMs;
     game.tick(songMs + musicOffsetMs);
     if (songMs > 0) storyboard?.update(songMs);
+    skipQuietGap(songMs, songMs + musicOffsetMs);
 
     if (songLengthMs > 0) {
       const pct = Math.max(0, Math.min(100, (songMs / songLengthMs) * 100));
@@ -261,16 +317,10 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPla
       resetPlayback();
       player.requestStop();
     },
-    togglePlay(): void {
+    start(): void {
       if (!playerReady || !player) return;
-      if (isPlaying) {
-        dismissResult();
-        resetPlayback();
-        player.requestStop();
-      } else {
-        player.requestPlay();
-        game.start();
-      }
+      dismissResult();
+      player.requestPlay();
     },
   };
 }
