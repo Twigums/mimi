@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { createGame, LOGICAL_W, LOGICAL_H } from "../game/engine";
 import type { GameHandle, HitResult, GameStats } from "../game/engine";
+import type { BreakSkipKind } from "../song/controller";
 import { arToMs } from "../core/settings";
 import { useLang } from "./hooks/useLang";
 import { useApproachRate } from "./hooks/useSettings";
@@ -31,7 +32,9 @@ interface Props {
     hideResult: () => void,
     setSongInfoJp: (nameJp: string, authorJp: string) => void,
     registerStart: (fn: () => void) => void,
+    registerSkipBreak: (fn: () => void) => void,
     setPlayerReady: () => void,
+    setBreakSkipKind: (kind: BreakSkipKind | null) => void,
   ) => void;
   returnHref: string;
   onTryAgain: () => void;
@@ -45,12 +48,14 @@ export function GameSurface({ onReady, returnHref, onTryAgain }: Props) {
   const startButtonRef  = useRef<HTMLButtonElement>(null);
   const fadeTimerRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
   const startRef        = useRef<(() => void) | null>(null);
+  const skipBreakRef    = useRef<(() => void) | null>(null);
 
   const [score, setScore]             = useState(0);
   const [combo, setCombo]             = useState(0);
   const [playing, setPlaying]         = useState(false);
   const [playerReady, setPlayerReady] = useState(false);
   const [infoFaded, setInfoFaded]     = useState(false);
+  const [breakSkipKind, setBreakSkipKind] = useState<BreakSkipKind | null>(null);
   const [feedbacks, setFeedbacks]     = useState<FeedbackToast[]>([]);
   const [result, setResult]           = useState<GameStats | null>(null);
   const [songInfo, setSongInfo]       = useState<SongInfo>(() => {
@@ -106,7 +111,9 @@ export function GameSurface({ onReady, returnHref, onTryAgain }: Props) {
       () => setResult(null),
       (nameJp, authorJp) => setSongInfo(prev => ({ ...prev, nameJp, authorJp })),
       (fn) => { startRef.current = fn; },
+      (fn) => { skipBreakRef.current = fn; },
       () => setPlayerReady(true),
+      setBreakSkipKind,
     );
     return () => game.destroy();
   }, []);
@@ -126,6 +133,10 @@ export function GameSurface({ onReady, returnHref, onTryAgain }: Props) {
   const displayName   = lang === "jp" && songInfo.nameJp   ? songInfo.nameJp   : songInfo.name;
   const displayAuthor = lang === "jp" && songInfo.authorJp ? songInfo.authorJp : songInfo.author;
   const showStartPrompt = playerReady && !playing && !result;
+  const showBreakSkip = playing && !result && breakSkipKind !== null;
+  const breakSkipLabel = breakSkipKind === "finish"
+    ? (lang === "jp" ? "完了" : "Finish")
+    : (lang === "jp" ? "スキップ" : "Skip");
 
   const handleTryAgain = (): void => {
     setResult(null);
@@ -164,6 +175,16 @@ export function GameSurface({ onReady, returnHref, onTryAgain }: Props) {
             aria-label={lang === "jp" ? "開始" : "Start"}
           >
             <span className="game-start-label">{lang === "jp" ? "開始" : "Start"}</span>
+          </button>
+        )}
+
+        {showBreakSkip && (
+          <button
+            className="game-break-skip"
+            type="button"
+            onClick={() => skipBreakRef.current?.()}
+          >
+            {breakSkipLabel}
           </button>
         )}
 

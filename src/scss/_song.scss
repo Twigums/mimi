@@ -363,6 +363,36 @@ html body.song-page {
   }
 }
 
+.game-break-skip {
+  position: absolute;
+  right: 1rem;
+  bottom: 1rem;
+  min-width: 5.5rem;
+  padding: 0.45rem 0.85rem;
+  border: 1px solid rgba(255, 255, 255, 0.34);
+  background: rgba(0, 0, 0, 0.24);
+  color: rgba(255, 255, 255, 0.82);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-shadow: 0 0 10px rgba(0, 0, 0, 0.65);
+  z-index: 2;
+  transition: background var(--motion-duration-base) var(--motion-ease-standard),
+              border-color var(--motion-duration-base) var(--motion-ease-standard),
+              color var(--motion-duration-base) var(--motion-ease-standard);
+
+  &:hover,
+  &:focus-visible {
+    background: rgba(255, 255, 255, 0.14);
+    border-color: rgba(255, 255, 255, 0.72);
+    color: #fff;
+    outline: none;
+  }
+}
+
 .game-song-info {
   position: absolute;
   top: 0.75rem;
