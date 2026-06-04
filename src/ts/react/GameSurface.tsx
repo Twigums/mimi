@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import { createGame, LOGICAL_W, LOGICAL_H } from "../game/engine";
 import type { GameHandle, HitResult, GameStats } from "../game/engine";
+import type { BreakSkipKind } from "../song/controller";
 import { arToMs } from "../core/settings";
-import { withPath } from "../core/sitePath";
 import { useLang } from "./hooks/useLang";
 import { useApproachRate } from "./hooks/useSettings";
 import { ResultsOverlay } from "./ResultsOverlay";
@@ -31,8 +31,10 @@ interface Props {
     showResult: (stats: GameStats) => void,
     hideResult: () => void,
     setSongInfoJp: (nameJp: string, authorJp: string) => void,
-    registerToggle: (fn: () => void) => void,
+    registerStart: (fn: () => void) => void,
+    registerSkipBreak: (fn: () => void) => void,
     setPlayerReady: () => void,
+    setBreakSkipKind: (kind: BreakSkipKind | null) => void,
   ) => void;
   returnHref: string;
   onTryAgain: () => void;
@@ -43,16 +45,17 @@ export function GameSurface({ onReady, returnHref, onTryAgain }: Props) {
   const gameAreaRef     = useRef<HTMLDivElement>(null);
   const gameRef         = useRef<GameHandle | null>(null);
   const comboRef        = useRef<HTMLSpanElement>(null);
+  const startButtonRef  = useRef<HTMLButtonElement>(null);
   const fadeTimerRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const btnFadeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const togglePlayRef   = useRef<(() => void) | null>(null);
+  const startRef        = useRef<(() => void) | null>(null);
+  const skipBreakRef    = useRef<(() => void) | null>(null);
 
   const [score, setScore]             = useState(0);
   const [combo, setCombo]             = useState(0);
   const [playing, setPlaying]         = useState(false);
   const [playerReady, setPlayerReady] = useState(false);
   const [infoFaded, setInfoFaded]     = useState(false);
-  const [btnFaded, setBtnFaded]       = useState(false);
+  const [breakSkipKind, setBreakSkipKind] = useState<BreakSkipKind | null>(null);
   const [feedbacks, setFeedbacks]     = useState<FeedbackToast[]>([]);
   const [result, setResult]           = useState<GameStats | null>(null);
   const [songInfo, setSongInfo]       = useState<SongInfo>(() => {
@@ -71,17 +74,13 @@ export function GameSurface({ onReady, returnHref, onTryAgain }: Props) {
 
   useEffect(() => {
     if (playing) {
-      fadeTimerRef.current    = setTimeout(() => setInfoFaded(true), 2000);
-      btnFadeTimerRef.current = setTimeout(() => setBtnFaded(true), 2000);
+      fadeTimerRef.current = setTimeout(() => setInfoFaded(true), 2000);
     } else {
-      if (fadeTimerRef.current    !== null) { clearTimeout(fadeTimerRef.current);    fadeTimerRef.current    = null; }
-      if (btnFadeTimerRef.current !== null) { clearTimeout(btnFadeTimerRef.current); btnFadeTimerRef.current = null; }
+      if (fadeTimerRef.current !== null) { clearTimeout(fadeTimerRef.current); fadeTimerRef.current = null; }
       setInfoFaded(false);
-      setBtnFaded(false);
     }
     return () => {
-      if (fadeTimerRef.current    !== null) clearTimeout(fadeTimerRef.current);
-      if (btnFadeTimerRef.current !== null) clearTimeout(btnFadeTimerRef.current);
+      if (fadeTimerRef.current !== null) clearTimeout(fadeTimerRef.current);
     };
   }, [playing]);
 
@@ -111,8 +110,10 @@ export function GameSurface({ onReady, returnHref, onTryAgain }: Props) {
       setResult,
       () => setResult(null),
       (nameJp, authorJp) => setSongInfo(prev => ({ ...prev, nameJp, authorJp })),
-      (fn) => { togglePlayRef.current = fn; },
+      (fn) => { startRef.current = fn; },
+      (fn) => { skipBreakRef.current = fn; },
       () => setPlayerReady(true),
+      setBreakSkipKind,
     );
     return () => game.destroy();
   }, []);
@@ -131,11 +132,26 @@ export function GameSurface({ onReady, returnHref, onTryAgain }: Props) {
 
   const displayName   = lang === "jp" && songInfo.nameJp   ? songInfo.nameJp   : songInfo.name;
   const displayAuthor = lang === "jp" && songInfo.authorJp ? songInfo.authorJp : songInfo.author;
+  const showStartPrompt = playerReady && !playing && !result;
+  const showBreakSkip = playing && !result && breakSkipKind !== null;
+  const breakSkipLabel = breakSkipKind === "finish"
+    ? (lang === "jp" ? "完了" : "Finish")
+    : (lang === "jp" ? "スキップ" : "Skip");
 
   const handleTryAgain = (): void => {
     setResult(null);
     onTryAgain();
   };
+
+  const requestStart = (): void => {
+    if (!showStartPrompt) return;
+    startRef.current?.();
+  };
+
+  useEffect(() => {
+    if (!showStartPrompt) return;
+    startButtonRef.current?.focus();
+  }, [showStartPrompt]);
 
   return (
     <>
@@ -145,21 +161,32 @@ export function GameSurface({ onReady, returnHref, onTryAgain }: Props) {
         <div id="song-storyboard" className="song-storyboard" />
         <canvas className="game-canvas" ref={canvasRef} />
 
-        <button
-          className={`btn-play-stop${btnFaded ? " faded" : ""}`}
-          onClick={() => togglePlayRef.current?.()}
-          disabled={!playerReady || !!result}
-          onMouseEnter={() => {
-            if (btnFadeTimerRef.current !== null) { clearTimeout(btnFadeTimerRef.current); btnFadeTimerRef.current = null; }
-            setBtnFaded(false);
-          }}
-          onMouseLeave={() => {
-            if (playing) btnFadeTimerRef.current = setTimeout(() => setBtnFaded(true), 2000);
-          }}
-        >
-          <img className="icon-play" src={withPath("/images/start-button.svg")} alt="Play" />
-          <img className="icon-stop" src={withPath("/images/stop-button.svg")} alt="Stop" />
-        </button>
+        {showStartPrompt && (
+          <button
+            ref={startButtonRef}
+            className="game-start-surface"
+            type="button"
+            onPointerDown={requestStart}
+            onKeyDown={(e) => {
+              if (e.key !== "Enter" && e.key !== " ") return;
+              e.preventDefault();
+              requestStart();
+            }}
+            aria-label={lang === "jp" ? "開始" : "Start"}
+          >
+            <span className="game-start-label">{lang === "jp" ? "開始" : "Start"}</span>
+          </button>
+        )}
+
+        {showBreakSkip && (
+          <button
+            className="game-break-skip"
+            type="button"
+            onClick={() => skipBreakRef.current?.()}
+          >
+            {breakSkipLabel}
+          </button>
+        )}
 
         <div className={`game-song-info${infoFaded ? " faded" : ""}`}>
           <span className="game-song-name">{displayName}</span>
