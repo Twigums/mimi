@@ -74,7 +74,7 @@ The setting persists across sessions.
 
 Gameplay starts from an intentional player gesture on the game surface, such as a click, tap, or keyboard input. The song page does not keep a persistent play/stop button over the chart. If browser media rules block the first playback request, the game surface may continue to present a start affordance until another gesture successfully starts the song.
 
-When a chart contains long spans with no notes, the game may offer a skip action. This applies to the intro before the first note, gaps between notes, and the outro after the final note. Break skipping must always require an intentional player action; playback must not automatically seek over a break. Skips must preserve enough lead-in for the next note to approach visibly and safely within the judgement window. Seeking over a no-note gap must not generate misses; note judgement resumes from the normal TextAlive player position after the seek.
+When a chart contains long spans with no notes, the game may offer a skip action. This applies to the intro before the first note, gaps between notes, and the outro after the final note. A skip action is only offered when the remaining no-note span is at least 3 seconds long. Break skipping must always require an intentional player action; playback must not automatically seek over a break. Skips must preserve enough lead-in for the next note to approach visibly and safely within the judgement window. Seeking over a no-note gap must not generate misses; note judgement resumes from the normal TextAlive player position after the seek.
 
 ## Mods
 Mods are optional gameplay modifiers toggled from the options panel under the **Mods** section.
