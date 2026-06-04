@@ -5,7 +5,7 @@ import type { TextAliveChar, TextAlivePlayer, TextAlivePlayerOptions, TextAliveV
 
 const JUDGEMENT_WINDOW_MS      = 100;
 const GAP_SKIP_SAFETY_MS      = 120;
-const GAP_SKIP_MIN_ADVANCE_MS = 500;
+const GAP_SKIP_MIN_BREAK_MS   = 3000;
 
 export type BreakSkipKind = "gap" | "finish";
 
@@ -283,10 +283,16 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPla
     return lo;
   };
 
-  const makeBreakSkipTarget = (fromSongMs: number, targetSongMs: number, kind: BreakSkipKind): BreakSkipTarget | null => {
+  const makeBreakSkipTarget = (
+    fromSongMs: number,
+    targetSongMs: number,
+    breakRemainingMs: number,
+    kind: BreakSkipKind,
+  ): BreakSkipTarget | null => {
     if (songLengthMs <= 0) return null;
+    if (breakRemainingMs < GAP_SKIP_MIN_BREAK_MS) return null;
     const clampedTarget = Math.max(0, Math.min(songLengthMs, Math.floor(targetSongMs)));
-    if (clampedTarget - fromSongMs < GAP_SKIP_MIN_ADVANCE_MS) return null;
+    if (clampedTarget <= fromSongMs) return null;
     return { kind, targetSongMs: clampedTarget };
   };
 
@@ -294,7 +300,7 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPla
     if (!playerReady || !player || !isPlaying || finished || !chartLoaded) return null;
 
     if (noteTimes.length === 0) {
-      return makeBreakSkipTarget(songMs, songLengthMs, "finish");
+      return makeBreakSkipTarget(songMs, songLengthMs, songLengthMs - songMs, "finish");
     }
 
     const nextIndex = findNextJudgableNoteIndex(gameSongMs);
@@ -302,12 +308,17 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPla
 
     if (nextNoteTime !== undefined) {
       if (nextNoteTime <= gameSongMs + JUDGEMENT_WINDOW_MS) return null;
-      return makeBreakSkipTarget(songMs, nextNoteTime - gapSkipLeadInMs - musicOffsetMs, "gap");
+      return makeBreakSkipTarget(
+        songMs,
+        nextNoteTime - gapSkipLeadInMs - musicOffsetMs,
+        nextNoteTime - gameSongMs,
+        "gap",
+      );
     }
 
     const lastNoteTime = noteTimes[noteTimes.length - 1];
     if (songLengthMs > 0 && gameSongMs > lastNoteTime + JUDGEMENT_WINDOW_MS) {
-      return makeBreakSkipTarget(songMs, songLengthMs, "finish");
+      return makeBreakSkipTarget(songMs, songLengthMs, songLengthMs - songMs, "finish");
     }
 
     return null;
