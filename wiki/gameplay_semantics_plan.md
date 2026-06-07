@@ -15,63 +15,49 @@ The proposed direction is to treat mimi as a small gesture-rhythm game. Notes sh
 
 The result should be a single ruleset that feels fair from Easy through Expert. Difficulty should come from chart density, rhythm vocabulary, pathing, spacing, and note combinations, not hidden judgement changes.
 
-## Design Goals And Why
+## Design Goal Priorities
 
-### 1. Make every note type have a physical meaning
+The design priorities are split into gameplay design and player feedback. Gameplay design comes first because it defines what the player is actually doing; player feedback exists to make those rules legible, satisfying, and learnable.
 
-The player should not have to remember arbitrary input flags. If a note type exists, it should ask for a different kind of musical motion.
+### Gameplay Design
 
-Why: the removed click requirement made the old click-vs-stream distinction weak. Keeping meaningless distinctions makes the game harder to learn and harder to chart well.
+#### 1. Make every note type have a physical meaning
 
-### 2. Use one judgement ruleset for every difficulty
+The player should not have to remember arbitrary input flags. If a note type exists, it should ask for a different kind of musical motion: cut through an arrow, flow through a phrase, or catch a lyric accent. Those notes can judge different qualities, but only because the physical verbs are genuinely different.
 
-Timing windows, gesture thresholds, scoring, and grade math should not change by difficulty.
+Why: the removed click requirement made the old click-vs-stream distinction weak. Keeping meaningless distinctions makes the game harder to learn and harder to chart well. Lyric notes already prove that mimi wants note-specific physical contracts; the rest of the ruleset should be just as honest about what each note is asking the player to do.
 
-Why: players should be able to trust that an A on Easy and an A on Hard use the same engine. Difficulty should be authored in the chart, not smuggled into the rules.
-
-### 3. Judge gestures, not isolated collisions
+#### 2. Judge gestures, not isolated collisions
 
 A hit should be based on a short motion phrase around the note: approach, contact, direction, travel, and follow-through.
 
 Why: a rhythm game about cursor movement should reward intentional motion. A one-frame center crossing is easy to implement, but it does not describe why a swipe felt good or bad.
 
-### 4. Separate acceptance from mastery
-
-The outer successful window should be broad enough to keep a beginner in the song, while the top judgement remains strict enough for expert play.
-
-Why: beginners need flow and trust; experienced players need a ceiling. Layered judgements let both coexist without difficulty-specific logic.
-
-### 5. Make feedback sensory first, textual second
-
-The player should primarily feel the result through burst shape, color, brightness, sound, timing nudge, and result breakdown. Text labels can exist, especially for beginners, but they should not be the main teaching channel.
-
-Why: judgement words on a busy playfield are not the fun part. Good feedback should be readable in peripheral vision and audible in rhythm.
-
-### 6. Let note types carry different semantics
-
-Directional cuts, lyric accents, and flow phrases can judge different qualities while sharing the same global timing and scoring model.
-
-Why: lyric notes are already a different physical idea. The design should embrace that instead of forcing every note into the same arrow-crossing rule.
-
-### 7. Make grades match player intuition
-
-For a player on an appropriate chart, A should mean "I played well", B should mean "okay, but clearly rough", and C should mean "I did not really get it yet."
-
-Why: grades are emotional feedback. If grade thresholds do not match player self-assessment, results feel arbitrary even when the math is consistent.
-
-### 8. Make anti-mashing emerge from gesture quality
+#### 3. Make anti-mashing emerge from gesture quality
 
 Random motion should not be optimal because it lacks timing, contact, direction, and follow-through, not because the game silently ignores most inputs.
 
 Why: good anti-mash design should make sloppy play visibly and audibly low quality. It should not make the rules feel brittle.
 
-## Resolved Positions For This Proposal
+#### 4. Separate acceptance from mastery with one ruleset
 
-- Use four successful judgement tiers plus miss. The final display names are not important yet.
-- Use one ruleset across all difficulties. No difficulty-dependent judgement logic.
-- Allow note types to carry different physical contracts.
-- Remove the ordinary mouse-button hold requirement from the core ruleset. If a future note needs a press, it should be its own clearly signaled note type.
-- Keep combo behavior open for implementation feedback. Accuracy and grade should carry the main performance meaning either way.
+The outer successful window should be broad enough to keep a beginner in the song, while the top judgement remains strict enough for expert play. That acceptance/mastery split should be the same on every difficulty: timing windows, gesture thresholds, scoring, and grade math should not change between Easy, Normal, Hard, and Expert.
+
+Why: beginners need flow and trust; experienced players need a ceiling. Layered judgements let both coexist, and a single ruleset keeps the meaning of those layers stable. Players should be able to trust that an A on Easy and an A on Hard use the same engine; difficulty should be authored in the chart, not smuggled into the rules.
+
+### Player Feedback
+
+#### 5. Make feedback sensory first, textual second
+
+The player should primarily feel the result through burst shape, color, brightness, sound, timing nudge, and result breakdown. Text labels can exist, especially for beginners, but they should not be the main teaching channel.
+
+Why: judgement words on a busy playfield are not the fun part. Good feedback should be readable in peripheral vision and audible in rhythm.
+
+#### 6. Make grades match player intuition
+
+For a player on an appropriate chart, A should mean "I played well", B should mean "okay, but clearly rough", and C should mean "I did not really get it yet."
+
+Why: grades are emotional feedback. If grade thresholds do not match player self-assessment, results feel arbitrary even when the math is consistent.
 
 ## Research Pass 1 Notes
 
