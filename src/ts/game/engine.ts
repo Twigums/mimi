@@ -1,39 +1,27 @@
-import { angleDiff, clamp } from "../core/utils";
+import { clamp } from "../core/utils";
 import { drawArrow, drawLyricNote, drawFireworks, drawFlowRibbon } from "./draw";
 import { arToMs, loadAr, loadHitsoundVolume, subscribeHitsoundVolume, volToFactor, loadHiddenMod, subscribeHiddenMod } from "../core/settings";
 import { createCursorRenderer, type CursorRenderer } from "./cursor";
-
-const TIER3_MS               = 30;
-const TIER2_MS               = 60;
-const TIER1_MS               = 120;
-const LYRIC_CHAR_MAX_DIST_MS = 80;
-export const MAX_POINTS      = 100;
-export const TIER3_POINTS    = 100;
-export const TIER2_POINTS    = 90;
-export const TIER1_POINTS    = 50;
+import {
+  FLOW_LINK_MAX_MS,
+  TIER1_MS,
+  type HitResult,
+  type HitTiming,
+  type MissReason,
+  type NoteKind,
+  type PointerSample,
+  judgeGesture,
+  timingFor,
+} from "./judgement";
+export { MAX_POINTS, TIER1_POINTS, TIER2_POINTS, TIER3_POINTS } from "./judgement";
 
 export const LOGICAL_W = 800;
 export const LOGICAL_H = 600;
 
-const CUT_DIRECTION_TIER3 = 25 * Math.PI / 180;
-const CUT_DIRECTION_TIER2 = 45 * Math.PI / 180;
-const CUT_DIRECTION_TIER1 = 70 * Math.PI / 180;
-const CUT_CONTACT_TIER3   = 45;
-const CUT_CONTACT_TIER2   = 75;
-const CUT_CONTACT_TIER1   = 110;
-const CUT_TRAVEL_TIER3    = 70;
-const CUT_TRAVEL_TIER2    = 40;
-const CUT_TRAVEL_TIER1    = 20;
-const FLOW_LINK_MAX_MS    = 700;
-const FLOW_CONT_TIER3     = 30 * Math.PI / 180;
-const FLOW_CONT_TIER2     = 55 * Math.PI / 180;
-const FLOW_CONT_TIER1     = 85 * Math.PI / 180;
+const LYRIC_CHAR_MAX_DIST_MS = 80;
 
-export type NoteKind   = "cut" | "flow" | "lyric";
-export type HitResult  = "tier3" | "tier2" | "tier1" | "miss";
 type NoteState         = "pending" | "hit" | "missed";
-export type HitTiming  = "early" | "late" | "on";
-export type MissReason = "timing" | "contact" | "direction" | "travel" | "continuity";
+export type { HitResult, HitTiming, MissReason, NoteKind } from "./judgement";
 
 export interface Note {
   kind: NoteKind;
@@ -56,13 +44,6 @@ export interface HitDetail {
   x: number;
   y: number;
   missReason?: MissReason;
-}
-
-interface PointerSample {
-  x: number;
-  y: number;
-  songMs: number;
-  wallMs: number;
 }
 
 interface HitAnimation {
@@ -233,81 +214,6 @@ export function createGame(deps: GameDeps): GameHandle {
     while (pointerSamples.length > 12) pointerSamples.shift();
   };
 
-  const interpolateSongMs = (prev: PointerSample, curr: PointerSample, t: number): number => {
-    return prev.songMs + (curr.songMs - prev.songMs) * clamp(t, 0, 1);
-  };
-
-  const getGesturePhrase = (note: Note): {
-    travel: number;
-    direction: number;
-    impactSongMs: number;
-    contactDistance: number;
-  } | null => {
-    if (pointerSamples.length < 2) return null;
-    const windowStart = note.time - TIER1_MS;
-    const windowEnd = note.time + TIER1_MS;
-
-    let firstPoint: { x: number; y: number; songMs: number } | null = null;
-    let lastPoint: { x: number; y: number; songMs: number } | null = null;
-    let totalTravel = 0;
-    let bestContactDistance = Infinity;
-    let impactSongMs = note.time;
-
-    for (let i = 0; i < pointerSamples.length - 1; i++) {
-      const prev = pointerSamples[i];
-      const curr = pointerSamples[i + 1];
-      if (curr.songMs < windowStart || prev.songMs > windowEnd) continue;
-
-      const segmentStartMs = Math.max(prev.songMs, windowStart);
-      const segmentEndMs = Math.min(curr.songMs, windowEnd);
-      const segmentDuration = curr.songMs - prev.songMs;
-      if (segmentDuration <= 0) continue;
-
-      const segmentStartT = (segmentStartMs - prev.songMs) / segmentDuration;
-      const segmentEndT = (segmentEndMs - prev.songMs) / segmentDuration;
-      const segmentDx = curr.x - prev.x;
-      const segmentDy = curr.y - prev.y;
-      const startX = prev.x + segmentStartT * segmentDx;
-      const startY = prev.y + segmentStartT * segmentDy;
-      const endX = prev.x + segmentEndT * segmentDx;
-      const endY = prev.y + segmentEndT * segmentDy;
-      const startSongMs = segmentStartMs;
-      const endSongMs = segmentEndMs;
-
-      if (!firstPoint || startSongMs < firstPoint.songMs) {
-        firstPoint = { x: startX, y: startY, songMs: startSongMs };
-      }
-      if (!lastPoint || endSongMs > lastPoint.songMs) {
-        lastPoint = { x: endX, y: endY, songMs: endSongMs };
-      }
-
-      const segmentTravel = Math.hypot(endX - startX, endY - startY);
-      totalTravel += segmentTravel;
-
-      const segmentLenSq = segmentTravel * segmentTravel;
-      const t = segmentLenSq === 0 ? 0 : clamp(
-        ((note.x - startX) * (endX - startX) + (note.y - startY) * (endY - startY)) / segmentLenSq,
-        0, 1,
-      );
-      const closestX = startX + t * (endX - startX);
-      const closestY = startY + t * (endY - startY);
-      const contactDistance = Math.hypot(closestX - note.x, closestY - note.y);
-      if (contactDistance < bestContactDistance) {
-        bestContactDistance = contactDistance;
-        impactSongMs = startSongMs + (endSongMs - startSongMs) * t;
-      }
-    }
-
-    if (!firstPoint || !lastPoint) return null;
-
-    return {
-      travel: totalTravel,
-      direction: Math.atan2(lastPoint.y - firstPoint.y, lastPoint.x - firstPoint.x),
-      impactSongMs,
-      contactDistance: bestContactDistance,
-    };
-  };
-
   const populateLyricChars = (): void => {
     if (!lyricCharLookup) return;
     for (const note of notes) {
@@ -344,53 +250,6 @@ export function createGame(deps: GameDeps): GameHandle {
     }
   };
 
-  const timingFor = (deltaMs: number): HitTiming => {
-    if (deltaMs < 0) return "early";
-    if (deltaMs > 0) return "late";
-    return "on";
-  };
-
-  const scoreFor = (deltaMs: number): { result: HitResult; points: number } => {
-    const d = Math.abs(deltaMs);
-    if (d <= TIER3_MS) return { result: "tier3", points: TIER3_POINTS };
-    if (d <= TIER2_MS) return { result: "tier2", points: TIER2_POINTS };
-    if (d <= TIER1_MS) return { result: "tier1", points: TIER1_POINTS };
-    return { result: "miss", points: 0 };
-  };
-
-  const tierRank = (result: HitResult): number => {
-    if (result === "tier3") return 3;
-    if (result === "tier2") return 2;
-    if (result === "tier1") return 1;
-    return 0;
-  };
-
-  const minTier = (a: HitResult, b: HitResult): HitResult => {
-    return tierRank(a) <= tierRank(b) ? a : b;
-  };
-
-  const capUpper = (value: number, tier3: number, tier2: number, tier1: number): HitResult => {
-    if (value <= tier3) return "tier3";
-    if (value <= tier2) return "tier2";
-    if (value <= tier1) return "tier1";
-    return "miss";
-  };
-
-  const capLower = (value: number, tier3: number, tier2: number, tier1: number): HitResult => {
-    if (value >= tier3) return "tier3";
-    if (value >= tier2) return "tier2";
-    if (value >= tier1) return "tier1";
-    return "miss";
-  };
-
-  const flowContinuityCap = (note: Note, moveAngle: number): HitResult => {
-    if (note.flowPrevIndex === undefined) return "tier3";
-    const prev = notes[note.flowPrevIndex];
-    if (!prev || prev.state !== "hit" || prev.hitResult === "miss") return "tier1";
-    const pathAngle = Math.atan2(note.y - prev.y, note.x - prev.x);
-    return capUpper(Math.abs(angleDiff(moveAngle, pathAngle)), FLOW_CONT_TIER3, FLOW_CONT_TIER2, FLOW_CONT_TIER1);
-  };
-
   const resolveMiss = (note: Note, offsetMs: number, reason: MissReason): void => {
     note.state = "missed";
     note.hitResult = "miss";
@@ -412,45 +271,16 @@ export function createGame(deps: GameDeps): GameHandle {
   const tryHit = (note: Note, songMs: number): void => {
     if (note.state !== "pending") return;
 
-    const gesture = getGesturePhrase(note);
-    if (!gesture) return;
+    const prevFlow = note.flowPrevIndex === undefined ? undefined : notes[note.flowPrevIndex];
+    const attempt = judgeGesture(note, pointerSamples, prevFlow);
+    if (attempt.status !== "judged") return;
 
-    let impactSongMs = gesture.impactSongMs;
-    let gestureCap: HitResult = "tier3";
-    let missReason: MissReason | null = null;
-
-    if (gesture.contactDistance > CUT_CONTACT_TIER1) return;
-    gestureCap = minTier(gestureCap, capUpper(gesture.contactDistance, CUT_CONTACT_TIER3, CUT_CONTACT_TIER2, CUT_CONTACT_TIER1));
-
-    const travelCap = capLower(gesture.travel, CUT_TRAVEL_TIER3, CUT_TRAVEL_TIER2, CUT_TRAVEL_TIER1);
-    if (travelCap === "miss") missReason = "travel";
-    else gestureCap = minTier(gestureCap, travelCap);
-
-    if (note.kind !== "lyric") {
-      const directionError = Math.abs(angleDiff(gesture.direction, note.direction));
-      const directionCap = capUpper(directionError, CUT_DIRECTION_TIER3, CUT_DIRECTION_TIER2, CUT_DIRECTION_TIER1);
-      if (directionCap === "miss") missReason = "direction";
-      else gestureCap = minTier(gestureCap, directionCap);
-
-      if (note.kind === "flow") {
-        const continuityCap = flowContinuityCap(note, gesture.direction);
-        if (continuityCap === "miss") missReason = "continuity";
-        else gestureCap = minTier(gestureCap, continuityCap);
-      }
-    }
-
-    const offsetMs = impactSongMs - note.time;
-    if (Math.abs(offsetMs) > TIER1_MS) return;
-    if (missReason) {
-      resolveMiss(note, offsetMs, missReason);
+    const { result, points, offsetMs, timing, missReason } = attempt.judgement;
+    if (result === "miss") {
+      resolveMiss(note, offsetMs, missReason ?? "timing");
       return;
     }
-    const timingScore = scoreFor(offsetMs);
-    const result = minTier(timingScore.result, gestureCap);
-    const points = result === "tier3" ? TIER3_POINTS
-      : result === "tier2" ? TIER2_POINTS
-      : result === "tier1" ? TIER1_POINTS
-      : 0;
+
     note.state = "hit";
     note.hitResult = result;
     if (result === "tier3") tier3Count++;
@@ -474,7 +304,7 @@ export function createGame(deps: GameDeps): GameHandle {
       result,
       kind: note.kind,
       offsetMs,
-      timing: timingFor(offsetMs),
+      timing,
       x: note.x,
       y: note.y,
     });
