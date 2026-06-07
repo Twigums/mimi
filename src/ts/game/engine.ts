@@ -3,20 +3,25 @@ import { drawArrow, drawLyricNote, drawFireworks, NOTE_RADIUS, LYRIC_RADIUS, NOT
 import { arToMs, loadAr, loadHitsoundVolume, subscribeHitsoundVolume, volToFactor, loadHiddenMod, subscribeHiddenMod } from "../core/settings";
 import { createCursorRenderer, type CursorRenderer } from "./cursor";
 
-const PERFECT_MS             = 32;
-const GOOD_MS                = 100;
+const TIER3_MS               = 30;
+const TIER2_MS               = 60;
+const TIER1_MS               = 120;
 const LYRIC_CHAR_MAX_DIST_MS = 80;
-export const PERFECT_POINTS  = 5;
-export const GOOD_POINTS     = 2;
+export const MAX_POINTS      = 100;
+export const TIER3_POINTS    = 100;
+export const TIER2_POINTS    = 90;
+export const TIER1_POINTS    = 50;
 
 export const LOGICAL_W = 800;
 export const LOGICAL_H = 600;
 
 const ANGULAR_MARGIN = Math.PI / 6;
 
-type NoteKind          = "flick" | "stream" | "lyric";
-export type HitResult  = "perfect" | "good" | "miss";
+export type NoteKind   = "cut" | "flow" | "lyric";
+export type HitResult  = "tier3" | "tier2" | "tier1" | "miss";
 type NoteState         = "pending" | "hit" | "missed";
+export type HitTiming  = "early" | "late" | "on";
+export type MissReason = "timing" | "contact" | "direction" | "travel" | "continuity";
 
 export interface Note {
   kind: NoteKind;
@@ -29,6 +34,16 @@ export interface Note {
   lyricChar?: string;
 }
 
+export interface HitDetail {
+  result: HitResult;
+  kind: NoteKind;
+  offsetMs: number;
+  timing: HitTiming;
+  x: number;
+  y: number;
+  missReason?: MissReason;
+}
+
 interface HitAnimation {
   x: number;
   y: number;
@@ -39,11 +54,14 @@ interface HitAnimation {
 
 export interface GameStats {
   score: number;
-  perfect: number;
-  good: number;
+  tier3: number;
+  tier2: number;
+  tier1: number;
   miss: number;
   total: number;
   combo: number;
+  maxCombo: number;
+  hits: HitDetail[];
 }
 
 export interface GameHandle {
@@ -169,10 +187,13 @@ export function createGame(deps: GameDeps): GameHandle {
   let animations: HitAnimation[] = [];
   let animStart = 0;
   let score = 0;
-  let perfectCount = 0;
-  let goodCount = 0;
-  let missCount = 0;
+  let tier3Count = 0;
+  let tier2Count = 0;
+  let tier1Count = 0;
+  let missCount  = 0;
   let comboCount = 0;
+  let maxCombo   = 0;
+  let hitDetails: HitDetail[] = [];
 
   let lyricCharLookup: ((timeMs: number) => { text: string; distMs: number } | null) | null = null;
 
@@ -197,16 +218,23 @@ export function createGame(deps: GameDeps): GameHandle {
     }
   };
 
+  const timingFor = (deltaMs: number): HitTiming => {
+    if (deltaMs < 0) return "early";
+    if (deltaMs > 0) return "late";
+    return "on";
+  };
+
   const scoreFor = (deltaMs: number): { result: HitResult; points: number } => {
     const d = Math.abs(deltaMs);
-    if (d <= PERFECT_MS) return { result: "perfect", points: PERFECT_POINTS };
-    if (d <= GOOD_MS)    return { result: "good",    points: GOOD_POINTS    };
+    if (d <= TIER3_MS) return { result: "tier3", points: TIER3_POINTS };
+    if (d <= TIER2_MS) return { result: "tier2", points: TIER2_POINTS };
+    if (d <= TIER1_MS) return { result: "tier1", points: TIER1_POINTS };
     return { result: "miss", points: 0 };
   };
 
   const tryHit = (note: Note, songMs: number): void => {
     if (note.state !== "pending") return;
-    if (Math.abs(songMs - note.time) > GOOD_MS) return;
+    if (Math.abs(songMs - note.time) > TIER1_MS) return;
 
     if (note.kind === "lyric") {
       const moveDx = pointer.x - pointer.prevX;
@@ -239,20 +267,35 @@ export function createGame(deps: GameDeps): GameHandle {
       if (Math.abs(angleDiff(moveAngle, note.direction)) > ANGULAR_MARGIN) return;
     }
 
-    const { result, points } = scoreFor(songMs - note.time);
+    const offsetMs = songMs - note.time;
+    const { result, points } = scoreFor(offsetMs);
     note.state = "hit";
     note.hitResult = result;
-    if (result === "perfect") perfectCount++;
-    else if (result === "good") goodCount++;
+    if (result === "tier3") tier3Count++;
+    else if (result === "tier2") tier2Count++;
+    else if (result === "tier1") tier1Count++;
     if (points > 0) {
       setScore(score + points);
-      comboCount++;
+      if (result === "tier1") {
+        comboCount = 0;
+      } else {
+        comboCount++;
+        maxCombo = Math.max(maxCombo, comboCount);
+      }
       onComboChange(comboCount);
       animations.push({
         x: note.x, y: note.y, kind: note.kind, startMs: songMs,
         seed: Math.floor(note.x * 7919 + note.y * 6271),
       });
     }
+    hitDetails.push({
+      result,
+      kind: note.kind,
+      offsetMs,
+      timing: timingFor(offsetMs),
+      x: note.x,
+      y: note.y,
+    });
     onFeedback(result, note.x, note.y);
     playHitSound();
   };
@@ -262,12 +305,21 @@ export function createGame(deps: GameDeps): GameHandle {
     for (let i = pendingStart; i < notes.length; i++) {
       const n = notes[i];
       if (n.state !== "pending") continue;
-      if (songMs - n.time <= GOOD_MS) break;
+      if (songMs - n.time <= TIER1_MS) break;
       n.state = "missed";
       n.hitResult = "miss";
       missCount++;
       comboCount = 0;
       onComboChange(0);
+      hitDetails.push({
+        result: "miss",
+        kind: n.kind,
+        offsetMs: songMs - n.time,
+        timing: "late",
+        x: n.x,
+        y: n.y,
+        missReason: "timing",
+      });
       onFeedback("miss", n.x, n.y);
     }
   };
@@ -281,7 +333,7 @@ export function createGame(deps: GameDeps): GameHandle {
       if (note.state !== "pending") continue;
       const dt = note.time - songMs;
       if (dt > approachMs) break;
-      if (dt < -GOOD_MS) continue;
+      if (dt < -TIER1_MS) continue;
       const appearProgress = clamp(1 - dt / approachMs, 0, 1);
       if (note.kind === "lyric") {
         drawLyricNote(ctx, note, appearProgress, scale, hiddenMod);
@@ -317,10 +369,13 @@ export function createGame(deps: GameDeps): GameHandle {
       animations = [];
       animStart = 0;
       setScore(0);
-      perfectCount = 0;
-      goodCount    = 0;
-      missCount    = 0;
-      comboCount   = 0;
+      tier3Count = 0;
+      tier2Count = 0;
+      tier1Count = 0;
+      missCount  = 0;
+      comboCount = 0;
+      maxCombo   = 0;
+      hitDetails = [];
       onComboChange(0);
       onPlayingChange(false);
     },
@@ -332,11 +387,14 @@ export function createGame(deps: GameDeps): GameHandle {
     getStats(): GameStats {
       return {
         score,
-        perfect: perfectCount,
-        good:    goodCount,
+        tier3:   tier3Count,
+        tier2:   tier2Count,
+        tier1:   tier1Count,
         miss:    missCount,
-        total:   perfectCount + goodCount + missCount,
+        total:   tier3Count + tier2Count + tier1Count + missCount,
         combo:   comboCount,
+        maxCombo,
+        hits:    hitDetails.slice(),
       };
     },
 
@@ -348,7 +406,7 @@ export function createGame(deps: GameDeps): GameHandle {
       // Only check notes within the hit window; notes are time-sorted so break early
       for (let i = pendingStart; i < notes.length; i++) {
         const n = notes[i];
-        if (n.time > songMs + GOOD_MS) break;
+        if (n.time > songMs + TIER1_MS) break;
         if (n.state === "pending") tryHit(n, songMs);
       }
       if (skipExpiry) {

@@ -1,5 +1,5 @@
 import type { GameStats } from "./engine";
-import { PERFECT_POINTS, GOOD_POINTS } from "./engine";
+import { MAX_POINTS } from "./engine";
 
 export type Grade = "SSS" | "SS" | "S" | "A" | "B" | "C" | "F";
 
@@ -17,5 +17,5 @@ export function computeGrade(stats: GameStats): Grade {
 
 export function computeAccuracy(stats: GameStats): number {
   if (stats.total === 0) return 0;
-  return (stats.perfect * PERFECT_POINTS + stats.good * GOOD_POINTS) / (stats.total * PERFECT_POINTS);
+  return stats.score / (stats.total * MAX_POINTS);
 }

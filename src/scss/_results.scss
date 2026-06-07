@@ -86,9 +86,10 @@
   margin-top: 0.25rem;
   font-size: 0.8rem;
 
-  &__perfect { color: var(--color-perfect); }
-  &__good    { color: var(--color-good); }
-  &__miss    { color: var(--color-miss); }
+  &__tier3 { color: var(--color-perfect); }
+  &__tier2 { color: var(--color-good); }
+  &__tier1 { color: rgba(255, 255, 255, 0.82); }
+  &__miss  { color: var(--color-miss); }
 }
 
 .results-actions {

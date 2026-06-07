@@ -4,8 +4,8 @@ import { computeGrade, computeAccuracy } from "../game/grade";
 import { shareResult } from "../song/share";
 import type { GameStats } from "../game/engine";
 
-const LABELS_EN = { title: "Results", score: "Score", accuracy: "Accuracy", perfect: "Perfect", good: "Good", miss: "Miss", share: "Share", copied: "Copied!", failed: "Failed", tryAgain: "Try Again", back: "Back" };
-const LABELS_JP = { title: "リザルト", score: "スコア", accuracy: "精度", perfect: "パーフェクト", good: "グッド", miss: "ミス", share: "シェア", copied: "コピー済み！", failed: "失敗", tryAgain: "やり直す", back: "戻る" };
+const LABELS_EN = { title: "Results", score: "Score", accuracy: "Accuracy", tier3: "Tier 3", tier2: "Tier 2", tier1: "Tier 1", miss: "Miss", share: "Share", copied: "Copied!", failed: "Failed", tryAgain: "Try Again", back: "Back" };
+const LABELS_JP = { title: "リザルト", score: "スコア", accuracy: "精度", tier3: "Tier 3", tier2: "Tier 2", tier1: "Tier 1", miss: "ミス", share: "シェア", copied: "コピー済み！", failed: "失敗", tryAgain: "やり直す", back: "戻る" };
 
 interface Props {
   stats: GameStats;
@@ -52,8 +52,9 @@ export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, artist
             <span className="results-stat__value">{pct}%</span>
           </div>
           <div className="results-breakdown">
-            <span className="results-breakdown__perfect">{labels.perfect}: {stats.perfect}</span>
-            <span className="results-breakdown__good">{labels.good}: {stats.good}</span>
+            <span className="results-breakdown__tier3">{labels.tier3}: {stats.tier3}</span>
+            <span className="results-breakdown__tier2">{labels.tier2}: {stats.tier2}</span>
+            <span className="results-breakdown__tier1">{labels.tier1}: {stats.tier1}</span>
             <span className="results-breakdown__miss">{labels.miss}: {stats.miss}</span>
           </div>
         </div>

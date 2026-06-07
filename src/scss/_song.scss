@@ -587,9 +587,10 @@ html.theme-dark .game-frame .frame-star {
   text-shadow: 0 0 8px rgba(0, 0, 0, 0.7);
   animation: hit-feedback-pop 0.6s var(--motion-ease-standard) forwards;
 
-  &.hit-perfect { color: var(--color-perfect); }
-  &.hit-good    { color: var(--color-good); }
-  &.hit-miss    { color: var(--color-miss); }
+  &.hit-tier3 { color: var(--color-perfect); }
+  &.hit-tier2 { color: var(--color-good); }
+  &.hit-tier1 { color: rgba(255, 255, 255, 0.8); }
+  &.hit-miss  { color: var(--color-miss); }
 }
 
 @keyframes hit-feedback-pop {

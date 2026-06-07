@@ -11,6 +11,13 @@ import { GameFrame, useElementSize } from "./GameFrame";
 
 let _toastId = 0;
 
+const FEEDBACK_LABEL: Record<HitResult, string> = {
+  tier3: "T3",
+  tier2: "T2",
+  tier1: "T1",
+  miss:  "MISS",
+};
+
 interface FeedbackToast {
   id: number;
   result: HitResult;
@@ -217,7 +224,7 @@ export function GameSurface({ onReady, returnHref, onTryAgain }: Props) {
               top:  `${(f.y / LOGICAL_H) * 100}%`,
             }}
           >
-            {f.result.toUpperCase()}
+            {FEEDBACK_LABEL[f.result]}
           </div>
         ))}
 
