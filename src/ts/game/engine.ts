@@ -44,6 +44,14 @@ export interface HitDetail {
   missReason?: MissReason;
 }
 
+interface PointerSample {
+  x: number;
+  y: number;
+  songMs: number;
+  wallMs: number;
+  held: boolean;
+}
+
 interface HitAnimation {
   x: number;
   y: number;
@@ -152,6 +160,7 @@ export function createGame(deps: GameDeps): GameHandle {
   const pointer = { x: 0, y: 0, prevX: 0, prevY: 0, held: false };
   const keysHeld = new Set<string>();
   const actionHeld = (): boolean => pointer.held || keysHeld.size > 0;
+  const pointerSamples: PointerSample[] = [];
 
   const setPointer = (clientX: number, clientY: number): void => {
     const rect = canvas.getBoundingClientRect();
@@ -203,6 +212,28 @@ export function createGame(deps: GameDeps): GameHandle {
 
   const setScore = (v: number): void => { score = v; onScore(v); };
 
+  const recordPointerSample = (songMs: number): void => {
+    pointerSamples.push({
+      x: pointer.x,
+      y: pointer.y,
+      songMs,
+      wallMs: performance.now(),
+      held: actionHeld(),
+    });
+    while (pointerSamples.length > 12) pointerSamples.shift();
+  };
+
+  const latestPointerSegment = (): { prev: PointerSample; curr: PointerSample } | null => {
+    if (pointerSamples.length < 2) return null;
+    const curr = pointerSamples[pointerSamples.length - 1];
+    const prev = pointerSamples[pointerSamples.length - 2];
+    return { prev, curr };
+  };
+
+  const interpolateSongMs = (prev: PointerSample, curr: PointerSample, t: number): number => {
+    return prev.songMs + (curr.songMs - prev.songMs) * clamp(t, 0, 1);
+  };
+
   const populateLyricChars = (): void => {
     if (!lyricCharLookup) return;
     for (const note of notes) {
@@ -234,40 +265,45 @@ export function createGame(deps: GameDeps): GameHandle {
 
   const tryHit = (note: Note, songMs: number): void => {
     if (note.state !== "pending") return;
-    if (Math.abs(songMs - note.time) > TIER1_MS) return;
+
+    const segment = latestPointerSegment();
+    if (!segment) return;
+    const { prev, curr } = segment;
+    const moveDx = curr.x - prev.x;
+    const moveDy = curr.y - prev.y;
+    const lenSq  = moveDx * moveDx + moveDy * moveDy;
+    if (lenSq < 0.5) return;
+
+    let impactSongMs: number;
 
     if (note.kind === "lyric") {
-      const moveDx = pointer.x - pointer.prevX;
-      const moveDy = pointer.y - pointer.prevY;
-      const lenSq  = moveDx * moveDx + moveDy * moveDy;
-      if (lenSq < 0.5) return;
       const t = clamp(
-        ((note.x - pointer.prevX) * moveDx + (note.y - pointer.prevY) * moveDy) / lenSq,
+        ((note.x - prev.x) * moveDx + (note.y - prev.y) * moveDy) / lenSq,
         0, 1,
       );
-      const closestX = pointer.prevX + t * moveDx;
-      const closestY = pointer.prevY + t * moveDy;
+      const closestX = prev.x + t * moveDx;
+      const closestY = prev.y + t * moveDy;
       if ((closestX - note.x) ** 2 + (closestY - note.y) ** 2 > LYRIC_RADIUS * LYRIC_RADIUS) return;
+      impactSongMs = interpolateSongMs(prev, curr, t);
     } else {
       if (NOTE_STYLE[note.kind].requiresHold && !actionHeld()) return;
       const dx = Math.cos(note.direction);
       const dy = Math.sin(note.direction);
-      const pPrev = (pointer.prevX - note.x) * dx + (pointer.prevY - note.y) * dy;
-      const pCurr = (pointer.x     - note.x) * dx + (pointer.y     - note.y) * dy;
+      const pPrev = (prev.x - note.x) * dx + (prev.y - note.y) * dy;
+      const pCurr = (curr.x - note.x) * dx + (curr.y - note.y) * dy;
       if (pPrev >= 0 || pCurr < 0) return;
-      const perpPrev = -(pointer.prevX - note.x) * dy + (pointer.prevY - note.y) * dx;
-      const perpCurr = -(pointer.x     - note.x) * dy + (pointer.y     - note.y) * dx;
+      const perpPrev = -(prev.x - note.x) * dy + (prev.y - note.y) * dx;
+      const perpCurr = -(curr.x - note.x) * dy + (curr.y - note.y) * dx;
       const t = -pPrev / (pCurr - pPrev);
       const perpAtCross = perpPrev + (perpCurr - perpPrev) * t;
       if (Math.abs(perpAtCross) > NOTE_RADIUS) return;
-      const moveDx = pointer.x - pointer.prevX;
-      const moveDy = pointer.y - pointer.prevY;
-      if (moveDx * moveDx + moveDy * moveDy < 0.5) return;
       const moveAngle = Math.atan2(moveDy, moveDx);
       if (Math.abs(angleDiff(moveAngle, note.direction)) > ANGULAR_MARGIN) return;
+      impactSongMs = interpolateSongMs(prev, curr, t);
     }
 
-    const offsetMs = songMs - note.time;
+    const offsetMs = impactSongMs - note.time;
+    if (Math.abs(offsetMs) > TIER1_MS) return;
     const { result, points } = scoreFor(offsetMs);
     note.state = "hit";
     note.hitResult = result;
@@ -376,6 +412,7 @@ export function createGame(deps: GameDeps): GameHandle {
       comboCount = 0;
       maxCombo   = 0;
       hitDetails = [];
+      pointerSamples.length = 0;
       onComboChange(0);
       onPlayingChange(false);
     },
@@ -403,6 +440,7 @@ export function createGame(deps: GameDeps): GameHandle {
     },
 
     tick(songMs: number): void {
+      recordPointerSample(songMs);
       // Only check notes within the hit window; notes are time-sorted so break early
       for (let i = pendingStart; i < notes.length; i++) {
         const n = notes[i];
