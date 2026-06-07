@@ -1,24 +1,77 @@
 # Gameplay Semantics Tuning Plan
 
-Status: planning RFC, to be committed before implementation.
-Date: 2026-05-29.
+Status: gameplay design proposal, awaiting feedback before implementation.
+Date: 2026-06-07.
 
 This plan is for the gameplay tuning PR whose goal is to make mimi easier to understand quickly, more accessible on first contact, and still satisfying for experienced rhythm-game players chasing precision.
 
-## Design Goal
+## Design Thesis
 
 mimi should get players to the good part of rhythm games faster: learning what the game expects, executing it, and feeling the music answer back.
 
-The game should be contest-friendly and accessible by default. A first-time player should be able to finish a beginner chart and understand why each note did or did not work. An experienced rhythm-game player should be able to read the mechanic quickly, trust the judgement, and find a precision ceiling that cannot be reached by random mashing.
+The current game has the right core instinct: rhythm should be expressed through cursor motion, not keyboard lanes. The problem is that its verbs are still inherited from an earlier version of the design. "Click" no longer means click, "stream" mostly means "same swipe but hold a button", and judgement currently asks whether a single frame crossed a geometric line. That makes the game playable, but not fully coherent.
 
-## Design Principles
+The proposed direction is to treat mimi as a small gesture-rhythm game. Notes should ask the player to perform readable musical motions: cut through a directional target, flow through a connected phrase, or touch a lyric accent. The implementation should judge the gesture as a short motion phrase with timing, contact, direction, and commitment, then answer with visual and audio feedback.
 
-- Leniency should protect song flow; precision should protect mastery.
-- The player should always know the verb: cross the note, on time, in the shown direction when direction exists.
-- Non-perfect feedback should teach the next attempt, not just punish the current one.
-- Difficulty should come primarily from chart density, pathing, rhythm, and note combinations. Stricter semantics may exist, but only through visible profiles or difficulty rules.
-- Extra input should be harmless when it is not solving the chart, but noisy movement should not produce high scores.
-- Accessibility assists should reduce physical barriers without hiding what the game expects.
+The result should be a single ruleset that feels fair from Easy through Expert. Difficulty should come from chart density, rhythm vocabulary, pathing, spacing, and note combinations, not hidden judgement changes.
+
+## Design Goals And Why
+
+### 1. Make every note type have a physical meaning
+
+The player should not have to remember arbitrary input flags. If a note type exists, it should ask for a different kind of musical motion.
+
+Why: the removed click requirement made the old click-vs-stream distinction weak. Keeping meaningless distinctions makes the game harder to learn and harder to chart well.
+
+### 2. Use one judgement ruleset for every difficulty
+
+Timing windows, gesture thresholds, scoring, and grade math should not change by difficulty.
+
+Why: players should be able to trust that an A on Easy and an A on Hard use the same engine. Difficulty should be authored in the chart, not smuggled into the rules.
+
+### 3. Judge gestures, not isolated collisions
+
+A hit should be based on a short motion phrase around the note: approach, contact, direction, travel, and follow-through.
+
+Why: a rhythm game about cursor movement should reward intentional motion. A one-frame center crossing is easy to implement, but it does not describe why a swipe felt good or bad.
+
+### 4. Separate acceptance from mastery
+
+The outer successful window should be broad enough to keep a beginner in the song, while the top judgement remains strict enough for expert play.
+
+Why: beginners need flow and trust; experienced players need a ceiling. Layered judgements let both coexist without difficulty-specific logic.
+
+### 5. Make feedback sensory first, textual second
+
+The player should primarily feel the result through burst shape, color, brightness, sound, timing nudge, and result breakdown. Text labels can exist, especially for beginners, but they should not be the main teaching channel.
+
+Why: judgement words on a busy playfield are not the fun part. Good feedback should be readable in peripheral vision and audible in rhythm.
+
+### 6. Let note types carry different semantics
+
+Directional cuts, lyric accents, and flow phrases can judge different qualities while sharing the same global timing and scoring model.
+
+Why: lyric notes are already a different physical idea. The design should embrace that instead of forcing every note into the same arrow-crossing rule.
+
+### 7. Make grades match player intuition
+
+For a player on an appropriate chart, A should mean "I played well", B should mean "okay, but clearly rough", and C should mean "I did not really get it yet."
+
+Why: grades are emotional feedback. If grade thresholds do not match player self-assessment, results feel arbitrary even when the math is consistent.
+
+### 8. Make anti-mashing emerge from gesture quality
+
+Random motion should not be optimal because it lacks timing, contact, direction, and follow-through, not because the game silently ignores most inputs.
+
+Why: good anti-mash design should make sloppy play visibly and audibly low quality. It should not make the rules feel brittle.
+
+## Resolved Positions For This Proposal
+
+- Use four successful judgement tiers plus miss. The final display names are not important yet.
+- Use one ruleset across all difficulties. No difficulty-dependent judgement logic.
+- Allow note types to carry different physical contracts.
+- Remove the ordinary mouse-button hold requirement from the core ruleset. If a future note needs a press, it should be its own clearly signaled note type.
+- Keep combo behavior open for implementation feedback. Accuracy and grade should carry the main performance meaning either way.
 
 ## Research Pass 1 Notes
 
@@ -93,7 +146,7 @@ The natural parallel is Beat Saber, but the goal is not to copy Beat Saber's sco
   - recoverable flow into the next note
 - Aim should probably be a quality component, not the whole definition of success. If the player makes a satisfying slash near the note, the game should feel like it understood the attempt even when it scores the execution lower.
 - The chart has to set up satisfying gestures. Directional notes need approach space, exit space, and sequence flow; otherwise even a good scoring model will make the player perform cramped corrections instead of musical motion.
-- Different note types can ask for different kinds of "well." A lyric note might reward expressive timing and contact more than angle. A stream note might reward continuity and hold intention. A directional cut note might reward direction, travel, and follow-through.
+- Different note types can ask for different kinds of "well." A lyric note might reward expressive timing and contact more than angle. A flow phrase might reward continuity through a path. A directional cut note might reward direction, travel, and follow-through.
 - This reframes anti-mashing: random motion should not be optimal because it lacks readable direction, timing placement, commitment, and flow, not because the hitbox is arbitrarily strict.
 
 ### Open Gesture Questions
@@ -121,96 +174,258 @@ The current engine behavior is simple and readable:
 - Feedback says only `perfect`, `good`, or `miss`; it does not say early/late, angle, or distance cause.
 - `wiki/how_to_map.md` still says +/- 45 degree tolerance, while `wiki/gameplay.md` and code say +/- 30 degrees.
 
-## Proposed Semantics
+## Proposed Ruleset
 
-### 0. Reward the gesture, not just the collision
+This section is intentionally concrete enough to implement and criticize. The numbers are first-pass targets, not sacred constants.
 
-The basic directional note should be understood as a small musical gesture: prepare, move through the note in the shown direction, and continue enough for the action to feel intentional.
+### 1. Timing tiers
 
-Success should correlate with how satisfying that gesture feels. A strict center-plane crossing is probably too arbitrary to be the whole definition of timing or quality. The semantic target is broader: did the player perform a clear, timely, directional motion that interacted with the note in a way the visual language promised?
+Use four successful tiers plus miss. Labels can be renamed or hidden; the important thing is that each tier has a distinct score, visual effect, and audio response.
 
-### 1. Separate acceptance from precision
+| Internal tier | Timing window | Score weight | Player meaning |
+|---------------|---------------|--------------|----------------|
+| Tier 4 | +/- 30 ms | 100% | Locked in. This is the precision ceiling. |
+| Tier 3 | +/- 60 ms | 80% | Clearly good play. |
+| Tier 2 | +/- 95 ms | 55% | Correct idea, rough execution. |
+| Tier 1 | +/- 140 ms | 25% | Barely accepted. Useful for flow and learning, not for score. |
+| Miss | outside +/- 140 ms, or invalid gesture | 0% | The note's timing or physical contract was not satisfied. |
 
-A note should have two questions:
+Why these numbers:
 
-1. Did the player's gesture satisfy the note?
-2. If yes, how accurately did it satisfy the note?
+- The current top window is +/- 32 ms, so the strict ceiling stays familiar.
+- The current accepted window is +/- 100 ms, so the normal "I hit it" area is not made harsher.
+- The new outer tier gives beginners a little more flow without making low-quality hits valuable.
+- The top two tiers are close enough that expert play still cares about calibration and consistency.
 
-This lets beginner play stay musical without giving away expert scores. A late but intentional swipe can keep the song moving, while top results still require noticeably tighter timing and cleaner gesture execution.
+Accuracy should be `earnedWeight / maxWeight`, not raw point sum divided by a magic constant. Existing grade thresholds can remain the first implementation target:
 
-For now, describe judgement bands qualitatively:
+| Grade | Accuracy |
+|-------|----------|
+| SSS | 100% |
+| SS | >= 99% |
+| S | >= 95% |
+| A | >= 85% |
+| B | >= 70% |
+| C | >= 50% |
+| F | < 50% |
 
-| Band | Meaning |
-|------|---------|
-| Top judgement | Very accurate timing and clean gesture. This is the precision ceiling. |
-| Strong judgement | Clearly correct play, but not top precision. |
-| Accepted judgement | The player understood and performed the note well enough to stay in flow. |
-| Poor accepted judgement | The player was close enough to learn from it, but the result should have low value and should not feel competitively good. |
-| Miss | The player did not satisfy the note's timing or physical intention. |
+This makes A achievable on Easy when the player mostly hits Tier 3/Tier 4 with some Tier 2, while B and C still communicate roughness.
 
-The exact number of judgement bands, names, score values, and combo behavior are intentionally undecided.
+### 2. Gesture quality can cap the timing tier
 
-### 2. Make gesture validity intentional
+Timing picks the best possible tier. Gesture quality can cap it downward or turn it into a miss.
 
-Keep the current "cross through the note" contract, but define it in one place:
+This is the key shift from the current engine. A player who crosses at the perfect time with a tiny sideways twitch did not perform the note well. A player who makes a real cut slightly late should get an accepted result and useful feedback.
 
-- Directional notes: the pointer segment must cross the note center plane from behind to past the arrow direction.
-- Lyric notes: the pointer segment must pass through the lyric interaction circle.
-- The movement segment must exceed a small distance threshold.
-- Directional notes must have enough projected movement in the note direction, not just sideways jitter.
-- Stream notes require a clear held-action intention.
+For the first implementation, evaluate these shared qualities:
 
-This keeps broad timing from turning into all-out mashing.
+| Quality | Used by | Meaning |
+|---------|---------|---------|
+| Impact timing | all notes | When the gesture made musical contact with the note. |
+| Contact | all notes | How close the gesture came to the visual target. |
+| Commitment | all notes | Whether the gesture had enough travel or velocity to read as intentional. |
+| Direction | directional notes | Whether the gesture moved in the shown direction. |
+| Continuity | flow notes | Whether the player kept a connected motion through the phrase. |
 
-### 3. Tune gesture tolerance without hidden surprise
+Suggested first-pass caps:
 
-If tolerance differs by difficulty or note type, it should be visible to the player and map author. A player should not have to reverse-engineer why the same physical motion behaves differently.
+| Problem | Cap |
+|---------|-----|
+| Slightly weak contact, direction, or commitment | max Tier 3 |
+| Noticeably weak contact, direction, or commitment | max Tier 2 |
+| Barely valid contact, direction, or commitment | max Tier 1 |
+| No meaningful motion, no contact, or clearly wrong direction | Miss |
 
-Beginner-friendly tolerance can be relatively wide, especially for note types where the main skill is rhythm and motion rather than exact angle. Higher-level play can demand cleaner timing, cleaner direction, denser patterns, and more intentional holds.
+The exact cap thresholds should be tuned in playtesting, but the engine shape should be built around this idea from the start.
 
-### 4. Feedback must teach
+### 3. Retire "click" as a gameplay concept
 
-Every non-top successful hit should eventually expose at least timing direction:
+Existing `click` notes should become `cut` notes in the design language. A cut is a directional slash through a target. It does not require a mouse click or button hold.
 
-- early
-- late
-- close but low quality
+Cut contract:
 
-Miss feedback should eventually distinguish the likely cause:
+- The cursor motion phrase must pass through the target region.
+- The impact time is interpolated from the cursor trajectory, not approximated by the current animation frame.
+- The motion must have enough travel to read as a cut.
+- The motion direction must broadly match the arrow direction.
+- Follow-through improves quality; lack of follow-through can cap the result.
 
-- too early
-- too late
-- did not cross the note cleanly
-- wrong or unclear direction
-- missing hold intention
+Initial numeric targets:
 
-The goal is not to flood the player with labels. The goal is for the player to understand the next correction.
+| Dimension | Tier 4 target | Valid outer target |
+|-----------|---------------|--------------------|
+| Direction error | <= 15 degrees | <= 50 degrees |
+| Contact distance | near center | within note radius |
+| Total phrase travel | strong pre/post movement | at least one meaningful motion segment |
+| Projected travel along arrow | clearly forward | not sideways-only |
 
-### 5. Results should show learning signal
+Why: this preserves the original "slash in the shown direction" idea while dropping the obsolete click vocabulary.
 
-Add lightweight summary data after the song:
+### 4. Replace button-hold stream semantics with flow semantics
 
-- average timing offset for resolved notes
+Existing `stream` notes should become `flow` notes. A flow phrase is a connected run of timed anchors that asks the player to keep moving through a path. It should not mean "do the same cut while holding a mouse button."
+
+Flow contract:
+
+- Each anchor uses the same global timing tiers.
+- The phrase rewards continuity between anchors.
+- The player should be able to read the intended path from visuals before the phrase begins.
+- Breaking the path, stalling, or teleporting the cursor caps later anchors until motion becomes coherent again.
+- Button hold is not required. If we later want a true hold/press mechanic, it should be introduced as a separate note type with a clear visual language.
+
+First implementation option:
+
+- Keep the existing chart schema temporarily.
+- Treat consecutive `stream` notes as a flow phrase when they are close enough in time.
+- Draw a subtle ribbon between upcoming anchors.
+- Score each anchor individually, but add a continuity cap based on movement from the previous anchor.
+
+More radical later option:
+
+- Add an explicit `flow` chart object with a start time, end time, path, and sampled ticks.
+- Judge continuous path following instead of only judging anchor crossings.
+
+Why: this gives the old stream idea a real musical purpose. It becomes about flow, not about an arbitrary input state.
+
+### 5. Keep lyric notes directionless, but make them expressive
+
+Lyric notes should remain directionless because their fantasy is different: touch the sung character or vocal accent, not cut an arrow.
+
+Lyric contract:
+
+- The cursor motion phrase must pass through the lyric interaction circle.
+- Timing and contact determine the base tier.
+- Direction does not matter.
+- Commitment still matters; a stationary cursor sitting on the glyph should not earn high judgement.
+- The feedback should visually bloom from the character, not reuse arrow-cut effects unchanged.
+
+Why: lyric notes are a good reason to let note types have different semantics. They should feel like catching or brushing the lyric, not like a directionless version of an arrow.
+
+### 6. Candidate-based hit resolution
+
+The current engine tries to resolve a note every frame using only the current pointer segment. The proposed implementation should instead maintain a small input history and resolve gesture candidates.
+
+Implementation shape:
+
+1. Keep a ring buffer of pointer samples: logical x/y, song time, wall time, held state if needed later.
+2. For pending notes inside the outer timing window, detect candidate contact events.
+3. Compute an interpolated impact time from the trajectory.
+4. Keep improving the candidate until the note window closes or the candidate is clearly final.
+5. Resolve the note once with timing tier plus gesture quality caps.
+6. Store detail stats: timing offset, early/late, contact quality, direction quality, commitment quality, final tier.
+
+This allows the engine to understand a gesture as a phrase rather than a single frame. It also gives a principled anti-mash behavior: random movement creates low-quality candidates instead of repeatedly fishing for a perfect segment.
+
+Feedback delay should be kept short. A candidate can produce immediate contact feedback, then final judgement feedback within the outer window. If that feels mushy in practice, resolve earlier for simple cut and lyric notes while keeping the same data model.
+
+### 7. Feedback model
+
+During play, feedback should be mostly sensory:
+
+| Result dimension | Feedback direction |
+|------------------|-------------------|
+| Higher tier | brighter burst, cleaner shape, fuller hitsound |
+| Lower accepted tier | smaller burst, softer or duller hitsound |
+| Early | burst leans or ticks slightly before/left of the note's timing accent |
+| Late | burst leans or ticks slightly after/right of the note's timing accent |
+| Direction issue | cut spark shears or fragments against the arrow direction |
+| Contact issue | burst appears off-center or incomplete |
+| Miss | target dissolves or cracks without the normal hit sound |
+
+Text labels can remain as an accessibility/beginner option, but the default design should not depend on reading judgement words.
+
+Results should show the learning signal that is too noisy for the playfield:
+
+- judgement tier breakdown
+- average timing offset
 - early vs late count
-- judgement breakdown for all tiers
+- direction/contact/commitment issue counts
+- max combo, if combo remains
 
-If most non-perfects are early or late, the results screen can point players toward the existing music offset setting later. This should be phrased as calibration help, not blame.
+If most low-tier hits are early or late, the result screen can gently point toward music offset calibration.
 
-## Deferred Implementation Work
+### 8. Combo and score
 
-Implementation details are intentionally paused until the semantics feel right. Do not lock in exact timing windows, score values, combo rules, profile tables, or engine refactors from this document yet.
+Score and accuracy should be the primary performance signal. Combo can stay, but it should not carry the whole meaning of mastery.
 
-## Workshop Questions
+Recommended first implementation:
 
-- Do we want the new judgement names `Perfect`, `Great`, `Good`, `Near`, `Miss`, or should `Near` be called something more encouraging?
-- Should poor-but-accepted hits preserve combo on beginner charts, or should combo remain a clearer mastery signal?
-- Should early difficulties use visibly wider gesture tolerance, or should all difficulties share gesture tolerance and rely mostly on charting?
-- Should note types carry different tolerance philosophies, like Chunithm-style generous action notes versus stricter intentional swipe notes?
-- What first-run target feels right for the contest entry: "a new player can finish" or "a new player can finish with a C/B while understanding how to improve"?
+- Tier 4, Tier 3, and Tier 2 preserve combo.
+- Tier 1 breaks combo but still awards low score.
+- Miss breaks combo.
 
-## Next Research Passes
+Why: this makes combo a cleaner signal without making barely accepted hits feel identical to misses. This is also easy to revisit after playtesting.
 
-- Chunithm-specific pass: note types, beginner onboarding, judgement display, and why it feels lenient without being trivial.
-- Anti-mashing pass: how music games consume bad input, break combo, drain life, or otherwise prevent random input from becoming optimal.
-- Beginner charting pass: density, pathing, repetition, rhythm vocabulary, and how much the chart can teach without changing engine rules.
-- Feedback pass: what information should appear during play versus on the results screen.
+Alternative to test:
+
+- All accepted tiers preserve combo.
+- Add a separate "clean combo" or "top chain" stat for mastery.
+
+### 9. Charting must carry difficulty
+
+The same rules should feel different across difficulties because charts ask different things.
+
+Easy charting should use:
+
+- fewer simultaneous concepts
+- larger spacing between gestures
+- repeated direction patterns
+- lyric notes as readable anchors
+- flow phrases that teach motion continuity
+- simple rhythms that let the player self-correct
+
+Harder charting should add:
+
+- denser rhythms
+- faster direction changes
+- tighter pathing
+- longer flow phrases
+- more off-beat lyric accents
+- recovery demands after misses or low-quality gestures
+
+No chart should rely on hidden leniency changes.
+
+## Implementation Plan
+
+### Phase 1: Engine vocabulary and stats
+
+- Replace `perfect/good/miss` with four accepted tiers plus miss.
+- Add per-hit detail data: timing offset, early/late, note kind, quality caps, and miss reason.
+- Rework accuracy to use score weight over max weight.
+- Keep the old labels mapped temporarily in the UI so this can ship incrementally.
+
+### Phase 2: Pointer sample buffer and interpolated timing
+
+- Store recent pointer samples with song timestamps.
+- Compute contact/intersection time by interpolation.
+- Stop using the current frame's `songMs` as the hit timestamp.
+- Keep the old hit detection available behind a temporary flag until the new resolver is stable.
+
+### Phase 3: Cut and lyric gesture quality
+
+- Implement cut candidates with direction, contact, commitment, and follow-through caps.
+- Implement lyric candidates with timing, contact, and commitment caps.
+- Remove ordinary hold requirement from directional gameplay.
+- Tune first-pass constants using existing charts.
+
+### Phase 4: Flow phrases
+
+- Group existing `stream` notes into phrases.
+- Add ribbon visuals and continuity scoring.
+- Remove the current stream hold requirement.
+- Decide whether the chart schema needs explicit `flow` objects.
+
+### Phase 5: Feedback and results
+
+- Add tier-specific visual and audio feedback.
+- Add early/late and quality issue data to results.
+- Make text judgement labels optional or visually secondary.
+- Update mapper docs once the rules feel stable.
+
+## Open Questions For Feedback
+
+- Should Tier 1 break combo, or should all accepted hits preserve combo while score/accuracy carry the distinction?
+- Should flow phrases remain anchor-based for this contest version, or should we jump straight to explicit continuous path objects?
+- Are the proposed timing windows too lenient at the outer edge, or does the low 25% weight make that acceptable?
+- Should lyric notes be allowed to trigger from a stationary cursor if the player intentionally placed it early, or should every note require motion?
+- Should cut follow-through be required for validity, or only used as a quality cap?

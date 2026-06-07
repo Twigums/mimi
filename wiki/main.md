@@ -8,6 +8,8 @@ This file serves as a summary/directory of all information in the `/wiki` direct
 
 - `gameplay.md`: Key information about any gameplay exists in this file. Gameplay mechanics, concepts, and core details for the gameplay aspect of the website are specified. Additionally, gameplay visual information is detailed here.
 
+- `gameplay_semantics_plan.md`: Planning RFC for tuning judgement, gesture acceptance, feedback, and accessibility semantics before the implementation PR.
+
 - `how_to_map.md`: Details on the mapping/charting steps and the relevant information regarding what the final map would look like.
 
 - `imie - Answer Me (IOException).osu`: Sample `.osu` file for translating `.osu` to `.mimi`.
