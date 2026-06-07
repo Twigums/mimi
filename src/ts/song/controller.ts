@@ -120,6 +120,7 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPla
   let noteTimes: number[] = [];
   let breakSkipTarget: BreakSkipTarget | null = null;
   let publishedBreakSkipKind: BreakSkipKind | null = null;
+  let reportedLoopError = false;
 
   let isPlaying = false;
 
@@ -325,20 +326,27 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPla
   };
 
   const loop = (): void => {
-    const songMs = player?.timer.position ?? 0;
-    if (songMs > 0) lastSongMs = songMs;
-    game.tick(songMs - musicOffsetMs);
-    if (songMs > 0) storyboard?.update(songMs);
-    setBreakSkipTarget(findBreakSkipTarget(songMs, songMs - musicOffsetMs));
+    try {
+      const songMs = player?.timer.position ?? 0;
+      if (songMs > 0) lastSongMs = songMs;
+      game.tick(songMs - musicOffsetMs);
+      if (songMs > 0) storyboard?.update(songMs);
+      setBreakSkipTarget(findBreakSkipTarget(songMs, songMs - musicOffsetMs));
 
-    if (songLengthMs > 0) {
-      const pct = Math.max(0, Math.min(100, (songMs / songLengthMs) * 100));
-      progressFill.style.width = `${pct}%`;
+      if (songLengthMs > 0) {
+        const pct = Math.max(0, Math.min(100, (songMs / songLengthMs) * 100));
+        progressFill.style.width = `${pct}%`;
 
-      if (songMs >= songLengthMs) triggerFinish();
+        if (songMs >= songLengthMs) triggerFinish();
+      }
+    } catch (err) {
+      if (!reportedLoopError) {
+        reportedLoopError = true;
+        console.error("[mimi] song animation loop failed:", err);
+      }
+    } finally {
+      requestAnimationFrame(loop);
     }
-
-    requestAnimationFrame(loop);
   };
 
   requestAnimationFrame(loop);

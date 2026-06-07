@@ -155,33 +155,23 @@ function clipSamples(pointerSamples: PointerSample[], windowStart: number, windo
   return clipped;
 }
 
-function contactForRange(note: JudgementNote, samples: PointerSample[], startIndex: number, endIndex: number): {
+function contactForSegment(note: JudgementNote, start: PointerSample, end: PointerSample): {
   contactDistance: number;
   impactSongMs: number;
 } {
-  let contactDistance = Infinity;
-  let impactSongMs = note.time;
-
-  for (let i = startIndex; i < endIndex; i++) {
-    const start = samples[i];
-    const end = samples[i + 1];
-    const dx = end.x - start.x;
-    const dy = end.y - start.y;
-    const lenSq = dx * dx + dy * dy;
-    const t = lenSq === 0 ? 0 : clamp(
-      ((note.x - start.x) * dx + (note.y - start.y) * dy) / lenSq,
-      0, 1,
-    );
-    const closestX = start.x + t * dx;
-    const closestY = start.y + t * dy;
-    const distance = Math.hypot(closestX - note.x, closestY - note.y);
-    if (distance < contactDistance) {
-      contactDistance = distance;
-      impactSongMs = start.songMs + (end.songMs - start.songMs) * t;
-    }
-  }
-
-  return { contactDistance, impactSongMs };
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  const lenSq = dx * dx + dy * dy;
+  const t = lenSq === 0 ? 0 : clamp(
+    ((note.x - start.x) * dx + (note.y - start.y) * dy) / lenSq,
+    0, 1,
+  );
+  const closestX = start.x + t * dx;
+  const closestY = start.y + t * dy;
+  return {
+    contactDistance: Math.hypot(closestX - note.x, closestY - note.y),
+    impactSongMs: start.songMs + (end.songMs - start.songMs) * t,
+  };
 }
 
 function missReasonFor(
@@ -211,6 +201,8 @@ function buildCandidate(
   samples: PointerSample[],
   startIndex: number,
   endIndex: number,
+  contactDistance: number,
+  impactSongMs: number,
   previousFlowNote?: PreviousFlowNote,
 ): Candidate {
   const start = samples[startIndex];
@@ -220,7 +212,6 @@ function buildCandidate(
   const travel = Math.hypot(dx, dy);
   const direction = Math.atan2(dy, dx);
   const durationMs = end.songMs - start.songMs;
-  const { contactDistance, impactSongMs } = contactForRange(note, samples, startIndex, endIndex);
   const offsetMs = impactSongMs - note.time;
 
   const timingScore = scoreFor(offsetMs);
@@ -310,8 +301,23 @@ function selectBestCandidate(
 
   let best: Candidate | null = null;
   for (let startIndex = 0; startIndex < samples.length - 1; startIndex++) {
+    let contactDistance = Infinity;
+    let impactSongMs = note.time;
     for (let endIndex = startIndex + 1; endIndex < samples.length; endIndex++) {
-      const candidate = buildCandidate(note, samples, startIndex, endIndex, previousFlowNote);
+      const contact = contactForSegment(note, samples[endIndex - 1], samples[endIndex]);
+      if (contact.contactDistance < contactDistance) {
+        contactDistance = contact.contactDistance;
+        impactSongMs = contact.impactSongMs;
+      }
+      const candidate = buildCandidate(
+        note,
+        samples,
+        startIndex,
+        endIndex,
+        contactDistance,
+        impactSongMs,
+        previousFlowNote,
+      );
       if (isBetterCandidate(candidate, best)) best = candidate;
     }
   }

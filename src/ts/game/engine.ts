@@ -196,6 +196,9 @@ export function createGame(deps: GameDeps): GameHandle {
   let comboCount = 0;
   let maxCombo   = 0;
   let hitDetails: HitDetail[] = [];
+  let reportedUpdateError = false;
+  let reportedDrawError = false;
+  let reportedCursorError = false;
 
   let lyricCharLookup: ((timeMs: number) => { text: string; distMs: number } | null) | null = null;
 
@@ -416,21 +419,42 @@ export function createGame(deps: GameDeps): GameHandle {
 
     tick(songMs: number): void {
       recordPointerSample(songMs);
-      // Only check notes within the hit window; notes are time-sorted so break early
-      for (let i = pendingStart; i < notes.length; i++) {
-        const n = notes[i];
-        if (n.time > songMs + TIER1_MS) break;
-        if (n.state === "pending") tryHit(n, songMs);
+      try {
+        // Only check notes within the hit window; notes are time-sorted so break early
+        for (let i = pendingStart; i < notes.length; i++) {
+          const n = notes[i];
+          if (n.time > songMs + TIER1_MS) break;
+          if (n.state === "pending") tryHit(n, songMs);
+        }
+        if (skipExpiry) {
+          if (songMs <= approachMs) skipExpiry = false;
+        } else {
+          expireMisses(songMs);
+        }
+        // Advance past resolved notes (hit or missed) at the front
+        while (pendingStart < notes.length && notes[pendingStart].state !== "pending") pendingStart++;
+      } catch (err) {
+        if (!reportedUpdateError) {
+          reportedUpdateError = true;
+          console.error("[mimi] gameplay update failed:", err);
+        }
       }
-      if (skipExpiry) {
-        if (songMs <= approachMs) skipExpiry = false;
-      } else {
-        expireMisses(songMs);
+      try {
+        draw(songMs);
+      } catch (err) {
+        if (!reportedDrawError) {
+          reportedDrawError = true;
+          console.error("[mimi] gameplay draw failed:", err);
+        }
       }
-      // Advance past resolved notes (hit or missed) at the front
-      while (pendingStart < notes.length && notes[pendingStart].state !== "pending") pendingStart++;
-      draw(songMs);
-      cursor.render(performance.now());
+      try {
+        cursor.render(performance.now());
+      } catch (err) {
+        if (!reportedCursorError) {
+          reportedCursorError = true;
+          console.error("[mimi] cursor render failed:", err);
+        }
+      }
       pointer.prevX = pointer.x;
       pointer.prevY = pointer.y;
     },
