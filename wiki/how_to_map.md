@@ -61,7 +61,7 @@ The compiler emits runtime notes with `kind`, `time`, `x`, `y`, `direction` in r
 | Kind | Use when |
 |------|----------|
 | `c` Cut | A standalone directional slash |
-| `s` Flow | An anchor in a connected phrase |
+| `s` Flow | An anchor in a connected phrase; consecutive anchors within 700 ms are linked |
 | `l` Lyric | A sung character or directionless vocal accent |
 
 Cut and flow notes do not require a mouse-button or key hold. Flow notes should be placed so the player can read a continuous path through the phrase.

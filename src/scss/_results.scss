@@ -82,6 +82,8 @@
 
 .results-breakdown {
   display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
   gap: 1.2rem;
   margin-top: 0.25rem;
   font-size: 0.8rem;
@@ -90,6 +92,22 @@
   &__tier2 { color: var(--color-good); }
   &__tier1 { color: rgba(255, 255, 255, 0.82); }
   &__miss  { color: var(--color-miss); }
+}
+
+.results-detail {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.35rem 1rem;
+  width: 100%;
+  margin-top: 0.25rem;
+  font-size: 0.74rem;
+  color: rgba(255, 255, 255, 0.68);
+  font-variant-numeric: tabular-nums;
+
+  span {
+    min-width: 0;
+    white-space: nowrap;
+  }
 }
 
 .results-actions {

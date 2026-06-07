@@ -120,11 +120,19 @@ export function createGame(deps: GameDeps): GameHandle {
   let hitSoundBuffer: AudioBuffer | null = null;
   let hitsoundGain: GainNode | null = null;
 
-  const playHitSound = (): void => {
+  const playHitSound = (result: HitResult): void => {
     if (!audioCtx || !hitSoundBuffer || !hitsoundGain) return;
     const source = audioCtx.createBufferSource();
+    const resultGain = audioCtx.createGain();
     source.buffer = hitSoundBuffer;
-    source.connect(hitsoundGain);
+    source.playbackRate.value = result === "tier3" ? 1.08
+      : result === "tier2" ? 1.0
+      : 0.92;
+    resultGain.gain.value = result === "tier3" ? 1.0
+      : result === "tier2" ? 0.85
+      : 0.62;
+    source.connect(resultGain);
+    resultGain.connect(hitsoundGain);
     source.start();
   };
 
@@ -434,7 +442,7 @@ export function createGame(deps: GameDeps): GameHandle {
       y: note.y,
     });
     onFeedback(result, note.x, note.y);
-    playHitSound();
+    playHitSound(result);
   };
 
   const expireMisses = (songMs: number): void => {

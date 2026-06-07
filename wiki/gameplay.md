@@ -37,7 +37,7 @@ The interaction zone is intentionally larger than the visible note. Visual size 
 
 ## Flow Judgement
 
-Flow notes use the same timing tiers as cut notes. Each anchor is scored individually, and continuity through the phrase can cap later anchors when the pointer stalls, breaks path, or jumps between anchors without a readable motion.
+Flow notes use the same timing tiers as cut notes. Consecutive flow anchors within 700 ms are linked into a phrase. Each anchor is scored individually, and continuity through the phrase can cap later anchors when the pointer stalls, breaks path, or jumps between anchors without a readable motion.
 
 ## Lyric Judgement
 
@@ -71,7 +71,7 @@ Tier 3 and Tier 2 results preserve combo. Tier 1 and Miss break combo.
 
 ## Feedback
 
-Hit feedback should be sensory first. Stronger hits should produce brighter visual bursts and fuller sounds. Lower accepted hits should be smaller or softer. Early/late and contact/direction issues should be available in result details without making the playfield depend on reading judgement text.
+Hit feedback should be sensory first. Stronger hits should produce brighter visual bursts and fuller sounds. Lower accepted hits should be smaller or softer. Results include max combo, average timing offset, early/late counts, and issue counts without making the playfield depend on reading judgement text.
 
 ## Approach Rate
 
