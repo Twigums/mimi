@@ -11,13 +11,12 @@ interface NoteColors {
 
 interface NoteStyle {
   colors: NoteColors;
-  requiresHold: boolean;
 }
 
 export const NOTE_STYLE: Record<Note["kind"], NoteStyle> = {
-  cut:   { colors: { base: "255, 82, 82",   darkBase: "191, 62, 62"   }, requiresHold: false },
-  flow:  { colors: { base: "82, 162, 255",  darkBase: "62, 122, 191"  }, requiresHold: false },
-  lyric: { colors: { base: "255, 255, 255", darkBase: "200, 200, 200" }, requiresHold: false },
+  cut:   { colors: { base: "255, 82, 82",   darkBase: "191, 62, 62"   } },
+  flow:  { colors: { base: "82, 162, 255",  darkBase: "62, 122, 191"  } },
+  lyric: { colors: { base: "255, 255, 255", darkBase: "200, 200, 200" } },
 };
 
 // appearProgress: 0 = faint outline just appearing, 1 = fully filled at hit time

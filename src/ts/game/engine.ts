@@ -1,5 +1,5 @@
 import { angleDiff, clamp } from "../core/utils";
-import { drawArrow, drawLyricNote, drawFireworks, NOTE_RADIUS, LYRIC_RADIUS, NOTE_STYLE } from "./draw";
+import { drawArrow, drawLyricNote, drawFireworks } from "./draw";
 import { arToMs, loadAr, loadHitsoundVolume, subscribeHitsoundVolume, volToFactor, loadHiddenMod, subscribeHiddenMod } from "../core/settings";
 import { createCursorRenderer, type CursorRenderer } from "./cursor";
 
@@ -15,7 +15,15 @@ export const TIER1_POINTS    = 50;
 export const LOGICAL_W = 800;
 export const LOGICAL_H = 600;
 
-const ANGULAR_MARGIN = Math.PI / 6;
+const CUT_DIRECTION_TIER3 = 25 * Math.PI / 180;
+const CUT_DIRECTION_TIER2 = 45 * Math.PI / 180;
+const CUT_DIRECTION_TIER1 = 70 * Math.PI / 180;
+const CUT_CONTACT_TIER3   = 45;
+const CUT_CONTACT_TIER2   = 75;
+const CUT_CONTACT_TIER1   = 110;
+const CUT_TRAVEL_TIER3    = 70;
+const CUT_TRAVEL_TIER2    = 40;
+const CUT_TRAVEL_TIER1    = 20;
 
 export type NoteKind   = "cut" | "flow" | "lyric";
 export type HitResult  = "tier3" | "tier2" | "tier1" | "miss";
@@ -49,7 +57,6 @@ interface PointerSample {
   y: number;
   songMs: number;
   wallMs: number;
-  held: boolean;
 }
 
 interface HitAnimation {
@@ -157,9 +164,7 @@ export function createGame(deps: GameDeps): GameHandle {
 
   const getScale = (): number => canvas.width / LOGICAL_W;
 
-  const pointer = { x: 0, y: 0, prevX: 0, prevY: 0, held: false };
-  const keysHeld = new Set<string>();
-  const actionHeld = (): boolean => pointer.held || keysHeld.size > 0;
+  const pointer = { x: 0, y: 0, prevX: 0, prevY: 0 };
   const pointerSamples: PointerSample[] = [];
 
   const setPointer = (clientX: number, clientY: number): void => {
@@ -169,26 +174,18 @@ export function createGame(deps: GameDeps): GameHandle {
   };
 
   const onMouseMove  = (e: MouseEvent): void => setPointer(e.clientX, e.clientY);
-  const onMouseDown  = (e: MouseEvent): void => { setPointer(e.clientX, e.clientY); pointer.held = true; };
-  const onMouseUp    = (): void => { pointer.held = false; };
+  const onMouseDown  = (e: MouseEvent): void => { setPointer(e.clientX, e.clientY); };
   const onTouchMove  = (e: TouchEvent): void => {
     const t = e.touches[0]; if (t) setPointer(t.clientX, t.clientY); e.preventDefault();
   };
   const onTouchStart = (e: TouchEvent): void => {
-    const t = e.touches[0]; if (t) { setPointer(t.clientX, t.clientY); pointer.held = true; } e.preventDefault();
+    const t = e.touches[0]; if (t) setPointer(t.clientX, t.clientY); e.preventDefault();
   };
-  const onTouchEnd   = (): void => { pointer.held = false; };
-  const onKeyDown    = (e: KeyboardEvent): void => { if (!e.repeat) keysHeld.add(e.key); };
-  const onKeyUp      = (e: KeyboardEvent): void => { keysHeld.delete(e.key); };
 
   canvas.addEventListener("mousemove",  onMouseMove);
   canvas.addEventListener("mousedown",  onMouseDown);
-  window.addEventListener("mouseup",    onMouseUp);
   canvas.addEventListener("touchmove",  onTouchMove,  { passive: false });
   canvas.addEventListener("touchstart", onTouchStart, { passive: false });
-  window.addEventListener("touchend",   onTouchEnd);
-  window.addEventListener("keydown",    onKeyDown);
-  window.addEventListener("keyup",      onKeyUp);
   window.addEventListener("resize",     resize);
 
   let notes: Note[] = [];
@@ -218,7 +215,6 @@ export function createGame(deps: GameDeps): GameHandle {
       y: pointer.y,
       songMs,
       wallMs: performance.now(),
-      held: actionHeld(),
     });
     while (pointerSamples.length > 12) pointerSamples.shift();
   };
@@ -263,6 +259,49 @@ export function createGame(deps: GameDeps): GameHandle {
     return { result: "miss", points: 0 };
   };
 
+  const tierRank = (result: HitResult): number => {
+    if (result === "tier3") return 3;
+    if (result === "tier2") return 2;
+    if (result === "tier1") return 1;
+    return 0;
+  };
+
+  const minTier = (a: HitResult, b: HitResult): HitResult => {
+    return tierRank(a) <= tierRank(b) ? a : b;
+  };
+
+  const capUpper = (value: number, tier3: number, tier2: number, tier1: number): HitResult => {
+    if (value <= tier3) return "tier3";
+    if (value <= tier2) return "tier2";
+    if (value <= tier1) return "tier1";
+    return "miss";
+  };
+
+  const capLower = (value: number, tier3: number, tier2: number, tier1: number): HitResult => {
+    if (value >= tier3) return "tier3";
+    if (value >= tier2) return "tier2";
+    if (value >= tier1) return "tier1";
+    return "miss";
+  };
+
+  const resolveMiss = (note: Note, offsetMs: number, reason: MissReason): void => {
+    note.state = "missed";
+    note.hitResult = "miss";
+    missCount++;
+    comboCount = 0;
+    onComboChange(0);
+    hitDetails.push({
+      result: "miss",
+      kind: note.kind,
+      offsetMs,
+      timing: timingFor(offsetMs),
+      x: note.x,
+      y: note.y,
+      missReason: reason,
+    });
+    onFeedback("miss", note.x, note.y);
+  };
+
   const tryHit = (note: Note, songMs: number): void => {
     if (note.state !== "pending") return;
 
@@ -275,6 +314,9 @@ export function createGame(deps: GameDeps): GameHandle {
     if (lenSq < 0.5) return;
 
     let impactSongMs: number;
+    let gestureCap: HitResult = "tier3";
+    let missReason: MissReason | null = null;
+    const travel = Math.sqrt(lenSq);
 
     if (note.kind === "lyric") {
       const t = clamp(
@@ -283,28 +325,47 @@ export function createGame(deps: GameDeps): GameHandle {
       );
       const closestX = prev.x + t * moveDx;
       const closestY = prev.y + t * moveDy;
-      if ((closestX - note.x) ** 2 + (closestY - note.y) ** 2 > LYRIC_RADIUS * LYRIC_RADIUS) return;
+      const contactDistance = Math.hypot(closestX - note.x, closestY - note.y);
+      if (contactDistance > CUT_CONTACT_TIER1) return;
       impactSongMs = interpolateSongMs(prev, curr, t);
+      gestureCap = minTier(gestureCap, capUpper(contactDistance, CUT_CONTACT_TIER3, CUT_CONTACT_TIER2, CUT_CONTACT_TIER1));
+      const travelCap = capLower(travel, CUT_TRAVEL_TIER3, CUT_TRAVEL_TIER2, CUT_TRAVEL_TIER1);
+      if (travelCap === "miss") missReason = "travel";
+      else gestureCap = minTier(gestureCap, travelCap);
     } else {
-      if (NOTE_STYLE[note.kind].requiresHold && !actionHeld()) return;
-      const dx = Math.cos(note.direction);
-      const dy = Math.sin(note.direction);
-      const pPrev = (prev.x - note.x) * dx + (prev.y - note.y) * dy;
-      const pCurr = (curr.x - note.x) * dx + (curr.y - note.y) * dy;
-      if (pPrev >= 0 || pCurr < 0) return;
-      const perpPrev = -(prev.x - note.x) * dy + (prev.y - note.y) * dx;
-      const perpCurr = -(curr.x - note.x) * dy + (curr.y - note.y) * dx;
-      const t = -pPrev / (pCurr - pPrev);
-      const perpAtCross = perpPrev + (perpCurr - perpPrev) * t;
-      if (Math.abs(perpAtCross) > NOTE_RADIUS) return;
+      const t = clamp(
+        ((note.x - prev.x) * moveDx + (note.y - prev.y) * moveDy) / lenSq,
+        0, 1,
+      );
+      const closestX = prev.x + t * moveDx;
+      const closestY = prev.y + t * moveDy;
+      const contactDistance = Math.hypot(closestX - note.x, closestY - note.y);
+      if (contactDistance > CUT_CONTACT_TIER1) return;
       const moveAngle = Math.atan2(moveDy, moveDx);
-      if (Math.abs(angleDiff(moveAngle, note.direction)) > ANGULAR_MARGIN) return;
+      const directionError = Math.abs(angleDiff(moveAngle, note.direction));
       impactSongMs = interpolateSongMs(prev, curr, t);
+
+      gestureCap = minTier(gestureCap, capUpper(contactDistance, CUT_CONTACT_TIER3, CUT_CONTACT_TIER2, CUT_CONTACT_TIER1));
+      const directionCap = capUpper(directionError, CUT_DIRECTION_TIER3, CUT_DIRECTION_TIER2, CUT_DIRECTION_TIER1);
+      const travelCap = capLower(travel, CUT_TRAVEL_TIER3, CUT_TRAVEL_TIER2, CUT_TRAVEL_TIER1);
+      if (directionCap === "miss") missReason = "direction";
+      else gestureCap = minTier(gestureCap, directionCap);
+      if (travelCap === "miss") missReason = "travel";
+      else gestureCap = minTier(gestureCap, travelCap);
     }
 
     const offsetMs = impactSongMs - note.time;
     if (Math.abs(offsetMs) > TIER1_MS) return;
-    const { result, points } = scoreFor(offsetMs);
+    if (missReason) {
+      resolveMiss(note, offsetMs, missReason);
+      return;
+    }
+    const timingScore = scoreFor(offsetMs);
+    const result = minTier(timingScore.result, gestureCap);
+    const points = result === "tier3" ? TIER3_POINTS
+      : result === "tier2" ? TIER2_POINTS
+      : result === "tier1" ? TIER1_POINTS
+      : 0;
     note.state = "hit";
     note.hitResult = result;
     if (result === "tier3") tier3Count++;
@@ -342,21 +403,7 @@ export function createGame(deps: GameDeps): GameHandle {
       const n = notes[i];
       if (n.state !== "pending") continue;
       if (songMs - n.time <= TIER1_MS) break;
-      n.state = "missed";
-      n.hitResult = "miss";
-      missCount++;
-      comboCount = 0;
-      onComboChange(0);
-      hitDetails.push({
-        result: "miss",
-        kind: n.kind,
-        offsetMs: songMs - n.time,
-        timing: "late",
-        x: n.x,
-        y: n.y,
-        missReason: "timing",
-      });
-      onFeedback("miss", n.x, n.y);
+      resolveMiss(n, songMs - n.time, "timing");
     }
   };
 
@@ -463,12 +510,8 @@ export function createGame(deps: GameDeps): GameHandle {
     destroy(): void {
       canvas.removeEventListener("mousemove",  onMouseMove);
       canvas.removeEventListener("mousedown",  onMouseDown);
-      window.removeEventListener("mouseup",    onMouseUp);
       canvas.removeEventListener("touchmove",  onTouchMove);
       canvas.removeEventListener("touchstart", onTouchStart);
-      window.removeEventListener("touchend",   onTouchEnd);
-      window.removeEventListener("keydown",    onKeyDown);
-      window.removeEventListener("keyup",      onKeyUp);
       window.removeEventListener("resize",     resize);
       cursor.destroy();
       unsubHitsound();
