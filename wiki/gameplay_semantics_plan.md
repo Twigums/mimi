@@ -164,24 +164,23 @@ The current engine behavior is simple and readable:
 
 This section is intentionally concrete enough to implement and criticize. The numbers are first-pass targets, not sacred constants.
 
-### 1. Timing tiers
+### 1. Cut note timing tiers
 
-Use four successful tiers plus miss. Labels can be renamed or hidden; the important thing is that each tier has a distinct score, visual effect, and audio response.
+Start cut notes with three successful timing tiers plus miss. Labels can be renamed or hidden; the important thing is that each tier has a distinct score, visual effect, and audio response.
 
 | Internal tier | Timing window | Score weight | Player meaning |
 |---------------|---------------|--------------|----------------|
-| Tier 4 | +/- 30 ms | 100% | Locked in. This is the precision ceiling. |
-| Tier 3 | +/- 60 ms | 80% | Clearly good play. |
-| Tier 2 | +/- 95 ms | 55% | Correct idea, rough execution. |
-| Tier 1 | +/- 140 ms | 25% | Barely accepted. Useful for flow and learning, not for score. |
-| Miss | outside +/- 140 ms, or invalid gesture | 0% | The note's timing or physical contract was not satisfied. |
+| Tier 3 | +/- 30 ms | 100% | Locked in. This is the precision ceiling. |
+| Tier 2 | +/- 60 ms | 90% | Clearly good play. |
+| Tier 1 | +/- 120 ms | 50% | Correct idea, rough execution. |
+| Miss | outside +/- 120 ms, or invalid gesture | 0% | The note's timing or physical contract was not satisfied. |
 
 Why these numbers:
 
 - The current top window is +/- 32 ms, so the strict ceiling stays familiar.
-- The current accepted window is +/- 100 ms, so the normal "I hit it" area is not made harsher.
-- The new outer tier gives beginners a little more flow without making low-quality hits valuable.
-- The top two tiers are close enough that expert play still cares about calibration and consistency.
+- The old accepted window was +/- 100 ms, so +/- 120 ms keeps the first version a little lenient.
+- Three successful tiers are enough to separate strong, good, and accepted play without pretending the first gesture-quality model can perfectly rank every nuance.
+- Lyric and flow notes can start by sharing the same score weights, but this chart is specifically the first cut-note timing contract.
 
 Accuracy should be `earnedWeight / maxWeight`, not raw point sum divided by a magic constant. Existing grade thresholds can remain the first implementation target:
 
@@ -195,7 +194,7 @@ Accuracy should be `earnedWeight / maxWeight`, not raw point sum divided by a ma
 | C | >= 50% |
 | F | < 50% |
 
-This makes A achievable on Easy when the player mostly hits Tier 3/Tier 4 with some Tier 2, while B and C still communicate roughness.
+This makes A achievable on Easy when the player mostly hits Tier 2/Tier 3 with some Tier 1, while B and C still communicate roughness.
 
 ### 2. Gesture quality can cap the timing tier
 
@@ -203,26 +202,24 @@ Timing picks the best possible tier. Gesture quality can cap it downward or turn
 
 This is the key shift from the current engine. A player who crosses at the perfect time with a tiny sideways twitch did not perform the note well. A player who makes a real cut slightly late should get an accepted result and useful feedback.
 
-For the first implementation, evaluate these shared qualities:
+For the first implementation, keep gesture quality deliberately simple. Timing sets the starting tier, then cut notes apply three independent caps:
 
 | Quality | Used by | Meaning |
 |---------|---------|---------|
-| Impact timing | all notes | When the gesture made musical contact with the note. |
-| Contact | all notes | How close the gesture came to the visual target. |
-| Commitment | all notes | Whether the gesture had enough travel or velocity to read as intentional. |
-| Direction | directional notes | Whether the gesture moved in the shown direction. |
-| Continuity | flow notes | Whether the player kept a connected motion through the phrase. |
+| Contact | cut, lyric | Closest distance from the gesture path to the note center. |
+| Direction | cut | Difference between the gesture direction and the arrow direction. |
+| Travel | cut, lyric | How far the pointer moved during the gesture phrase. |
 
-Suggested first-pass caps:
+Final tier should be the minimum of the timing tier and each quality cap. This is a simple AND-style model: a Tier 3 timing hit only stays Tier 3 if contact, direction, and travel all qualify for Tier 3. If any quality only qualifies for Tier 1, the final result is Tier 1. If any required quality is invalid, the note is a miss.
 
-| Problem | Cap |
-|---------|-----|
-| Slightly weak contact, direction, or commitment | max Tier 3 |
-| Noticeably weak contact, direction, or commitment | max Tier 2 |
-| Barely valid contact, direction, or commitment | max Tier 1 |
-| No meaningful motion, no contact, or clearly wrong direction | Miss |
+Cut metrics should be calculated from the motion phrase around the note impact:
 
-The exact cap thresholds should be tuned in playtesting, but the engine shape should be built around this idea from the start.
+- Impact time: interpolated time at the closest approach to the note center, using pointer samples rather than the current animation frame.
+- Contact distance: closest distance from the pointer path to the note center during the timing window.
+- Direction error: angle between the arrow direction and the pointer displacement across the phrase.
+- Travel: pointer distance across the phrase. Follow-through can be recorded for tuning, but should not cap the first implementation.
+
+This intentionally avoids a weighted multi-factor score for now. The first version should be readable, tunable, and lenient enough to survive noisy mouse, trackpad, and touch input.
 
 ### 3. Retire "click" as a gameplay concept
 
@@ -238,12 +235,11 @@ Cut contract:
 
 Initial numeric targets:
 
-| Dimension | Tier 4 target | Valid outer target |
-|-----------|---------------|--------------------|
-| Direction error | <= 15 degrees | <= 50 degrees |
-| Contact distance | near center | within note radius |
-| Total phrase travel | strong pre/post movement | at least one meaningful motion segment |
-| Projected travel along arrow | clearly forward | not sideways-only |
+| Dimension | Tier 3 cap | Tier 2 cap | Tier 1 cap | Miss if |
+|-----------|------------|------------|------------|---------|
+| Direction error | <= 25 degrees | <= 45 degrees | <= 70 degrees | > 70 degrees |
+| Contact distance | <= 45 logical px | <= 75 logical px | <= 110 logical px | > 110 logical px |
+| Travel | >= 70 logical px | >= 40 logical px | >= 20 logical px | < 20 logical px |
 
 Why: this preserves the original "slash in the shown direction" idea while dropping the obsolete click vocabulary.
 
@@ -336,7 +332,7 @@ Score and accuracy should be the primary performance signal. Combo can stay, but
 
 Recommended first implementation:
 
-- Tier 4, Tier 3, and Tier 2 preserve combo.
+- Tier 3 and Tier 2 preserve combo.
 - Tier 1 breaks combo but still awards low score.
 - Miss breaks combo.
 
@@ -375,7 +371,7 @@ No chart should rely on hidden leniency changes.
 
 ### Phase 1: Engine vocabulary and stats
 
-- Replace `perfect/good/miss` with four accepted tiers plus miss.
+- Replace `perfect/good/miss` with three accepted tiers plus miss.
 - Add per-hit detail data: timing offset, early/late, note kind, quality caps, and miss reason.
 - Rework accuracy to use score weight over max weight.
 - Keep the old labels mapped temporarily in the UI so this can ship incrementally.
@@ -412,6 +408,6 @@ No chart should rely on hidden leniency changes.
 
 - Should Tier 1 break combo, or should all accepted hits preserve combo while score/accuracy carry the distinction?
 - Should flow phrases remain anchor-based for this contest version, or should we jump straight to explicit continuous path objects?
-- Are the proposed timing windows too lenient at the outer edge, or does the low 25% weight make that acceptable?
+- Are the proposed timing windows too lenient at the outer edge, or does the low 50% weight make that acceptable?
 - Should lyric notes be allowed to trigger from a stationary cursor if the player intentionally placed it early, or should every note require motion?
 - Should cut follow-through be required for validity, or only used as a quality cap?

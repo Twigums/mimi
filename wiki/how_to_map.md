@@ -1,109 +1,149 @@
 # How to Map a Song
 
-A chart is authored as a `.mimi` text file under `src/songs/<song-id>/` — one file per difficulty (e.g. `expert.mimi`). `site.hs` discovers it automatically and `ChartCompiler.hs` compiles it to a JSON array of `Note` objects (the shape documented below). See `CLAUDE.md` for the `.mimi` chart format.
+Each difficulty is a `.mimi` chart file under `src/songs/<song-id>/`, one file per difficulty.
 
-Charts may be authored in the osu! editor using linear sliders and converted with `npm run convert:osu`. See `README.md` for the command. The osu play area (512×384) is scaled to fit inside the mimi canvas (800×600) — both are 4:3, so the scale factor is uniform (1.5625×) with no offset. The direction of each note is the angle of the osu slider from its start point `(x, y)` to its linear endpoint `(cx, cy)`, expressed in standard math convention (CCW from right, y-axis pointing up). This requires negating the osu y-component before taking `atan2`, since osu uses screen coordinates (y increases downward).
+```text
+src/songs/<song-id>/easy.mimi
+src/songs/<song-id>/medium.mimi
+src/songs/<song-id>/hard.mimi
+src/songs/<song-id>/expert.mimi
+```
 
-## Chart Header Metadata
+The site discovers those files automatically and compiles each `.mimi` file to JSON at build time.
+
+## Header
 
 `.mimi` chart files begin with header fields before the first blank line. The home screen reads this header to build the difficulty selector.
 
+```text
+bpm: 130
+time_unit: ms
+beats_per_measure: 4
+difficulty: 4
+ar: 10
+```
+
 | Field | Required | Meaning |
 |-------|----------|---------|
-| `bpm` | Yes for beat-timed charts; recommended for all charts | Song BPM shown in the song list and used when `time_unit` is `beat` |
-| `time_unit` | No | `ms` or `beat`; defaults to `beat` |
-| `offset` | Yes when `time_unit` is `beat` | First beat time in milliseconds |
-| `difficulty` | Recommended | Numeric difficulty level shown on the difficulty badge |
+| `bpm` | Yes for beat-timed charts; recommended for all charts | Song tempo shown in the song list and used when `time_unit` is `beat` |
+| `time_unit` | No | `ms` for millisecond note times, or `beat` for beat numbers; defaults to `beat` |
+| `beats_per_measure` | No | Meter metadata for tools and chart readability |
+| `offset` | Yes when `time_unit: beat` | Millisecond time of beat 1 |
+| `difficulty` | Recommended | Numeric level shown in the difficulty selector |
 | `ar` | Optional | Chart-recommended approach rate, AR 1-20 |
 
-The difficulty selector also computes note count, flick/stream/lyric breakdown, playable length, and note density from the note rows. If `ar` is not present, the selector should display AR as unavailable rather than assuming the player's current setting or a default.
+The difficulty selector also computes note count, cut/flow/lyric breakdown, playable length, and note density from the note rows. If `ar` is not present, the selector should display AR as unavailable rather than assuming the player's current setting or a default.
 
-## Note Format
+## Note Rows
 
-```typescript
-{
-  kind:      "flick" | "stream" | "lyric",  // note type (see below)
-  time:      number,              // hit time in milliseconds from song start
-  x:         number,              // horizontal position, 0–800 (left → right)
-  y:         number,              // vertical position, 0–600 (top → bottom)
-  direction: number,              // swipe direction in radians (see below)
-  state:     "pending"            // always "pending" in chart files
-}
+Rows are comma-separated.
+
+```text
+# kind, time, degrees, x, y[, char]
+c, 4200, 0, 400, 200
+s, 4800, -45, 520, 260
+l, 5100, 0, 360, 310
 ```
 
-## Coordinate System
+| Field | Meaning |
+|-------|---------|
+| `kind` | `c` cut, `s` flow anchor, or `l` lyric |
+| `time` | Note time in the header's `time_unit` |
+| `degrees` | Direction in degrees; ignored for lyric notes |
+| `x` | Horizontal position in the 800 x 600 logical play area |
+| `y` | Vertical position in the 800 x 600 logical play area |
+| `char` | Optional lyric character override |
 
-The play area is a logical 800 × 600 canvas. (0, 0) is the top-left corner.
-
-```
-(0,0) ──────────────── (800,0)
-  │                        │
-  │   usable: ~80–720 x    │
-  │            ~80–520 y   │
-  │                        │
-(0,600) ──────────── (800,600)
-```
-
-Keep notes away from edges — the game uses an 80 px padding margin on all sides.
+The compiler emits runtime notes with `kind`, `time`, `x`, `y`, `direction` in radians, `state: "pending"`, and optional `lyricChar`.
 
 ## Note Kinds
 
 | Kind | Use when |
 |------|----------|
-| `"flick"` | Single isolated hit — one syllable standing alone |
-| `"stream"` | Part of a rapid sequence — multiple syllables in one word/burst |
-| `"lyric"` | Directionless note swiped through with the cursor; displays the TextAlive character |
+| `c` Cut | A standalone directional slash |
+| `s` Flow | An anchor in a connected phrase |
+| `l` Lyric | A sung character or directionless vocal accent |
+
+Cut and flow notes do not require a mouse-button or key hold. Flow notes should be placed so the player can read a continuous path through the phrase.
+
+During migration, older charts may still use `f` for cut-style notes. Prefer `c` for new maps.
+
+## Coordinate System
+
+The play area is a logical 800 x 600 canvas. `(0, 0)` is the top-left corner.
+
+```text
+(0,0) ---------------- (800,0)
+  |                        |
+  |      main play area    |
+  |                        |
+(0,600) -------------- (800,600)
+```
+
+Keep notes away from the edges. As a starting point, stay roughly inside `80-720` on x and `80-520` on y unless a chart has a clear reason to go wider.
 
 ## Direction
 
-Direction is a swipe angle in **radians**, measured clockwise from the right (standard Math convention):
+Direction is written in degrees in screen coordinates:
 
-```
-        -π/2  (up)
-          │
-  π ──────┼────── 0   (right)
-          │
-        +π/2  (down)
+```text
+        -90  up
+          |
+  180 ----+---- 0  right
+          |
+         90  down
 ```
 
 Common values:
 
-| Angle | Direction |
-|-------|-----------|
-| `0` | → right |
-| `Math.PI / 2` | ↓ down |
-| `Math.PI` or `-Math.PI` | ← left |
-| `-Math.PI / 2` | ↑ up |
-| `Math.PI / 4` | ↘ down-right |
-| `-Math.PI / 4` | ↗ up-right |
+| Degrees | Direction |
+|---------|-----------|
+| `0` | right |
+| `90` | down |
+| `180` or `-180` | left |
+| `-90` | up |
+| `45` | down-right |
+| `-45` | up-right |
 
-The player must swipe **through the center of the note** in this direction while holding a key or mouse button. A tolerance of ±30° is accepted.
+The compiler converts authored degrees to the runtime radian angle used by the game engine.
 
-## Timing from TextAlive
+## Timing
 
-Open the TextAlive portal for your song to get character/word start times. The `startTime` of each character (in ms) is what goes into the `time` field. Round to the nearest 10 ms if needed — the hit window is ±100 ms for a Good, ±32 ms for a Perfect.
+When `time_unit: ms`, note times are milliseconds from song start. TextAlive character `startTime` values can be used directly.
 
-The song's TextAlive lyric data (via the `textalive-lyric-id` frontmatter field) gives you phrase → word → character timings in this shape:
+When `time_unit: beat`, note times are beat numbers and require `bpm` plus `offset`.
 
+Cut notes use these timing tiers:
+
+| Tier | Timing |
+|------|--------|
+| Tier 3 | +/- 30 ms |
+| Tier 2 | +/- 60 ms |
+| Tier 1 | +/- 120 ms |
+
+## osu! Conversion
+
+Charts may be authored in the osu! editor using linear sliders and converted with:
+
+```bash
+npm run --silent convert:osu -- path/to/file.osu > src/songs/<song-id>/hard.mimi
 ```
-phrases[
-  words[
-    chars[ { startTime, endTime }, ... ],
-    ...
-  ],
-  ...
-]
-```
 
-Use those `startTime` values directly as `time` in each note.
+The osu play area is scaled into mimi's 800 x 600 play area. Linear sliders become cut notes with direction taken from slider start to endpoint. Add lyric rows manually when a note should display a sung character or vocal accent.
 
 ## Minimal Example
 
-```json
-[
-  { "kind": "flick",  "time": 4200,  "x": 400, "y": 200, "direction": 0,           "state": "pending" },
-  { "kind": "flick",  "time": 4800,  "x": 560, "y": 320, "direction": -0.785,      "state": "pending" },
-  { "kind": "stream", "time": 5100,  "x": 300, "y": 400, "direction": 1.571,       "state": "pending" },
-  { "kind": "stream", "time": 5300,  "x": 300, "y": 500, "direction": 1.571,       "state": "pending" }
-]
+```text
+bpm: 130
+time_unit: ms
+beats_per_measure: 4
+difficulty: 2
+ar: 10
+
+# kind, time, degrees, x, y
+c, 4200, 0, 400, 200
+c, 4800, -45, 560, 320
+s, 5100, 90, 300, 400
+s, 5300, 90, 300, 500
+l, 5600, 0, 450, 300
 ```
