@@ -1,5 +1,5 @@
 import { angleDiff, clamp } from "../core/utils";
-import { drawArrow, drawLyricNote, drawFireworks } from "./draw";
+import { drawArrow, drawLyricNote, drawFireworks, drawFlowRibbon } from "./draw";
 import { arToMs, loadAr, loadHitsoundVolume, subscribeHitsoundVolume, volToFactor, loadHiddenMod, subscribeHiddenMod } from "../core/settings";
 import { createCursorRenderer, type CursorRenderer } from "./cursor";
 
@@ -24,6 +24,10 @@ const CUT_CONTACT_TIER1   = 110;
 const CUT_TRAVEL_TIER3    = 70;
 const CUT_TRAVEL_TIER2    = 40;
 const CUT_TRAVEL_TIER1    = 20;
+const FLOW_LINK_MAX_MS    = 700;
+const FLOW_CONT_TIER3     = 30 * Math.PI / 180;
+const FLOW_CONT_TIER2     = 55 * Math.PI / 180;
+const FLOW_CONT_TIER1     = 85 * Math.PI / 180;
 
 export type NoteKind   = "cut" | "flow" | "lyric";
 export type HitResult  = "tier3" | "tier2" | "tier1" | "miss";
@@ -40,6 +44,8 @@ export interface Note {
   state: NoteState;
   hitResult?: HitResult;
   lyricChar?: string;
+  flowPrevIndex?: number;
+  flowNextIndex?: number;
 }
 
 export interface HitDetail {
@@ -245,6 +251,27 @@ export function createGame(deps: GameDeps): GameHandle {
     }
   };
 
+  const linkFlowPhrases = (): void => {
+    let prevFlowIndex: number | null = null;
+    for (let i = 0; i < notes.length; i++) {
+      const note = notes[i];
+      note.flowPrevIndex = undefined;
+      note.flowNextIndex = undefined;
+      if (note.kind !== "flow") {
+        prevFlowIndex = null;
+        continue;
+      }
+      if (prevFlowIndex !== null) {
+        const prev = notes[prevFlowIndex];
+        if (note.time - prev.time <= FLOW_LINK_MAX_MS) {
+          note.flowPrevIndex = prevFlowIndex;
+          prev.flowNextIndex = i;
+        }
+      }
+      prevFlowIndex = i;
+    }
+  };
+
   const timingFor = (deltaMs: number): HitTiming => {
     if (deltaMs < 0) return "early";
     if (deltaMs > 0) return "late";
@@ -282,6 +309,14 @@ export function createGame(deps: GameDeps): GameHandle {
     if (value >= tier2) return "tier2";
     if (value >= tier1) return "tier1";
     return "miss";
+  };
+
+  const flowContinuityCap = (note: Note, moveAngle: number): HitResult => {
+    if (note.flowPrevIndex === undefined) return "tier3";
+    const prev = notes[note.flowPrevIndex];
+    if (!prev || prev.state !== "hit" || prev.hitResult === "miss") return "tier1";
+    const pathAngle = Math.atan2(note.y - prev.y, note.x - prev.x);
+    return capUpper(Math.abs(angleDiff(moveAngle, pathAngle)), FLOW_CONT_TIER3, FLOW_CONT_TIER2, FLOW_CONT_TIER1);
   };
 
   const resolveMiss = (note: Note, offsetMs: number, reason: MissReason): void => {
@@ -352,6 +387,11 @@ export function createGame(deps: GameDeps): GameHandle {
       else gestureCap = minTier(gestureCap, directionCap);
       if (travelCap === "miss") missReason = "travel";
       else gestureCap = minTier(gestureCap, travelCap);
+      if (note.kind === "flow") {
+        const continuityCap = flowContinuityCap(note, moveAngle);
+        if (continuityCap === "miss") missReason = "continuity";
+        else gestureCap = minTier(gestureCap, continuityCap);
+      }
     }
 
     const offsetMs = impactSongMs - note.time;
@@ -410,6 +450,17 @@ export function createGame(deps: GameDeps): GameHandle {
   const draw = (songMs: number): void => {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     const scale = getScale();
+    for (let i = pendingStart; i < notes.length; i++) {
+      const note = notes[i];
+      if (note.state !== "pending" || note.kind !== "flow" || note.flowNextIndex === undefined) continue;
+      const next = notes[note.flowNextIndex];
+      if (!next || next.state !== "pending") continue;
+      const dt = next.time - songMs;
+      if (dt > approachMs) break;
+      if (dt < -TIER1_MS) continue;
+      const appearProgress = clamp(1 - dt / approachMs, 0, 1);
+      drawFlowRibbon(ctx, note, next, scale, appearProgress);
+    }
     // Notes are time-sorted: break once a pending note is past the approach window
     for (let i = pendingStart; i < notes.length; i++) {
       const note = notes[i];
@@ -437,6 +488,7 @@ export function createGame(deps: GameDeps): GameHandle {
     setChart(n: Note[]): void {
       notes = n;
       pendingStart = 0;
+      linkFlowPhrases();
       populateLyricChars();
     },
 

@@ -143,6 +143,37 @@ export function drawLyricNote(
   ctx.restore();
 }
 
+export function drawFlowRibbon(
+  ctx: CanvasRenderingContext2D,
+  from: Note,
+  to: Note,
+  scale: number,
+  alpha: number,
+): void {
+  const fromX = from.x * scale;
+  const fromY = from.y * scale;
+  const toX = to.x * scale;
+  const toY = to.y * scale;
+  const { base } = NOTE_STYLE.flow.colors;
+
+  ctx.save();
+  ctx.strokeStyle = `rgba(${base}, ${0.22 * alpha})`;
+  ctx.lineWidth = 10 * scale;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(fromX, fromY);
+  ctx.lineTo(toX, toY);
+  ctx.stroke();
+
+  ctx.strokeStyle = `rgba(255, 255, 255, ${0.18 * alpha})`;
+  ctx.lineWidth = 2 * scale;
+  ctx.beginPath();
+  ctx.moveTo(fromX, fromY);
+  ctx.lineTo(toX, toY);
+  ctx.stroke();
+  ctx.restore();
+}
+
 export function drawCursorOrb(
   ctx: CanvasRenderingContext2D,
   x: number,
