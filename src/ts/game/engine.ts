@@ -199,6 +199,7 @@ export function createGame(deps: GameDeps): GameHandle {
   let reportedUpdateError = false;
   let reportedDrawError = false;
   let reportedCursorError = false;
+  let debugDrawOnce = true;
 
   let lyricCharLookup: ((timeMs: number) => { text: string; distMs: number } | null) | null = null;
 
@@ -327,6 +328,32 @@ export function createGame(deps: GameDeps): GameHandle {
   };
 
   const draw = (songMs: number): void => {
+    if (debugDrawOnce && notes.length > 0) {
+      debugDrawOnce = false;
+      let renderedCount = 0;
+      let drawnCount = 0;
+      for (let i = pendingStart; i < notes.length; i++) {
+        const note = notes[i];
+        const dt = note.time - songMs;
+        if (note.state === "pending") {
+          renderedCount++;
+          if (dt <= approachMs && dt >= -TIER1_MS) drawnCount++;
+        }
+        if (dt > approachMs) break;
+      }
+      console.log("[mimi] DRAW FIRST FRAME:", {
+        songMs,
+        approachMs,
+        TIER1_MS,
+        CUT_METRIC_WINDOW_MS,
+        notesTotal: notes.length,
+        pendingStart,
+        pendingNotes: renderedCount,
+        drawnNotes: drawnCount,
+        firstNote: notes[pendingStart]?.time,
+        firstNoteDt: notes[pendingStart] ? notes[pendingStart].time - songMs : undefined,
+      });
+    }
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     const scale = getScale();
     for (let i = pendingStart; i < notes.length; i++) {
@@ -427,7 +454,7 @@ export function createGame(deps: GameDeps): GameHandle {
           if (n.state === "pending") tryHit(n, songMs);
         }
         if (skipExpiry) {
-          if (songMs <= approachMs) skipExpiry = false;
+          if (songMs > approachMs) skipExpiry = false;
         } else {
           expireMisses(songMs);
         }
