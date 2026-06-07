@@ -310,7 +310,7 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPla
       if (nextNoteTime <= gameSongMs + JUDGEMENT_WINDOW_MS) return null;
       return makeBreakSkipTarget(
         songMs,
-        nextNoteTime - gapSkipLeadInMs - musicOffsetMs,
+        nextNoteTime - gapSkipLeadInMs + musicOffsetMs,
         nextNoteTime - gameSongMs,
         "gap",
       );
@@ -327,9 +327,9 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPla
   const loop = (): void => {
     const songMs = player?.timer.position ?? 0;
     if (songMs > 0) lastSongMs = songMs;
-    game.tick(songMs + musicOffsetMs);
+    game.tick(songMs - musicOffsetMs);
     if (songMs > 0) storyboard?.update(songMs);
-    setBreakSkipTarget(findBreakSkipTarget(songMs, songMs + musicOffsetMs));
+    setBreakSkipTarget(findBreakSkipTarget(songMs, songMs - musicOffsetMs));
 
     if (songLengthMs > 0) {
       const pct = Math.max(0, Math.min(100, (songMs / songLengthMs) * 100));

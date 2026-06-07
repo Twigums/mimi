@@ -142,6 +142,8 @@ export const subscribeCursorB = cursorBSetting.subscribe;
 export const OFFSET_MIN  = -5000;
 export const OFFSET_MAX  =  5000;
 export const OFFSET_STEP =    10;
+export const TIMING_OFFSET_MIN = -200;
+export const TIMING_OFFSET_MAX =  200;
 
 function clampOffset(n: number): number {
   return Math.max(OFFSET_MIN, Math.min(OFFSET_MAX, Math.round(n / OFFSET_STEP) * OFFSET_STEP));
