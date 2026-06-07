@@ -3,6 +3,7 @@ import { drawArrow, drawLyricNote, drawFireworks, drawFlowRibbon } from "./draw"
 import { arToMs, loadAr, loadHitsoundVolume, subscribeHitsoundVolume, volToFactor, loadHiddenMod, subscribeHiddenMod } from "../core/settings";
 import { createCursorRenderer, type CursorRenderer } from "./cursor";
 import {
+  CUT_METRIC_WINDOW_MS,
   FLOW_LINK_MAX_MS,
   TIER1_MS,
   type HitResult,
@@ -211,7 +212,7 @@ export function createGame(deps: GameDeps): GameHandle {
       songMs,
       wallMs: performance.now(),
     });
-    while (pointerSamples.length > 12) pointerSamples.shift();
+    while (pointerSamples.length > 64) pointerSamples.shift();
   };
 
   const populateLyricChars = (): void => {
@@ -313,11 +314,11 @@ export function createGame(deps: GameDeps): GameHandle {
   };
 
   const expireMisses = (songMs: number): void => {
-    // Notes are time-sorted: break as soon as a pending note is within the hit window
+    // Notes are time-sorted: break as soon as a pending note can still finalize.
     for (let i = pendingStart; i < notes.length; i++) {
       const n = notes[i];
       if (n.state !== "pending") continue;
-      if (songMs - n.time <= TIER1_MS) break;
+      if (songMs - n.time <= CUT_METRIC_WINDOW_MS) break;
       resolveMiss(n, songMs - n.time, "timing");
     }
   };

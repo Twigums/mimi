@@ -18,7 +18,7 @@ All note types gradually appear as the song approaches their hit time. Cut and f
 
 ## Note Eligibility
 
-The game does not use notelock. Every pending note whose hit time is within the +/- 120 ms judgement window is eligible for consideration on each frame. A note stops being eligible once it is hit or missed. Notes more than 120 ms in the future are not considered yet, and pending notes more than 120 ms in the past expire as timing misses.
+The game does not use notelock. Every pending note whose hit time is within the early timing window is eligible for consideration on each frame. A note stops being eligible once it is hit or missed. Notes more than 120 ms in the future are not considered yet, and cut notes can remain pending briefly after the timing window while their gesture metrics are finalized.
 
 A pointer path that stays outside a note's contact zone does not immediately judge that note. The note stays pending until a qualifying path appears or the note expires.
 
@@ -41,13 +41,13 @@ Cut notes start with a timing tier, then gesture quality can cap the final resul
 | Contact distance | <= 45 logical px | <= 75 logical px | <= 110 logical px | > 110 logical px |
 | Travel | >= 40 logical px | >= 24 logical px | >= 8 logical px | < 8 logical px |
 
-The interaction zone is intentionally larger than the visible note. Visual size should communicate the target, not define the entire hitbox.
+Calculation of gesture metrics observes the cursor movement through a "judgement window" (currently +/- 240 ms for each, but can be tweaked per metric) and algorithmically selects the optimal start/end points to judge as the cut. This is because the player may perform multiple gestures within the window at higher densities.
 
-Direction error is the angle between the note arrow and the player's overall gesture direction inside the note's +/- 120 ms judgement window. The gesture direction runs from the first sampled pointer position in that window to the last sampled pointer position in that window.
-
-Contact distance is the closest distance between the note center and the player's pointer path inside the same judgement window. It measures whether the gesture actually passed near the target, independent of the note's visual size.
-
-Travel is the total pointer distance accumulated inside the judgement window. It is not just the distance between the first and last sampled point, so a small curve or correction still counts as motion. Very small movement remains invalid so resting on a note does not earn a hit.
+- "Optimal" is chosen greedily based on tier, and starting at +0ms (the note's exact time), the engine will end early to give feedback on a judgement as early as it knows the player can't do any better for that note.
+- Direction error is the angle between the note arrow and the gesture direction formed by the chosen start/end points.
+- Contact distance is the closest distance achieved between the note center and the player's pointer path within the chosen gesture, calculated using the data points that lie between the chosen start/end points. Note that the interaction zone is intentionally larger than the visible note.
+- Travel is the distance between the chosen start/end points.
+- There is currently no accounting for the duration between the chosen start/end points. It can be incorporated later if needed for tuning, but this decision naturally makes travel requirements easier for beginners, as higher densities prevent spending a full judgement window on a gesture for a single note.
 
 ## Flow Judgement
 
