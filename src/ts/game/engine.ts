@@ -233,15 +233,79 @@ export function createGame(deps: GameDeps): GameHandle {
     while (pointerSamples.length > 12) pointerSamples.shift();
   };
 
-  const latestPointerSegment = (): { prev: PointerSample; curr: PointerSample } | null => {
-    if (pointerSamples.length < 2) return null;
-    const curr = pointerSamples[pointerSamples.length - 1];
-    const prev = pointerSamples[pointerSamples.length - 2];
-    return { prev, curr };
-  };
-
   const interpolateSongMs = (prev: PointerSample, curr: PointerSample, t: number): number => {
     return prev.songMs + (curr.songMs - prev.songMs) * clamp(t, 0, 1);
+  };
+
+  const getGesturePhrase = (note: Note): {
+    travel: number;
+    direction: number;
+    impactSongMs: number;
+    contactDistance: number;
+  } | null => {
+    if (pointerSamples.length < 2) return null;
+    const windowStart = note.time - TIER1_MS;
+    const windowEnd = note.time + TIER1_MS;
+
+    let firstPoint: { x: number; y: number; songMs: number } | null = null;
+    let lastPoint: { x: number; y: number; songMs: number } | null = null;
+    let totalTravel = 0;
+    let bestContactDistance = Infinity;
+    let impactSongMs = note.time;
+
+    for (let i = 0; i < pointerSamples.length - 1; i++) {
+      const prev = pointerSamples[i];
+      const curr = pointerSamples[i + 1];
+      if (curr.songMs < windowStart || prev.songMs > windowEnd) continue;
+
+      const segmentStartMs = Math.max(prev.songMs, windowStart);
+      const segmentEndMs = Math.min(curr.songMs, windowEnd);
+      const segmentDuration = curr.songMs - prev.songMs;
+      if (segmentDuration <= 0) continue;
+
+      const segmentStartT = (segmentStartMs - prev.songMs) / segmentDuration;
+      const segmentEndT = (segmentEndMs - prev.songMs) / segmentDuration;
+      const segmentDx = curr.x - prev.x;
+      const segmentDy = curr.y - prev.y;
+      const startX = prev.x + segmentStartT * segmentDx;
+      const startY = prev.y + segmentStartT * segmentDy;
+      const endX = prev.x + segmentEndT * segmentDx;
+      const endY = prev.y + segmentEndT * segmentDy;
+      const startSongMs = segmentStartMs;
+      const endSongMs = segmentEndMs;
+
+      if (!firstPoint || startSongMs < firstPoint.songMs) {
+        firstPoint = { x: startX, y: startY, songMs: startSongMs };
+      }
+      if (!lastPoint || endSongMs > lastPoint.songMs) {
+        lastPoint = { x: endX, y: endY, songMs: endSongMs };
+      }
+
+      const segmentTravel = Math.hypot(endX - startX, endY - startY);
+      totalTravel += segmentTravel;
+
+      const segmentLenSq = segmentTravel * segmentTravel;
+      const t = segmentLenSq === 0 ? 0 : clamp(
+        ((note.x - startX) * (endX - startX) + (note.y - startY) * (endY - startY)) / segmentLenSq,
+        0, 1,
+      );
+      const closestX = startX + t * (endX - startX);
+      const closestY = startY + t * (endY - startY);
+      const contactDistance = Math.hypot(closestX - note.x, closestY - note.y);
+      if (contactDistance < bestContactDistance) {
+        bestContactDistance = contactDistance;
+        impactSongMs = startSongMs + (endSongMs - startSongMs) * t;
+      }
+    }
+
+    if (!firstPoint || !lastPoint) return null;
+
+    return {
+      travel: totalTravel,
+      direction: Math.atan2(lastPoint.y - firstPoint.y, lastPoint.x - firstPoint.x),
+      impactSongMs,
+      contactDistance: bestContactDistance,
+    };
   };
 
   const populateLyricChars = (): void => {
@@ -348,55 +412,28 @@ export function createGame(deps: GameDeps): GameHandle {
   const tryHit = (note: Note, songMs: number): void => {
     if (note.state !== "pending") return;
 
-    const segment = latestPointerSegment();
-    if (!segment) return;
-    const { prev, curr } = segment;
-    const moveDx = curr.x - prev.x;
-    const moveDy = curr.y - prev.y;
-    const lenSq  = moveDx * moveDx + moveDy * moveDy;
-    if (lenSq < 0.5) return;
+    const gesture = getGesturePhrase(note);
+    if (!gesture) return;
 
-    let impactSongMs: number;
+    let impactSongMs = gesture.impactSongMs;
     let gestureCap: HitResult = "tier3";
     let missReason: MissReason | null = null;
-    const travel = Math.sqrt(lenSq);
 
-    if (note.kind === "lyric") {
-      const t = clamp(
-        ((note.x - prev.x) * moveDx + (note.y - prev.y) * moveDy) / lenSq,
-        0, 1,
-      );
-      const closestX = prev.x + t * moveDx;
-      const closestY = prev.y + t * moveDy;
-      const contactDistance = Math.hypot(closestX - note.x, closestY - note.y);
-      if (contactDistance > CUT_CONTACT_TIER1) return;
-      impactSongMs = interpolateSongMs(prev, curr, t);
-      gestureCap = minTier(gestureCap, capUpper(contactDistance, CUT_CONTACT_TIER3, CUT_CONTACT_TIER2, CUT_CONTACT_TIER1));
-      const travelCap = capLower(travel, CUT_TRAVEL_TIER3, CUT_TRAVEL_TIER2, CUT_TRAVEL_TIER1);
-      if (travelCap === "miss") missReason = "travel";
-      else gestureCap = minTier(gestureCap, travelCap);
-    } else {
-      const t = clamp(
-        ((note.x - prev.x) * moveDx + (note.y - prev.y) * moveDy) / lenSq,
-        0, 1,
-      );
-      const closestX = prev.x + t * moveDx;
-      const closestY = prev.y + t * moveDy;
-      const contactDistance = Math.hypot(closestX - note.x, closestY - note.y);
-      if (contactDistance > CUT_CONTACT_TIER1) return;
-      const moveAngle = Math.atan2(moveDy, moveDx);
-      const directionError = Math.abs(angleDiff(moveAngle, note.direction));
-      impactSongMs = interpolateSongMs(prev, curr, t);
+    if (gesture.contactDistance > CUT_CONTACT_TIER1) return;
+    gestureCap = minTier(gestureCap, capUpper(gesture.contactDistance, CUT_CONTACT_TIER3, CUT_CONTACT_TIER2, CUT_CONTACT_TIER1));
 
-      gestureCap = minTier(gestureCap, capUpper(contactDistance, CUT_CONTACT_TIER3, CUT_CONTACT_TIER2, CUT_CONTACT_TIER1));
+    const travelCap = capLower(gesture.travel, CUT_TRAVEL_TIER3, CUT_TRAVEL_TIER2, CUT_TRAVEL_TIER1);
+    if (travelCap === "miss") missReason = "travel";
+    else gestureCap = minTier(gestureCap, travelCap);
+
+    if (note.kind !== "lyric") {
+      const directionError = Math.abs(angleDiff(gesture.direction, note.direction));
       const directionCap = capUpper(directionError, CUT_DIRECTION_TIER3, CUT_DIRECTION_TIER2, CUT_DIRECTION_TIER1);
-      const travelCap = capLower(travel, CUT_TRAVEL_TIER3, CUT_TRAVEL_TIER2, CUT_TRAVEL_TIER1);
       if (directionCap === "miss") missReason = "direction";
       else gestureCap = minTier(gestureCap, directionCap);
-      if (travelCap === "miss") missReason = "travel";
-      else gestureCap = minTier(gestureCap, travelCap);
+
       if (note.kind === "flow") {
-        const continuityCap = flowContinuityCap(note, moveAngle);
+        const continuityCap = flowContinuityCap(note, gesture.direction);
         if (continuityCap === "miss") missReason = "continuity";
         else gestureCap = minTier(gestureCap, continuityCap);
       }
