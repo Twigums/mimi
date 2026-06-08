@@ -15,6 +15,12 @@
 
 <body class="home-page">
 
+    <svg style="display:none" xmlns="http://www.w3.org/2000/svg">
+        <symbol id="icon-settings" viewBox="0 0 24 24">
+            <path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
+        </symbol>
+    </svg>
+
     <div class="bg-overlay"></div>
 
     <header class="home-header">
@@ -42,11 +48,48 @@
     </header>
 
     <main class="home-main">
-        <div id="home-root" data-info-content='&lt;h1 id=&quot;info&quot;&gt;Info&lt;/h1&gt;
+        <div id="home-root"
+            data-info-content='&lt;h1 id=&quot;info&quot;&gt;Info&lt;/h1&gt;
 &lt;p&gt;Rhythm game.&lt;/p&gt;
 &lt;h2 id=&quot;authors&quot;&gt;Authors&lt;/h2&gt;
-&lt;p&gt;&lt;a href=&quot;https://github.com/Twigums&quot;&gt;Twigums&lt;/a&gt;, &lt;a href=&quot;https://github.com/vekt0r-github&quot;&gt;vekt0r-github&lt;/a&gt;&lt;/p&gt;' data-tutorial-content='&lt;h1 id=&quot;tutorial&quot;&gt;Tutorial&lt;/h1&gt;
-&lt;p&gt;Coming soon.&lt;/p&gt;' data-songs-manifest='{&quot;songs&quot;:[{&quot;id&quot;:&quot;kotaete&quot;,&quot;titleEn&quot;:&quot;Answer Me&quot;,&quot;titleJp&quot;:&quot;こたえて&quot;,&quot;authorEn&quot;:&quot;imie&quot;,&quot;authorJp&quot;:&quot;imie&quot;,&quot;href&quot;:&quot;/mimi/kotaete/&quot;,&quot;bpm&quot;:130,&quot;difficulties&quot;:[{&quot;id&quot;:&quot;easy&quot;,&quot;level&quot;:1},{&quot;id&quot;:&quot;expert&quot;,&quot;level&quot;:0}]}]}'></div>
+&lt;p&gt;&lt;a href=&quot;https://github.com/Twigums&quot;&gt;Twigums&lt;/a&gt;, &lt;a href=&quot;https://github.com/vekt0r-github&quot;&gt;vekt0r-github&lt;/a&gt;&lt;/p&gt;'
+            data-info-content-jp='&lt;h1 id=&quot;情報&quot;&gt;情報&lt;/h1&gt;
+&lt;p&gt;音ゲーだよ。&lt;/p&gt;
+&lt;h2 id=&quot;作者&quot;&gt;作者&lt;/h2&gt;
+&lt;p&gt;&lt;a href=&quot;https://github.com/Twigums&quot;&gt;Twigums&lt;/a&gt;、&lt;a href=&quot;https://github.com/vekt0r-github&quot;&gt;vekt0r-github&lt;/a&gt;&lt;/p&gt;'
+            data-tutorial-content='&lt;h2 id=&quot;mimi&quot;&gt;mimi&lt;/h2&gt;
+&lt;p&gt;Mimi is a rhythm game that focuses on moving your cursor to swipe notes! In mimi, we have 3 types of notes:&lt;/p&gt;
+&lt;p&gt;&lt;mark class=&quot;flick&quot;&gt;&lt;a href=&quot;spawn:flick&quot;&gt;Flick&lt;/a&gt;&lt;/mark&gt;: Swipe through the red arrow in the marked direction.&lt;/p&gt;
+&lt;p&gt;&lt;mark class=&quot;stream&quot;&gt;&lt;a href=&quot;spawn:stream&quot;&gt;Stream&lt;/a&gt;&lt;/mark&gt;: Hold left click while swiping. Don’t go too fast!&lt;/p&gt;
+&lt;p&gt;&lt;mark class=&quot;lyric&quot;&gt;&lt;a href=&quot;spawn:lyric&quot;&gt;Lyric&lt;/a&gt;&lt;/mark&gt;: Follow Miku’s singing, and tap the notes to the beat!&lt;/p&gt;
+&lt;p&gt;If you want to see what the notes look like, feel free to click on each of the notes and try it out in the game area to the right.&lt;/p&gt;
+&lt;h2 id=&quot;settings&quot;&gt;Settings&lt;/h2&gt;
+&lt;p&gt;Click the settings icon, &lt;svg class=&quot;inline-icon&quot;&gt;&lt;use href=&quot;#icon-settings&quot;/&gt;&lt;/svg&gt;, on the top right to change game-specific settings. This includes:&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;p&gt;&lt;strong&gt;Volume&lt;/strong&gt;: Increase or decrease the hitsound and music volumes.&lt;/p&gt;&lt;/li&gt;
+&lt;li&gt;&lt;p&gt;&lt;strong&gt;Timing&lt;/strong&gt;: Some devices may introduce latency. Play with the offset to determine what works for you (increase the offset if you feel like the song feels too late, decrease if it feels too early).&lt;/p&gt;&lt;/li&gt;
+&lt;li&gt;&lt;p&gt;&lt;strong&gt;Mods&lt;/strong&gt;: Do you feel like the game is too easy? Try it with mods!&lt;/p&gt;&lt;/li&gt;
+&lt;li&gt;&lt;p&gt;&lt;strong&gt;Notes&lt;/strong&gt;: You can change how fast the notes appear, called approach rate, to better suit your preference.&lt;/p&gt;&lt;/li&gt;
+&lt;li&gt;&lt;p&gt;&lt;strong&gt;Cursor&lt;/strong&gt;: Feel free to customize your cursor by choosing a favorite color, shape, and trail.&lt;/p&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;Make &lt;strong&gt;mimi&lt;/strong&gt; &lt;em&gt;your&lt;/em&gt; &lt;strong&gt;Magical Mirai&lt;/strong&gt;!&lt;/p&gt;'
+            data-tutorial-content-jp='&lt;h2 id=&quot;mimi&quot;&gt;mimi&lt;/h2&gt;
+&lt;p&gt;ミミはカーソルを動かしてノーツをスワイプする音楽ゲームです！ミミには3種類のノーツがあります：&lt;/p&gt;
+&lt;p&gt;&lt;mark class=&quot;flick&quot;&gt;&lt;a href=&quot;spawn:flick&quot;&gt;フリック&lt;/a&gt;&lt;/mark&gt;：赤い矢印を指定方向にスワイプして。&lt;/p&gt;
+&lt;p&gt;&lt;mark class=&quot;stream&quot;&gt;&lt;a href=&quot;spawn:stream&quot;&gt;ストリーム&lt;/a&gt;&lt;/mark&gt;：左クリックを押しながらスワイプして。早すぎないように！&lt;/p&gt;
+&lt;p&gt;&lt;mark class=&quot;lyric&quot;&gt;&lt;a href=&quot;spawn:lyric&quot;&gt;歌詞&lt;/a&gt;&lt;/mark&gt;：ミクの歌に合わせ、ビートに乗ってノーツをクリックしよう！&lt;/p&gt;
+&lt;p&gt;各ノーツをクリックして、右のゲームエリアで試してみてください。&lt;/p&gt;
+&lt;h2 id=&quot;設定&quot;&gt;設定&lt;/h2&gt;
+&lt;p&gt;右上の設定アイコン、&lt;svg class=&quot;inline-icon&quot;&gt;&lt;use href=&quot;#icon-settings&quot;/&gt;&lt;/svg&gt;、をクリックするとゲームの設定が変えられます。設定内容は以下の通りです：&lt;/p&gt;
+&lt;ul&gt;
+&lt;li&gt;&lt;p&gt;&lt;strong&gt;ボリューム&lt;/strong&gt;：ヒットサウンドや音楽のボリュームを調整できます。&lt;/p&gt;&lt;/li&gt;
+&lt;li&gt;&lt;p&gt;&lt;strong&gt;タイミング&lt;/strong&gt;：デバイスによってはレイテンシーが発生する場合があります。オフセットを調整して、自分に合った設定を見つけてください（曲が遅れて感じる場合はオフセットを増やし、早く感じる場合は減らしてください）。&lt;/p&gt;&lt;/li&gt;
+&lt;li&gt;&lt;p&gt;&lt;strong&gt;MOD&lt;/strong&gt;：ゲームが簡単すぎると思ったら、MODを試してみましょう！&lt;/p&gt;&lt;/li&gt;
+&lt;li&gt;&lt;p&gt;&lt;strong&gt;ノーツ&lt;/strong&gt;：ノーツが出現するスピード（アプローチレート）を自分の好みに合わせて変更できます。&lt;/p&gt;&lt;/li&gt;
+&lt;li&gt;&lt;p&gt;&lt;strong&gt;カーソル&lt;/strong&gt;：好きな色、形、トレイルでカーソルをカスタマイズしましょう！&lt;/p&gt;&lt;/li&gt;
+&lt;/ul&gt;
+&lt;p&gt;&lt;strong&gt;mimi&lt;/strong&gt;を&lt;em&gt;あなた&lt;/em&gt;の&lt;strong&gt;マジカルミライ&lt;/strong&gt;に！&lt;/p&gt;'
+            data-songs-manifest='{&quot;songs&quot;:[{&quot;id&quot;:&quot;kotaete&quot;,&quot;titleEn&quot;:&quot;Answer Me&quot;,&quot;titleJp&quot;:&quot;こたえて&quot;,&quot;authorEn&quot;:&quot;imie&quot;,&quot;authorJp&quot;:&quot;imie&quot;,&quot;href&quot;:&quot;/mimi/kotaete/&quot;,&quot;bpm&quot;:130,&quot;difficulties&quot;:[{&quot;id&quot;:&quot;easy&quot;,&quot;level&quot;:1},{&quot;id&quot;:&quot;medium&quot;,&quot;level&quot;:0},{&quot;id&quot;:&quot;expert&quot;,&quot;level&quot;:12}]}]}'></div>
     </main>
 
     <footer class="home-footer">

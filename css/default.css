@@ -395,6 +395,110 @@ html body.home-page {
   color: #fff;
 }
 
+.layout-container--tutorial {
+  max-width: min(100vw - 4rem, 1200px);
+  align-self: flex-start;
+  padding: 6rem 1.5rem 3rem;
+  box-sizing: border-box;
+}
+
+.tutorial-layout {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 2rem;
+  width: 100%;
+}
+
+.tutorial-info {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  max-height: calc(100vh - 12rem);
+  scrollbar-width: none;
+}
+.tutorial-info::-webkit-scrollbar {
+  display: none;
+}
+.tutorial-info {
+  color: rgba(255, 255, 255, 0.85);
+}
+.tutorial-info h2 {
+  font-size: 1rem;
+  font-weight: bold;
+  color: #fff;
+  margin: 0 0 0.4rem;
+  letter-spacing: 0.05em;
+}
+.tutorial-info p {
+  margin: 0 0 0.8rem;
+  line-height: 1.7;
+}
+.tutorial-info svg.inline-icon {
+  width: 1em;
+  height: 1em;
+  vertical-align: -0.15em;
+  fill: currentColor;
+}
+.tutorial-info mark.flick {
+  background: rgb(255, 82, 82);
+  color: #fff;
+}
+.tutorial-info mark.stream {
+  background: rgb(82, 162, 255);
+  color: #fff;
+}
+.tutorial-info mark.lyric {
+  background: rgb(180, 180, 180);
+  color: #111;
+}
+.tutorial-info a[href^="spawn:"] {
+  color: #fff;
+  cursor: pointer;
+  text-decoration: underline dotted rgba(255, 255, 255, 0.4);
+  text-underline-offset: 3px;
+}
+.tutorial-info a[href^="spawn:"]:hover {
+  text-decoration-color: rgba(255, 255, 255, 0.9);
+}
+.tutorial-info table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0 0 0.8rem;
+  font-size: 0.85rem;
+}
+.tutorial-info th, .tutorial-info td {
+  padding: 0.3rem 0.6rem;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  text-align: left;
+}
+.tutorial-info th {
+  color: rgba(255, 255, 255, 0.5);
+  font-weight: normal;
+}
+
+.tutorial-canvas {
+  flex-shrink: 0;
+  display: block;
+  width: 280px;
+  height: 210px;
+  background: var(--bg-gradient-song);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  cursor: none;
+}
+@media (min-width: 900px) {
+  .tutorial-canvas {
+    width: 360px;
+    height: 270px;
+  }
+}
+@media (min-width: 1200px) {
+  .tutorial-canvas {
+    width: 480px;
+    height: 360px;
+  }
+}
+
 .placeholder-text {
   color: rgba(255, 255, 255, 0.6);
   font-style: italic;
