@@ -17,15 +17,15 @@ The TextAlive API token to use is: N6S7A1HvahiwDLUg.
 
 ## Notes
 There are three different types of notes in the game:
-- Click: A red note with a specified direction. The direction can be defined in any direction in the 360 degrees around the note.
+- Flick: A red note with a specified direction. The direction can be defined in any direction in the 360 degrees around the note.
 - Stream: A series of blue notes (> 1) with specified directions. The directions can be defined in any direction in the 360 degrees around each note. The notes in the stream should have directions orientated in a manner that would be feasible for a human player to properly hit them.
 - Lyric: A directionless note displaying the Japanese character from the TextAlive lyrics closest in time to the note (within ±80 ms). If no vocal character falls within that window, the note is invisible and a warning is logged before play. The character appears first as a stroke outline, then fills inward from a growing radial clip — identical timing to the arrow fill animation. Hit by swiping through the character with the cursor (no direction requirement, no hold required).
 
 Directions will have an acceptable margin of error window, so the player can hit the note successfully from a range of angles. A successful hit is defined as moving from behind the note to past the arrow in the specified direction while a key is held (or dragged for touchscreen devices). When the cursor reaches the center of the note is when the judgement is called and a score is obtained for that hit if it is a successful hit.
 
-The hold requirement differs between note types. Stream notes require the mouse button (or touch) to be held when the cursor crosses the note; click notes and lyric notes do not require holding.
+The hold requirement differs between note types. Stream notes require the mouse button (or touch) to be held when the cursor crosses the note; flick notes and lyric notes do not require holding.
 
-All types will appear and disappear in the same way. They will gradually appear as the song progresses. Each note will appear as a faint outline at first, and click/stream notes fill with color as the hit time approaches (defined by the judgement window). Lyric notes show a dotted circle throughout; the character stroke snaps into view early and fills inward from a growing radial clip as the hit time approaches.
+All types will appear and disappear in the same way. They will gradually appear as the song progresses. Each note will appear as a faint outline at first, and flick/stream notes fill with color as the hit time approaches (defined by the judgement window). Lyric notes show a dotted circle throughout; the character stroke snaps into view early and fills inward from a growing radial clip as the hit time approaches.
 
 ## Judgement Window
 The judgement window is the acceptable margin of error for valid hits. Score is determined by when a note is correctly hit relative to the judgement window. The judgement window and scores are defined as such:
@@ -93,7 +93,7 @@ A short sound plays on every successful hit (perfect or good).
 
 ## Story File (`.story`)
 
-An optional per-song `.story` file (`src/songs/<name>/chart.story`) controls storyboard highlights and character position overrides. It is compiled by Hakyll to `songs/<name>/chart.json` and loaded at runtime alongside the chart.
+An optional per-difficulty `.story` file (`src/songs/<name>/<difficulty>.story`) controls storyboard highlights, character position overrides, and manual lyric segments. It is compiled by Hakyll to `songs/<name>/<difficulty>.story.json` and loaded at runtime alongside the matching chart.
 
 Each non-blank, non-comment (`#`) line is one entry:
 
@@ -101,6 +101,7 @@ Each non-blank, non-comment (`#`) line is one entry:
 |--------|---------|
 | `h, time1, time2` | Highlight the storyboard character whose time falls within `[time1, time2]` with the technicolor effect while the song position is also in that range |
 | `m, time, x, y` | Within the current phrase, all characters at time ≥ `time` break off into a separate vertical segment positioned at logical coordinates `(x, y)` (800 × 600 space) |
+| `l, from, to, x, y, text[, char_time1, char_time2, …]` | A self-contained manual lyric segment, independent of TextAlive: appears at `from` ms, fades out at `to` ms, positioned at logical `(x, y)`; `text` is the lyric string (no commas); each optional `char_time` is the ms when the next character activates |
 
 Times are in milliseconds. `x`/`y` use the same 800 × 600 logical coordinate space as chart notes.
 

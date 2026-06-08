@@ -53,14 +53,14 @@ stack build --system-ghc
 | `src/Config.hs` | Site-wide constants: `siteRoot`, `templateDir`, `tabPaths`, `textaliveToken` |
 | `src/Compilers.hs` | `sassCompiler` (npx sass) and `tsCompiler` (npx esbuild) |
 | `src/ChartCompiler.hs` | `chartCompiler` — compiles `.mimi` chart files into `Note[]` JSON |
-| `src/StoryCompiler.hs` | `storyCompiler` — compiles `.story` storyboard files into JSON arrays of highlight/move entries |
+| `src/StoryCompiler.hs` | `storyCompiler` — compiles `.story` storyboard files into JSON arrays of highlight/move/lyric entries |
 | `src/Context.hs` | `postCtx` — adds `root` and `date` fields to Hakyll context |
 
 ### Content Structure
 
 - `src/tabs/` — Top-level pages. `home.md` → `index.html`, `kotaete.md` → `kotaete/index.html`, etc.
-- `src/songs/<name>/` — Per-song assets. `.mimi` chart files compiled to `.json`; optional `chart.story` compiled to `chart.json`; other files copied verbatim
-- `src/templates/` — Hakyll HTML templates: `home.html`, `song.html`, `tutorial.html`, `lang_toggle.html`, `settings_toggle.html`, `imports.html`, `sitemap.xml`
+- `src/songs/<name>/` — Per-song assets. `.mimi` chart files compiled to `.json`; optional per-difficulty `.story` files compiled to `.story.json`; other files copied verbatim
+- `src/templates/` — Hakyll HTML templates: `home.html`, `song.html`, `lang_toggle.html`, `settings_toggle.html`, `imports.html`, `sitemap.xml`
 - `src/scss/` — SCSS partials; `default.scss` is the entry point, imports all `_*.scss` partials
 - `src/ts/main.ts` — TypeScript entry point, compiled to `js/main.js`
 - `src/ts/core/` — Shared primitives (no inter-island dependencies):
@@ -80,15 +80,16 @@ stack build --system-ghc
   - `share.ts` — Share / clipboard fallback for result sharing
 - `src/ts/react/` — React components:
   - `GameSurface.tsx` — canvas + score display + hit feedback toasts + `ResultsOverlay`
-  - `HomeLayoutSwitcher.tsx` — home page layout state (original / play / info)
+  - `HomeLayoutSwitcher.tsx` — home page layout state (original / play / info / tutorial); picks EN/JP `info`/`tutorial` content by current language; tutorial pane scroll masks its text top/bottom and routes `spawn:<kind>` link clicks to the `TutorialCanvas` handle
   - `OptionsPanel.tsx` — settings modal with volume/hitsound sliders always visible, plus three `<details>` accordions: Mods (Hidden mod checkbox), Notes (AR slider + animated approach preview; AR locked on song page), Cursor (size slider, HSV color picker, trail shape segmented buttons [Circle/Star/Square], trail decay segmented buttons [Fade/Scatter], trail fade speed slider, animated cursor preview); accordion open/closed states persist in localStorage
   - `ColorPicker.tsx` — inline HSV color picker: SV square canvas + hue bar canvas, both draggable with pointer capture; converts HSV↔RGB; preserves hue across low-saturation colors via `localH` state
   - `ResultsOverlay.tsx` — post-song results screen (grade, stats, share, try again)
   - `ApproachPreview.tsx` — animated arrow canvas preview for AR setting; accepts `hidden` prop to mirror Hidden mod state
   - `CursorPreview.tsx` — animated canvas preview of the custom cursor; renders a Lissajous path with orb + trail using current cursor settings; accepts `trailShape` and `trailDecay` props; uses refs so rAF loop survives prop changes
+  - `TutorialCanvas.tsx` — interactive tutorial mini-engine; `forwardRef` exposing `spawnNote(kind)` via `TutorialCanvasHandle`; spawns flick/stream/lyric notes at canvas centre and runs its own progress-based hit detection, fireworks, and judgment toasts independent of the song engine
   - `hooks/useLang.ts` — hook: current language from `localStorage`, re-reads on toggle click
   - `hooks/useSettings.ts` — consolidated setting hooks: `useApproachRate`, `useVolume`, `useHitsoundVolume` (numeric, shared `useNumericSetting` helper); `useHiddenMod` (boolean); `useCursorSize`, `useCursorR`, `useCursorG`, `useCursorB`, `useTrailFadeSpeed` (numeric); `useTrailShape`, `useTrailDecay` (string, shared `useStringSetting` helper)
-- `src/tools/osu2mimi.ts` — CLI converter from `.osu` format to `.mimi`: sliders → `c` (click) notes with computed direction, hit circles → `l` (lyric) notes
+- `src/tools/osu2mimi.ts` — CLI converter from `.osu` format to `.mimi`: sliders → `f` (flick) notes with computed direction, hit circles → `l` (lyric) notes
 - `static/` — Copied verbatim to output (images, audio, `robots.txt`, etc.)
 
 ### Output
@@ -97,7 +98,7 @@ All output goes to `docs/` (configured in `Config.hs` via `hakyllConfig`).
 
 ### Chart Format (`.mimi`)
 
-Each difficulty is a separate file: `src/songs/<name>/chart-<difficulty>.mimi` (e.g. `chart-easy.mimi`, `chart-expert.mimi`). `site.hs` scans for these files to build the song manifest; `ChartCompiler.hs` compiles each to `songs/<name>/chart-<difficulty>.json`.
+Each difficulty is a separate file: `src/songs/<name>/<difficulty>.mimi` (e.g. `easy.mimi`, `expert.mimi`). `site.hs` scans for these files to build the song manifest; `ChartCompiler.hs` compiles each to `songs/<name>/<difficulty>.json`.
 
 ```
 time_unit: ms
@@ -105,7 +106,7 @@ difficulty: 12
 beats_per_measure: 4
 
 # kind, time_ms, degrees, x, y[, char]
-c, 2388, -30.6, 396.9,  92.2
+f, 2388, -30.6, 396.9,  92.2
 s, 3080,  68.2, 381.3, 425.0
 l, 5000,     0, 300.0, 250.0
 l, 5500,     0, 400.0, 300.0, か
@@ -115,7 +116,7 @@ l, 5500,     0, 400.0, 300.0, か
 - `time_unit`: always `ms`
 - `difficulty`: integer level shown on the difficulty selection button
 - `beats_per_measure`: optional, informational only
-- `kind`: `c` (click, red — no hold required), `s` (stream, blue — requires holding), or `l` (lyric, white circle — swipe-through, no hold, char from TextAlive within ±80 ms)
+- `kind`: `f` (flick, red — no hold required), `s` (stream, blue — requires holding), or `l` (lyric, white circle — swipe-through, no hold, char from TextAlive within ±80 ms)
 - `char` (lyric notes only, optional): overrides the TextAlive character lookup; baked into the compiled JSON as `"lyricChar"`
 - `time_ms`: milliseconds from song start when the note should be hit
 - `degrees`: direction in standard math convention (0 = right, 90 = up, CCW); converted to canvas radians on compile
@@ -124,7 +125,7 @@ l, 5500,     0, 400.0, 300.0, か
 
 ### Story Format (`.story`)
 
-An optional `src/songs/<name>/chart.story` file compiled by `StoryCompiler.hs` to `songs/<name>/chart.json`. Loaded at runtime by `controller.ts` and applied via `storyboard.setStoryData()`.
+An optional per-difficulty `src/songs/<name>/<difficulty>.story` file compiled by `StoryCompiler.hs` to `songs/<name>/<difficulty>.story.json`. Loaded at runtime by `controller.ts` alongside the matching chart and applied via `storyboard.setStoryData()`.
 
 ```
 # kind, args…

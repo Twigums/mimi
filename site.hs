@@ -119,14 +119,14 @@ buildManifest sitePath = do
                     authorEn = lookupFM "song-author" fm
                     authorJp = lookupFM "song-author-jp" fm
 
-                avail <- filterM (\d -> doesFileExist $ songsDir </> songId </> "chart-" ++ d ++ ".mimi") difficultyIds
+                avail <- filterM (\d -> doesFileExist $ songsDir </> songId </> d ++ ".mimi") difficultyIds
                 case avail of
                   [] -> return Nothing
                   (firstDiff:_) -> do
-                    firstContent <- readFile (songsDir </> songId </> "chart-" ++ firstDiff ++ ".mimi")
+                    firstContent <- readFile (songsDir </> songId </> firstDiff ++ ".mimi")
                     let bpmJson = maybe "null" id (parseMimiBpm firstContent)
                     diffs <- forM avail $ \d -> do
-                        level <- fmap parseMimiDifficulty $ readFile (songsDir </> songId </> "chart-" ++ d ++ ".mimi")
+                        level <- fmap parseMimiDifficulty $ readFile (songsDir </> songId </> d ++ ".mimi")
                         return $ "{\"id\":\"" ++ d ++ "\",\"level\":" ++ show level ++ "}"
                     let diffsJson = "[" ++ intercalate "," diffs ++ "]"
                     let href = sitePath ++ "/" ++ songId ++ "/"
@@ -175,9 +175,9 @@ rules sitePath = do
         route   $ gsubRoute "src/" (const "") `composeRoutes` setExtension "json"
         compile chartCompiler
 
-    -- story files: compile .story -> .json
+    -- story files: compile .story -> .story.json
     match "src/songs/**/*.story" $ do
-        route   $ gsubRoute "src/" (const "") `composeRoutes` setExtension "json"
+        route   $ gsubRoute "src/" (const "") `composeRoutes` setExtension "story.json"
         compile storyCompiler
 
     -- song data (audio, timing json, etc.) — excludes .mimi and .story (matched above)
@@ -207,23 +207,24 @@ rules sitePath = do
         match "src/tabs/home.md" $ do
             route   $ constRoute "index.html"
             compile $ do
-                infoContent      <- loadSnapshotBody (fromFilePath "src/tabs/info.md") "content"
-                tutorialContent  <- loadSnapshotBody (fromFilePath "src/tabs/tutorial.md") "content"
-                manifest         <- unsafeCompiler $ buildManifest sitePath
-                let homeCtx = constField "info-content"      (escapeForAttr infoContent)
-                           <> constField "tutorial-content"  (escapeForAttr tutorialContent)
-                           <> constField "songs-manifest"    (escapeForAttr manifest)
+                let tabNames = ["info", "tutorial"]
+                tabCtx <- fmap mconcat $ forM tabNames $ \name -> do
+                    en <- loadSnapshotBody (fromFilePath $ "src/tabs/" ++ name ++ ".md")     "content"
+                    jp <- loadSnapshotBody (fromFilePath $ "src/tabs/" ++ name ++ ".jp.md")  "content"
+                    return $ constField (name ++ "-content")     (escapeForAttr en)
+                          <> constField (name ++ "-content-jp")  (escapeForAttr jp)
+                manifest <- unsafeCompiler $ buildManifest sitePath
+                let homeCtx = tabCtx
+                           <> constField "songs-manifest" (escapeForAttr manifest)
                            <> baseCtx
                 pandocCompiler
                     >>= loadAndApplyTemplate (makeIdentifier templateDir "home.html") homeCtx
 
-    match "src/tabs/tutorial.md" $ do
-        compile $ pandocCompiler
-            >>= saveSnapshot "content"
+    match ("src/tabs/tutorial.md" .||. "src/tabs/info.md") $
+        compile $ pandocCompiler >>= saveSnapshot "content"
 
-    match "src/tabs/info.md" $ do
-        compile $ pandocCompiler
-            >>= saveSnapshot "content"
+    match "src/tabs/*.jp.md" $
+        compile $ pandocCompiler >>= saveSnapshot "content"
 
     match "src/tabs/songs/*.md" $ do
         route   $ customRoute $ \ident ->

@@ -1,8 +1,8 @@
 import type { TextAliveChar, TextAlivePhrase, TextAliveVideo } from "./textalive";
 
-export interface StoryHighlight { type: "h"; from: number; to: number; }
-export interface StoryMove      { type: "m"; time: number; x: number; y: number; }
-export interface StoryLyric     { type: "l"; from: number; to: number; x: number; y: number; text: string; chars: number[]; }
+export interface StoryHighlight { type: "highlight"; from: number; to: number; }
+export interface StoryMove      { type: "move";      time: number; x: number; y: number; }
+export interface StoryLyric     { type: "lyric";     from: number; to: number; x: number; y: number; text: string; chars: number[]; }
 export type StoryEntry = StoryHighlight | StoryMove | StoryLyric;
 
 const LOGICAL_W = 800;
@@ -112,9 +112,9 @@ export function createStoryboardRenderer(root: HTMLElement): StoryboardRenderer 
     setVideo(v): void { video = v; },
 
     setStoryData(entries): void {
-      highlights = entries.filter((e): e is StoryHighlight => e.type === "h");
-      moves      = entries.filter((e): e is StoryMove      => e.type === "m");
-      lyrics     = entries.filter((e): e is StoryLyric     => e.type === "l");
+      highlights = entries.filter((e): e is StoryHighlight => e.type === "highlight");
+      moves      = entries.filter((e): e is StoryMove      => e.type === "move");
+      lyrics     = entries.filter((e): e is StoryLyric     => e.type === "lyric");
     },
 
     update(songMs): void {

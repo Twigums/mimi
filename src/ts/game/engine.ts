@@ -14,7 +14,7 @@ export const LOGICAL_H = 600;
 
 const ANGULAR_MARGIN = Math.PI / 6;
 
-type NoteKind          = "click" | "stream" | "lyric";
+type NoteKind          = "flick" | "stream" | "lyric";
 export type HitResult  = "perfect" | "good" | "miss";
 type NoteState         = "pending" | "hit" | "missed";
 
@@ -48,7 +48,7 @@ export interface GameStats {
 
 export interface GameHandle {
   setChart(notes: Note[]): void;
-  setLyricVideo(findClosestChar: (timeMs: number) => { text: string; distMs: number } | null): void;
+  setCharLookup(findClosestChar: (timeMs: number) => { text: string; distMs: number } | null): void;
   reset(): void;
   start(): void;
   tick(songMs: number): void;
@@ -305,7 +305,7 @@ export function createGame(deps: GameDeps): GameHandle {
       populateLyricChars();
     },
 
-    setLyricVideo(findClosestChar): void {
+    setCharLookup(findClosestChar): void {
       lyricCharLookup = findClosestChar;
       populateLyricChars();
     },

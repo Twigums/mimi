@@ -54,7 +54,7 @@ parseNote toMs line =
         nx  <- readDouble "x"       x
         ny  <- readDouble "y"       y
         let kind = case map toLower k of
-                "c" -> "click"
+                "f" -> "flick"
                 "s" -> "stream"
                 "l" -> "lyric"
                 _   -> map toLower k
