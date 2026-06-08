@@ -38,7 +38,7 @@ Keep notes away from edges — the game uses an 80 px padding margin on all side
 |------|----------|
 | `"flick"` | Single isolated hit — one syllable standing alone |
 | `"stream"` | Part of a rapid sequence — multiple syllables in one word/burst |
-| `"lyric"` | Directionless note tapped on the beat; displays the TextAlive character |
+| `"lyric"` | Directionless note swiped through with the cursor; displays the TextAlive character |
 
 ## Direction
 

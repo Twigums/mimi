@@ -3,7 +3,7 @@ import { LOGICAL_W, LOGICAL_H } from "../game/engine";
 import type { Note } from "../game/engine";
 import { drawArrow, drawLyricNote, drawFireworks, NOTE_RADIUS, LYRIC_RADIUS } from "../game/draw";
 import { createCursorRenderer } from "../game/cursor";
-import { angleDiff } from "../core/utils";
+import { angleDiff, clamp } from "../core/utils";
 
 export interface TutorialCanvasHandle {
   spawnNote(kind: Note["kind"]): void;
@@ -79,7 +79,6 @@ export const TutorialCanvas = forwardRef<TutorialCanvasHandle, {}>((_, ref) => {
     };
 
     const pointer = { x: 0, y: 0, prevX: 0, prevY: 0, held: false };
-    let clickedThisFrame = false;
 
     const toLogical = (clientX: number, clientY: number): [number, number] => {
       const rect = canvas.getBoundingClientRect();
@@ -90,10 +89,10 @@ export const TutorialCanvas = forwardRef<TutorialCanvasHandle, {}>((_, ref) => {
     };
 
     const onMouseMove  = (e: MouseEvent): void => { [pointer.x, pointer.y] = toLogical(e.clientX, e.clientY); };
-    const onMouseDown  = (e: MouseEvent): void => { [pointer.x, pointer.y] = toLogical(e.clientX, e.clientY); pointer.held = true; clickedThisFrame = true; };
+    const onMouseDown  = (e: MouseEvent): void => { [pointer.x, pointer.y] = toLogical(e.clientX, e.clientY); pointer.held = true; };
     const onMouseUp    = (): void => { pointer.held = false; };
     const onTouchMove  = (e: TouchEvent): void => { const t = e.touches[0]; if (t) [pointer.x, pointer.y] = toLogical(t.clientX, t.clientY); e.preventDefault(); };
-    const onTouchStart = (e: TouchEvent): void => { const t = e.touches[0]; if (t) { [pointer.x, pointer.y] = toLogical(t.clientX, t.clientY); pointer.held = true; clickedThisFrame = true; } e.preventDefault(); };
+    const onTouchStart = (e: TouchEvent): void => { const t = e.touches[0]; if (t) { [pointer.x, pointer.y] = toLogical(t.clientX, t.clientY); pointer.held = true; } e.preventDefault(); };
     const onTouchEnd   = (): void => { pointer.held = false; };
 
     canvas.addEventListener("mousemove",  onMouseMove);
@@ -108,8 +107,17 @@ export const TutorialCanvas = forwardRef<TutorialCanvasHandle, {}>((_, ref) => {
       if (Math.abs(delta) > GOOD_WINDOW) return null;
 
       if (note.kind === "lyric") {
-        if (!clickedThisFrame) return null;
-        if ((pointer.x - note.x) ** 2 + (pointer.y - note.y) ** 2 > LYRIC_RADIUS * LYRIC_RADIUS) return null;
+        const moveDx = pointer.x - pointer.prevX;
+        const moveDy = pointer.y - pointer.prevY;
+        const lenSq  = moveDx * moveDx + moveDy * moveDy;
+        if (lenSq < 0.5) return null;
+        const t = clamp(
+          ((note.x - pointer.prevX) * moveDx + (note.y - pointer.prevY) * moveDy) / lenSq,
+          0, 1,
+        );
+        const closestX = pointer.prevX + t * moveDx;
+        const closestY = pointer.prevY + t * moveDy;
+        if ((closestX - note.x) ** 2 + (closestY - note.y) ** 2 > LYRIC_RADIUS * LYRIC_RADIUS) return null;
       } else {
         if (note.kind === "stream" && !pointer.held) return null;
         const dx    = Math.cos(note.direction);
@@ -191,9 +199,8 @@ export const TutorialCanvas = forwardRef<TutorialCanvasHandle, {}>((_, ref) => {
       }
 
       cursor.render(now);
-      pointer.prevX    = pointer.x;
-      pointer.prevY    = pointer.y;
-      clickedThisFrame = false;
+      pointer.prevX = pointer.x;
+      pointer.prevY = pointer.y;
       rafId = requestAnimationFrame(loop);
     };
 

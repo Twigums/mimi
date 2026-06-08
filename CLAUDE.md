@@ -116,7 +116,7 @@ l, 5500,     0, 400.0, 300.0, か
 - `time_unit`: always `ms`
 - `difficulty`: integer level shown on the difficulty selection button
 - `beats_per_measure`: optional, informational only
-- `kind`: `f` (flick, red — no hold required), `s` (stream, blue — requires holding), or `l` (lyric, white circle — tap/click within radius, no hold, char from TextAlive within ±80 ms)
+- `kind`: `f` (flick, red — no hold required), `s` (stream, blue — requires holding), or `l` (lyric, white circle — swipe-through, no hold, char from TextAlive within ±80 ms)
 - `char` (lyric notes only, optional): overrides the TextAlive character lookup; baked into the compiled JSON as `"lyricChar"`
 - `time_ms`: milliseconds from song start when the note should be hit
 - `degrees`: direction in standard math convention (0 = right, 90 = up, CCW); converted to canvas radians on compile
