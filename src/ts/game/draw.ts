@@ -32,7 +32,18 @@ export function drawArrow(
   const cy = note.y * scale;
   const r  = NOTE_RADIUS * scale;
 
-  const { base, darkBase } = NOTE_STYLE[note.kind].colors;
+  if (!note.kind) {
+    console.error("[mimi] drawArrow: note has no kind", { note, appearProgress });
+    return;
+  }
+
+  const style = NOTE_STYLE[note.kind];
+  if (!style) {
+    console.error("[mimi] drawArrow: unknown note kind", { kind: note.kind, note });
+    return;
+  }
+
+  const { base, darkBase } = style.colors;
 
   const len     = r;         // total arrow length
   const headLen = r * 0.4;  // arrowhead length
@@ -250,7 +261,18 @@ export function drawFireworks(
   const len = maxLen * (1 - Math.pow(1 - progress, 2));
   const lw = 2.5 * scale * (1 - progress);
 
-  const color = NOTE_STYLE[kind].colors.base;
+  if (!kind) {
+    console.error("[mimi] drawFireworks: animation has no kind", { x, y, kind, progress });
+    return;
+  }
+
+  const style = NOTE_STYLE[kind];
+  if (!style) {
+    console.error("[mimi] drawFireworks: unknown animation kind", { kind });
+    return;
+  }
+
+  const color = style.colors.base;
   const cx = x * scale;
   const cy = y * scale;
 
