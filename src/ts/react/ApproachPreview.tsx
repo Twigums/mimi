@@ -10,7 +10,7 @@ const PREVIEW_H = 300;
 
 // Static arrow at canvas centre, pointing right — only the fill animation changes
 const PREVIEW_NOTE: Note = {
-  kind:      "click",
+  kind:      "flick",
   time:      0,
   x:         PREVIEW_W / 2,
   y:         PREVIEW_H / 2,

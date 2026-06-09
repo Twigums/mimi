@@ -330,36 +330,68 @@ html body.song-page {
   }
 }
 
-.game-area .btn-play-stop {
+.game-start-surface {
   position: absolute;
-  top: 0.5rem;
-  right: 0.5rem;
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 0.3rem;
+  inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  opacity: 0.55;
-  transition: opacity 0.4s ease;
-  z-index: 1;
+  background: rgba(0, 0, 0, 0.08);
+  border: none;
+  color: rgba(255, 255, 255, 0.82);
+  cursor: pointer;
+  font: inherit;
+  font-size: 1rem;
+  font-weight: bold;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  text-shadow: 0 0 14px rgba(255, 255, 255, 0.22);
+  z-index: 2;
+  transition: background var(--motion-duration-base) var(--motion-ease-standard),
+              color      var(--motion-duration-base) var(--motion-ease-standard);
 
-  img {
-    width: 1.3rem;
-    height: 1.3rem;
+  .game-start-label {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.38);
+    padding-bottom: 0.28rem;
   }
 
-  .icon-stop { display: none; }
-
-  &:hover:not(:disabled) { opacity: 0.9; }
-  &:disabled { opacity: 0.25; cursor: not-allowed; }
-  &.faded { opacity: 0.25; }
+  &:hover,
+  &:focus-visible {
+    background: rgba(0, 0, 0, 0.16);
+    color: #fff;
+    outline: none;
+  }
 }
 
-.game-area.playing .btn-play-stop {
-  .icon-play { display: none; }
-  .icon-stop  { display: block; }
+.game-break-skip {
+  position: absolute;
+  left: 50%;
+  bottom: 1rem;
+  transform: translateX(-50%);
+  min-width: 5.5rem;
+  padding: 0.45rem 0.85rem;
+  border: 1px solid rgba(255, 255, 255, 0.34);
+  background: rgba(0, 0, 0, 0.24);
+  color: rgba(255, 255, 255, 0.82);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-shadow: 0 0 10px rgba(0, 0, 0, 0.65);
+  z-index: 2;
+  transition: background var(--motion-duration-base) var(--motion-ease-standard),
+              border-color var(--motion-duration-base) var(--motion-ease-standard),
+              color var(--motion-duration-base) var(--motion-ease-standard);
+
+  &:hover,
+  &:focus-visible {
+    background: rgba(255, 255, 255, 0.14);
+    border-color: rgba(255, 255, 255, 0.72);
+    color: #fff;
+    outline: none;
+  }
 }
 
 .game-song-info {

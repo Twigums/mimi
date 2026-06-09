@@ -1,13 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLang } from "./hooks/useLang";
 import { OptionsPanel } from "./OptionsPanel";
+import { TutorialCanvas } from "./TutorialCanvas";
+import type { TutorialCanvasHandle } from "./TutorialCanvas";
+import type { Note } from "../game/engine";
 
 type Layout = "original" | "play" | "info" | "tutorial";
 
 interface Props {
-  infoContent: string;
-  tutorialContent: string;
-  songsManifest: string;
+  infoContent:        string;
+  infoContentJp:      string;
+  tutorialContent:    string;
+  tutorialContentJp:  string;
+  songsManifest:      string;
 }
 
 interface DifficultyInfo {
@@ -17,7 +22,7 @@ interface DifficultyInfo {
   level: number;
   ar: number | null;
   noteCount: number;
-  clickCount: number;
+  flickCount: number;
   streamCount: number;
   lyricCount: number;
   playableMs: number | null;
@@ -52,7 +57,7 @@ interface ManifestSong {
     level: number;
     ar?: number | null;
     noteCount?: number;
-    clickCount?: number;
+    flickCount?: number;
     streamCount?: number;
     lyricCount?: number;
     playableMs?: number | null;
@@ -87,7 +92,7 @@ function parseManifest(json: string): SongEntry[] {
           level: d.level,
           ar: d.ar ?? null,
           noteCount: d.noteCount ?? 0,
-          clickCount: d.clickCount ?? 0,
+          flickCount: d.flickCount ?? 0,
           streamCount: d.streamCount ?? 0,
           lyricCount: d.lyricCount ?? 0,
           playableMs: d.playableMs ?? null,
@@ -113,14 +118,16 @@ function formatDensity(v: number | null): string {
   return `${v.toFixed(1)}/s`;
 }
 
-export function HomeLayoutSwitcher({ infoContent, tutorialContent, songsManifest }: Props) {
+export function HomeLayoutSwitcher({ infoContent, infoContentJp, tutorialContent, tutorialContentJp, songsManifest }: Props) {
   const songs = useMemo(() => parseManifest(songsManifest), [songsManifest]);
 
   const [layout, setLayout] = useState<Layout>("original");
   const [currentLayout, setCurrentLayout] = useState<Layout>(layout);
   const [exiting, setExiting] = useState(false);
   const [paneKey, setPaneKey] = useState(0);
-  const exitTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const exitTimer       = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const tutorialRef     = useRef<TutorialCanvasHandle>(null);
+  const tutorialInfoRef = useRef<HTMLDivElement>(null);
 
   const [selectedSong, setSelectedSong] = useState<SongEntry | null>(null);
   const [renderedSong, setRenderedSong] = useState<SongEntry | null>(null);
@@ -183,6 +190,32 @@ export function HomeLayoutSwitcher({ infoContent, tutorialContent, songsManifest
     ?? renderedSong?.difficulties[0]
     ?? null;
 
+  const activeInfoContent     = lang === "jp" && infoContentJp     ? infoContentJp     : infoContent;
+  const activeTutorialContent = lang === "jp" && tutorialContentJp ? tutorialContentJp : tutorialContent;
+
+  useEffect(() => {
+    if (currentLayout !== "tutorial") return;
+    const el = tutorialInfoRef.current;
+    if (!el) return;
+    const update = (): void => {
+      const top    = el.scrollTop > 0;
+      const bottom = el.scrollTop + el.clientHeight < el.scrollHeight - 1;
+      const t = top    ? "transparent 0, black 2rem," : "";
+      const b = bottom ? ", black calc(100% - 2rem), transparent" : "";
+      const mask = `linear-gradient(to bottom, ${t}black${b})`;
+      el.style.setProperty("mask-image", mask);
+      el.style.setProperty("-webkit-mask-image", mask);
+    };
+    const raf = requestAnimationFrame(update);
+    el.addEventListener("scroll", update);
+    window.addEventListener("resize", update);
+    return () => {
+      cancelAnimationFrame(raf);
+      el.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+    };
+  }, [currentLayout, activeTutorialContent]);
+
   const handlePlayClick = () => {
     setSelectedSong(null);
     setRenderedSong(null);
@@ -190,7 +223,7 @@ export function HomeLayoutSwitcher({ infoContent, tutorialContent, songsManifest
   };
 
   return (
-    <div className="layout-container">
+    <div className={`layout-container${layout === "tutorial" || currentLayout === "tutorial" ? " layout-container--tutorial" : ""}`}>
       <OptionsPanel />
       <div className={`layout-pane${exiting ? " exiting" : ""}`} key={paneKey}>
         {currentLayout === "original" && (
@@ -281,7 +314,7 @@ export function HomeLayoutSwitcher({ infoContent, tutorialContent, songsManifest
                       </div>
                       <div className="difficulty-stats">
                         <span>{t("Notes", "ノーツ")}: {activeDiff.noteCount}</span>
-                        <span>{t("Clicks", "クリック")}: {activeDiff.clickCount}</span>
+                        <span>{t("Flicks", "フリック")}: {activeDiff.flickCount}</span>
                         <span>{t("Streams", "ストリーム")}: {activeDiff.streamCount}</span>
                         <span>{t("Lyrics", "歌詞")}: {activeDiff.lyricCount}</span>
                         <span>{t("Length", "長さ")}: {formatDuration(activeDiff.playableMs)}</span>
@@ -302,7 +335,7 @@ export function HomeLayoutSwitcher({ infoContent, tutorialContent, songsManifest
           <>
             <div
               className="info-content"
-              dangerouslySetInnerHTML={{ __html: infoContent }}
+              dangerouslySetInnerHTML={{ __html: activeInfoContent }}
             />
             <button className="btn-back" onClick={() => setLayout("original")}>
               {t("Back", "戻る")}
@@ -311,10 +344,25 @@ export function HomeLayoutSwitcher({ infoContent, tutorialContent, songsManifest
         )}
         {currentLayout === "tutorial" && (
           <>
-            <div
-              className="info-content"
-              dangerouslySetInnerHTML={{ __html: tutorialContent }}
-            />
+            <div className="tutorial-layout">
+              <div
+                ref={tutorialInfoRef}
+                className="tutorial-info"
+                dangerouslySetInnerHTML={{ __html: activeTutorialContent }}
+                onClick={(e) => {
+                  const el = e.target as HTMLElement;
+                  if (el.tagName !== "A") return;
+                  const href = (el as HTMLAnchorElement).getAttribute("href") ?? "";
+                  if (!href.startsWith("spawn:")) return;
+                  e.preventDefault();
+                  const kind = href.slice(6) as Note["kind"];
+                  if (kind === "flick" || kind === "stream" || kind === "lyric") {
+                    tutorialRef.current?.spawnNote(kind);
+                  }
+                }}
+              />
+              <TutorialCanvas ref={tutorialRef} />
+            </div>
             <button className="btn-back" onClick={() => setLayout("original")}>
               {t("Back", "戻る")}
             </button>

@@ -118,7 +118,7 @@ function main(): void {
     ];
 
     for (const note of notes) {
-        const kind = note.noDir ? "l" : "c";
+        const kind = note.noDir ? "l" : "f";
         out.push(`${kind}, ${note.time}, ${note.degrees}, ${note.x}, ${note.y}`);
     }
 

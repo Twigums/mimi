@@ -357,6 +357,97 @@ html body.home-page {
   }
 }
 
+.layout-container--tutorial {
+  max-width: min(calc(100vw - 4rem), 1200px);
+  align-self: flex-start;
+  padding: 6rem 1.5rem 3rem;
+  box-sizing: border-box;
+}
+
+.tutorial-layout {
+  display: flex;
+  flex-direction: row;
+  align-items: flex-start;
+  gap: 2rem;
+  width: 100%;
+}
+
+.tutorial-info {
+  flex: 1;
+  min-width: 0;
+  overflow-y: auto;
+  max-height: calc(100vh - 12rem);
+  scrollbar-width: none;
+  &::-webkit-scrollbar { display: none; }
+  color: rgba(255, 255, 255, 0.85);
+
+  h2 {
+    font-size: 1rem;
+    font-weight: bold;
+    color: #fff;
+    margin: 0 0 0.4rem;
+    letter-spacing: 0.05em;
+  }
+
+  p {
+    margin: 0 0 0.8rem;
+    line-height: 1.7;
+  }
+
+  svg.inline-icon {
+    width: 1em;
+    height: 1em;
+    vertical-align: -0.15em;
+    fill: currentColor;
+  }
+
+  mark.flick  { background: rgb(255, 82,  82);  color: #fff; }
+  mark.stream { background: rgb(82,  162, 255); color: #fff; }
+  mark.lyric  { background: rgb(180, 180, 180); color: #111; }
+
+  a[href^="spawn:"] {
+    color: #fff;
+    cursor: pointer;
+    text-decoration: underline dotted rgba(255, 255, 255, 0.4);
+    text-underline-offset: 3px;
+
+    &:hover {
+      text-decoration-color: rgba(255, 255, 255, 0.9);
+    }
+  }
+
+  table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 0 0 0.8rem;
+    font-size: 0.85rem;
+  }
+
+  th, td {
+    padding: 0.3rem 0.6rem;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    text-align: left;
+  }
+
+  th {
+    color: rgba(255, 255, 255, 0.5);
+    font-weight: normal;
+  }
+}
+
+.tutorial-canvas {
+  flex-shrink: 0;
+  display: block;
+  width: 280px;
+  height: 210px;
+  background: var(--bg-gradient-song);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  cursor: none;
+
+  @media (min-width: 900px)  { width: 360px; height: 270px; }
+  @media (min-width: 1200px) { width: 480px; height: 360px; }
+}
+
 .placeholder-text {
   color: rgba(255, 255, 255, 0.6);
   font-style: italic;
