@@ -20,6 +20,13 @@ interface DifficultyInfo {
   labelEn: string;
   labelJp: string;
   level: number;
+  ar: number | null;
+  noteCount: number;
+  flickCount: number;
+  streamCount: number;
+  lyricCount: number;
+  playableMs: number | null;
+  density: number | null;
 }
 
 interface SongEntry {
@@ -28,6 +35,8 @@ interface SongEntry {
   titleJp: string;
   authorEn: string;
   authorJp: string;
+  mapper: string;
+  sourceUrl: string;
   href: string;
   bpm: number | null;
   difficulties: DifficultyInfo[];
@@ -39,9 +48,21 @@ interface ManifestSong {
   titleJp: string;
   authorEn: string;
   authorJp: string;
+  mapper?: string;
+  sourceUrl?: string;
   href: string;
   bpm: number | null;
-  difficulties: { id: string; level: number }[];
+  difficulties: {
+    id: string;
+    level: number;
+    ar?: number | null;
+    noteCount?: number;
+    flickCount?: number;
+    streamCount?: number;
+    lyricCount?: number;
+    playableMs?: number | null;
+    density?: number | null;
+  }[];
 }
 
 const DIFF_LABELS: Record<string, { labelEn: string; labelJp: string }> = {
@@ -60,15 +81,41 @@ function parseManifest(json: string): SongEntry[] {
       titleJp: s.titleJp,
       authorEn: s.authorEn,
       authorJp: s.authorJp,
+      mapper: s.mapper ?? "",
+      sourceUrl: s.sourceUrl ?? "",
       href: s.href,
       bpm: s.bpm ?? null,
       difficulties: s.difficulties
         .filter(d => d.id in DIFF_LABELS)
-        .map(d => ({ id: d.id, level: d.level, ...DIFF_LABELS[d.id] })),
+        .map(d => ({
+          id: d.id,
+          level: d.level,
+          ar: d.ar ?? null,
+          noteCount: d.noteCount ?? 0,
+          flickCount: d.flickCount ?? 0,
+          streamCount: d.streamCount ?? 0,
+          lyricCount: d.lyricCount ?? 0,
+          playableMs: d.playableMs ?? null,
+          density: d.density ?? null,
+          ...DIFF_LABELS[d.id],
+        })),
     }));
   } catch {
     return [];
   }
+}
+
+function formatDuration(ms: number | null): string {
+  if (ms === null || !Number.isFinite(ms)) return "--";
+  const totalSeconds = Math.max(0, Math.round(ms / 1000));
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+}
+
+function formatDensity(v: number | null): string {
+  if (v === null || !Number.isFinite(v)) return "--";
+  return `${v.toFixed(1)}/s`;
 }
 
 export function HomeLayoutSwitcher({ infoContent, infoContentJp, tutorialContent, tutorialContentJp, songsManifest }: Props) {
@@ -84,6 +131,7 @@ export function HomeLayoutSwitcher({ infoContent, infoContentJp, tutorialContent
 
   const [selectedSong, setSelectedSong] = useState<SongEntry | null>(null);
   const [renderedSong, setRenderedSong] = useState<SongEntry | null>(null);
+  const [activeDiffId, setActiveDiffId] = useState<string | null>(null);
   const [songExiting, setSongExiting] = useState(false);
   const [songPaneKey, setSongPaneKey] = useState(0);
   const songTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -114,6 +162,10 @@ export function HomeLayoutSwitcher({ infoContent, infoContentJp, tutorialContent
     };
   }, [selectedSong, renderedSong]);
 
+  useEffect(() => {
+    setActiveDiffId(renderedSong?.difficulties[0]?.id ?? null);
+  }, [renderedSong]);
+
   useEffect(() => () => {
     if (exitTimer.current !== null) clearTimeout(exitTimer.current);
     if (songTimer.current !== null) clearTimeout(songTimer.current);
@@ -134,6 +186,9 @@ export function HomeLayoutSwitcher({ infoContent, infoContentJp, tutorialContent
 
   const lang = useLang();
   const t = (en: string, jp: string) => lang === "jp" ? jp : en;
+  const activeDiff = renderedSong?.difficulties.find(diff => diff.id === activeDiffId)
+    ?? renderedSong?.difficulties[0]
+    ?? null;
 
   const activeInfoContent     = lang === "jp" && infoContentJp     ? infoContentJp     : infoContent;
   const activeTutorialContent = lang === "jp" && tutorialContentJp ? tutorialContentJp : tutorialContent;
@@ -219,23 +274,55 @@ export function HomeLayoutSwitcher({ infoContent, infoContentJp, tutorialContent
             )}
             {renderedSong && (
               <>
-                <span className="song-title">
-                  {t(
-                    `${renderedSong.titleEn} — ${renderedSong.authorEn}`,
-                    `${renderedSong.titleJp} — ${renderedSong.authorJp}`
+                <div className="song-detail-header">
+                  <span className="song-title">{t(renderedSong.titleEn, renderedSong.titleJp)}</span>
+                  <span className="song-artist">{t(renderedSong.authorEn, renderedSong.authorJp)}</span>
+                  <div className="song-static-meta">
+                    {renderedSong.bpm !== null && <span>BPM {renderedSong.bpm}</span>}
+                    {renderedSong.mapper && <span>{t("Mapped by", "譜面")}: {renderedSong.mapper}</span>}
+                    {renderedSong.sourceUrl && (
+                      <a className="song-source-link" href={renderedSong.sourceUrl} target="_blank" rel="noreferrer">
+                        {t("Source", "ソース")}
+                      </a>
+                    )}
+                  </div>
+                </div>
+
+                <div className="difficulty-select">
+                  <div className="difficulty-list">
+                    {renderedSong.difficulties.map(diff => (
+                      <a
+                        key={diff.id}
+                        href={`${renderedSong.href}?d=${diff.id}`}
+                        className={`btn-main diff-btn diff-btn--${diff.id}${activeDiff?.id === diff.id ? " active" : ""}`}
+                        onMouseEnter={() => setActiveDiffId(diff.id)}
+                        onFocus={() => setActiveDiffId(diff.id)}
+                        onPointerDown={() => setActiveDiffId(diff.id)}
+                        aria-describedby="difficulty-detail"
+                      >
+                        <span className="diff-level">{diff.level}</span>
+                        <span className="diff-label">{t(diff.labelEn, diff.labelJp)}</span>
+                      </a>
+                    ))}
+                  </div>
+
+                  {activeDiff && (
+                    <div className="difficulty-detail" id="difficulty-detail" aria-live="polite">
+                      <div className="difficulty-detail-title">
+                        <span>{t(activeDiff.labelEn, activeDiff.labelJp)}</span>
+                        <strong>{activeDiff.level}</strong>
+                      </div>
+                      <div className="difficulty-stats">
+                        <span>{t("Notes", "ノーツ")}: {activeDiff.noteCount}</span>
+                        <span>{t("Flicks", "フリック")}: {activeDiff.flickCount}</span>
+                        <span>{t("Streams", "ストリーム")}: {activeDiff.streamCount}</span>
+                        <span>{t("Lyrics", "歌詞")}: {activeDiff.lyricCount}</span>
+                        <span>{t("Length", "長さ")}: {formatDuration(activeDiff.playableMs)}</span>
+                        <span>{t("Density", "密度")}: {formatDensity(activeDiff.density)}</span>
+                        <span>{activeDiff.ar === null ? "AR --" : `AR ${activeDiff.ar}`}</span>
+                      </div>
+                    </div>
                   )}
-                </span>
-                <div className="difficulty-list">
-                  {renderedSong.difficulties.map(diff => (
-                    <a
-                      key={diff.id}
-                      href={`${renderedSong.href}?d=${diff.id}`}
-                      className={`btn-main diff-btn diff-btn--${diff.id}`}
-                    >
-                      <span className="diff-level">{diff.level}</span>
-                      <span className="diff-label">{t(diff.labelEn, diff.labelJp)}</span>
-                    </a>
-                  ))}
                 </div>
                 <button className="btn-back" onClick={() => setSelectedSong(null)}>
                   {t("Back", "戻る")}

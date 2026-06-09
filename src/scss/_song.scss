@@ -365,8 +365,9 @@ html body.song-page {
 
 .game-break-skip {
   position: absolute;
-  right: 1rem;
+  left: 50%;
   bottom: 1rem;
+  transform: translateX(-50%);
   min-width: 5.5rem;
   padding: 0.45rem 0.85rem;
   border: 1px solid rgba(255, 255, 255, 0.34);
