@@ -4,7 +4,7 @@
   position: fixed;
   inset: 0;
   z-index: var(--z-loading);
-  background: var(--bg-gradient-song);
+  background: var(--bg-gradient-home);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -12,38 +12,53 @@
   gap: 1.2rem;
   transition: opacity 0.4s ease;
 
+  // a music note bobbing above the progress bar
+  &::before {
+    content: '♪';
+    font-family: var(--font-display);
+    font-size: 2.2rem;
+    color: var(--miku-teal);
+    animation: loading-note-bob 0.9s var(--motion-ease-bouncy) infinite alternate;
+  }
+
   &.loaded {
     opacity: 0;
     pointer-events: none;
   }
 }
 
+@keyframes loading-note-bob {
+  from { transform: translateY(0) rotate(-8deg); }
+  to   { transform: translateY(-10px) rotate(8deg); }
+}
+
 .loading-bar-track {
   width: min(320px, 60vw);
-  height: 3px;
-  background: rgba(255, 255, 255, 0.12);
-  border-radius: 2px;
+  height: 8px;
+  background: rgba(57, 197, 187, 0.18);
+  border-radius: var(--radius-pill);
   overflow: hidden;
 }
 
 .loading-bar-fill {
   height: 100%;
   width: 0%;
-  background: rgba(255, 255, 255, 0.8);
-  border-radius: 2px;
+  background: var(--miku-teal);
+  border-radius: var(--radius-pill);
   transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 .loading-text {
   font-size: 0.8rem;
+  font-family: var(--font-display);
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--ink-soft);
 }
 
 .loading-hint {
   font-size: 0.95rem;
-  color: rgba(255, 255, 255, 0.35);
+  color: rgba(28, 78, 87, 0.5);
   opacity: 0;
   animation: loading-hint-appear 0.6s ease forwards;
   animation-delay: 10s;
@@ -59,7 +74,7 @@ html body.song-page {
   width: 100%;
   height: 100vh;
   overflow: hidden;
-  background-color: #000;
+  background-color: #020a0d;
   color: #fff;
 }
 
@@ -235,9 +250,9 @@ html body.song-page {
     flex-direction: column;
     align-items: center;
     gap: 0.65rem;
-    background: rgba(10, 10, 20, 0.9);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    border-radius: 10px;
+    background: rgba(6, 22, 28, 0.92);
+    border: 1px solid rgba(57, 197, 187, 0.35);
+    border-radius: var(--radius-card);
     padding: 0.85rem 1rem;
     backdrop-filter: blur(12px);
     opacity: 0;
@@ -318,6 +333,7 @@ html body.song-page {
   left: 1.5rem;
   z-index: var(--z-hud);
   font-size: 1.1rem;
+  font-family: var(--font-display);
   font-weight: bold;
   color: #fff;
   text-decoration: none;
@@ -341,6 +357,7 @@ html body.song-page {
   color: rgba(255, 255, 255, 0.82);
   cursor: pointer;
   font: inherit;
+  font-family: var(--font-display);
   font-size: 1rem;
   font-weight: bold;
   letter-spacing: 0.16em;
@@ -376,6 +393,7 @@ html body.song-page {
   color: rgba(255, 255, 255, 0.82);
   cursor: pointer;
   font: inherit;
+  font-family: var(--font-display);
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.12em;
@@ -414,6 +432,7 @@ html body.song-page {
 
   .game-song-name {
     font-size: 1.1rem;
+    font-family: var(--font-display);
     font-weight: bold;
   }
 
@@ -440,6 +459,7 @@ html body.song-page {
 
   .score-label {
     font-size: 0.75rem;
+    font-family: var(--font-display);
     letter-spacing: 0.12em;
     opacity: 0.75;
     text-transform: uppercase;
@@ -479,6 +499,7 @@ html body.song-page {
 
   .combo-label {
     font-size: 0.65rem;
+    font-family: var(--font-display);
     letter-spacing: 0.12em;
     opacity: 0.6;
     text-transform: uppercase;

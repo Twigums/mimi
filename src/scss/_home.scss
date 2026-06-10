@@ -9,7 +9,8 @@ html body.home-page {
   background-color: transparent;
 }
 
-.bg-overlay {
+// scoped to .home-page: the song page styles its own dark .bg-overlay in _song.scss
+.home-page .bg-overlay {
   position: fixed;
   inset: 0;
   overflow: hidden;
@@ -230,7 +231,8 @@ html body.home-page {
   font-family: var(--font-display);
   font-weight: 700;
   color: var(--ink-soft);
-  background: rgba(255, 255, 255, 0.6);
+  // opaque so the wisp puff merges seamlessly with the pill
+  background: #f2fbfd;
   border: none;
   border-radius: var(--radius-pill);
   cursor: pointer;
@@ -546,6 +548,16 @@ html body.home-page {
     }
   }
 
+  // spawn links sit inside colored marks — keep the mark's own text color
+  mark a[href^="spawn:"] {
+    color: inherit;
+    text-decoration-color: currentColor;
+
+    &:hover {
+      text-decoration-color: currentColor;
+    }
+  }
+
   table {
     border-collapse: collapse;
     width: 100%;
@@ -572,6 +584,7 @@ html body.home-page {
   height: 210px;
   background: var(--bg-gradient-song);
   border-radius: var(--radius-card);
+  box-shadow: 0 0 0 2px rgba(57, 197, 187, 0.35), 0 10px 24px rgba(57, 197, 187, 0.2);
   cursor: none;
 
   @media (min-width: 900px)  { width: 360px; height: 270px; }
