@@ -28,8 +28,44 @@ html body.home-page {
     content: '';
     position: absolute;
     inset: 0;
-    background: rgba(0, 0, 0, 0.55);
+    background: rgba(255, 255, 255, 0.25);
   }
+}
+
+.bg-bubbles {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+
+  .bubble {
+    fill: rgba(255, 255, 255, 0.55);
+    stroke: rgba(57, 197, 187, 0.25);
+    stroke-width: 2;
+    animation: bubble-drift 14s ease-in-out infinite;
+  }
+
+  .floating-note {
+    fill: rgba(57, 197, 187, 0.4);
+    font-family: var(--font-display);
+    font-size: 3rem;
+    animation: note-sway 9s ease-in-out infinite;
+  }
+
+  // de-sync the drift so the field doesn't pulse in unison
+  .bubble:nth-of-type(2n)        { animation-duration: 19s; animation-delay: -7s; }
+  .bubble:nth-of-type(3n)        { animation-duration: 23s; animation-delay: -12s; }
+  .floating-note:nth-of-type(2n) { animation-delay: -4.5s; }
+}
+
+@keyframes bubble-drift {
+  0%, 100% { transform: translate(0, 0); }
+  50%      { transform: translate(10px, -30px); }
+}
+
+@keyframes note-sway {
+  0%, 100% { transform: translate(0, 0) rotate(-6deg); }
+  50%      { transform: translate(-12px, -20px) rotate(8deg); }
 }
 
 .home-header {
@@ -53,17 +89,22 @@ html body.home-page {
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
-  color: #fff;
+  color: var(--ink);
 
   .site-name {
+    align-self: flex-start;
     font-size: 1.8rem;
-    font-weight: bold;
+    font-family: var(--font-display);
+    font-weight: 800;
     letter-spacing: 0.05em;
-    color: #fff;
+    color: var(--ink);
     text-decoration: none;
+    transition: color 0.2s, transform 0.3s var(--motion-ease-bouncy);
 
     &:hover {
-      text-decoration: underline;
+      color: var(--miku-teal-deep);
+      background: transparent;
+      transform: rotate(-2deg) scale(1.05);
     }
   }
 
@@ -102,46 +143,123 @@ html body.home-page {
 }
 
 .btn-main {
+  position: relative;
   width: 100%;
   padding: 1rem 2rem;
   font-size: 1.4rem;
-  font-family: inherit;
-  font-weight: bold;
-  color: #fff;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.5);
+  font-family: var(--font-display);
+  font-weight: 800;
+  color: var(--ink);
+  background: var(--cloud-fill);
+  border: none;
+  border-radius: var(--radius-pill);
   cursor: pointer;
   text-align: center;
   text-decoration: none;
   display: block;
   letter-spacing: 0.1em;
   box-sizing: border-box;
-  transition: background 0.2s, transform 0.1s;
+  filter: drop-shadow(0 4px 0 var(--cloud-glow)) drop-shadow(0 10px 18px rgba(57, 197, 187, 0.22));
+  transition:
+    transform 0.3s var(--motion-ease-bouncy),
+    filter 0.3s var(--motion-ease-standard),
+    color 0.2s;
+
+  // cloud puffs — the button's drop-shadow wraps the merged silhouette,
+  // so the puffs must share its background and stay borderless
+  &::before,
+  &::after {
+    position: absolute;
+    background: inherit;
+    border-radius: 50%;
+    z-index: -1;
+  }
+
+  &::before {
+    content: '';
+    width: 2.6rem;
+    height: 2.6rem;
+    top: -0.95rem;
+    left: 17%;
+  }
+
+  // the small puff doubles as a music note that pops out on hover
+  &::after {
+    content: '♪';
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    width: 1.9rem;
+    height: 1.9rem;
+    top: -0.65rem;
+    left: 36%;
+    font-size: 1rem;
+    line-height: 1.1;
+    color: transparent;
+    transition: transform 0.3s var(--motion-ease-bouncy), color 0.2s;
+  }
 
   &:hover {
-    background: rgba(255, 255, 255, 0.25);
-    color: #fff;
+    color: var(--miku-teal-deep);
     text-decoration: none;
-    transform: scale(1.02);
+    transform: translateY(-4px) rotate(-1deg) scale(1.02);
+    filter: drop-shadow(0 6px 0 var(--cloud-glow)) drop-shadow(0 14px 24px rgba(57, 197, 187, 0.3));
+
+    &::after {
+      color: var(--miku-teal);
+      transform: translateY(-0.55rem) rotate(12deg);
+    }
+  }
+
+  &:active {
+    transform: translateY(0) scale(0.97);
   }
 }
 
+// alternate puff placement so neighbouring clouds aren't identical
+.layout-pane > .btn-main:nth-of-type(even),
+.song-list-entry:nth-child(even) .btn-main {
+  &::before { left: auto; right: 17%; }
+  &::after  { left: auto; right: 36%; }
+}
+
 .btn-back {
+  position: relative;
   padding: 0.6rem 1.6rem;
   font-size: 1rem;
-  font-family: inherit;
-  color: rgba(255, 255, 255, 0.7);
-  background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.3);
+  font-family: var(--font-display);
+  font-weight: 700;
+  color: var(--ink-soft);
+  background: rgba(255, 255, 255, 0.6);
+  border: none;
+  border-radius: var(--radius-pill);
   cursor: pointer;
   letter-spacing: 0.08em;
   align-self: flex-end;
-  transition: background 0.2s, color 0.2s;
+  filter: drop-shadow(0 3px 0 rgba(57, 197, 187, 0.18));
+  transition:
+    transform 0.3s var(--motion-ease-bouncy),
+    background 0.2s,
+    color 0.2s;
+
+  // single wisp keeps it cloud-like but clearly lighter than .btn-main
+  &::before {
+    content: '';
+    position: absolute;
+    width: 1.4rem;
+    height: 1.4rem;
+    top: -0.5rem;
+    right: 22%;
+    background: inherit;
+    border-radius: 50%;
+    z-index: -1;
+  }
 
   &:hover {
-    background: rgba(255, 255, 255, 0.15);
-    color: #fff;
+    background: #fff;
+    color: var(--ink);
     text-decoration: none;
+    transform: translateX(-4px);
   }
 }
 
@@ -184,14 +302,14 @@ html body.home-page {
 .song-btn-artist {
   font-size: 0.8rem;
   font-weight: normal;
-  opacity: 0.55;
+  color: var(--ink-soft);
   letter-spacing: 0.08em;
 }
 
 .song-bpm {
   flex-shrink: 0;
   font-size: 0.75rem;
-  color: rgba(255, 255, 255, 0.35);
+  color: rgba(28, 78, 87, 0.45);
   letter-spacing: 0.06em;
   white-space: nowrap;
 }
@@ -203,13 +321,14 @@ html body.home-page {
   align-items: center;
   gap: 0.35rem;
   padding: 0.2rem 0 0.4rem;
-  color: rgba(255, 255, 255, 0.86);
+  color: var(--ink);
   text-align: center;
 }
 
 .song-title {
   max-width: 100%;
-  color: #fff;
+  color: var(--ink);
+  font-family: var(--font-display);
   font-size: 1.2rem;
   font-weight: 700;
   line-height: 1.25;
@@ -218,7 +337,7 @@ html body.home-page {
 
 .song-artist {
   font-size: 0.85rem;
-  color: rgba(255, 255, 255, 0.62);
+  color: var(--ink-soft);
   letter-spacing: 0.06em;
   overflow-wrap: anywhere;
 }
@@ -229,19 +348,20 @@ html body.home-page {
   justify-content: center;
   gap: 0.45rem 0.8rem;
   font-size: 0.72rem;
-  color: rgba(255, 255, 255, 0.48);
+  color: rgba(28, 78, 87, 0.5);
   letter-spacing: 0.06em;
   text-transform: uppercase;
 }
 
 .song-source-link {
-  color: rgba(255, 255, 255, 0.72);
+  color: var(--miku-teal-deep);
   text-decoration: underline;
   text-underline-offset: 0.18em;
 
   &:hover,
   &:focus-visible {
-    color: #fff;
+    color: var(--ink);
+    background: transparent;
   }
 }
 
@@ -266,7 +386,7 @@ html body.home-page {
   align-items: center;
   justify-content: center;
   background: #fff;
-  color: #1a0a2e;
+  color: var(--ink);
   font-weight: bold;
   position: relative;
   z-index: 1;
@@ -299,10 +419,17 @@ html body.home-page {
   text-align: left;
   overflow: hidden;
   min-height: $diff-btn-height;
+  border-radius: var(--radius-card);
+
+  // the diagonal split badge keeps its shape — no cloud puffs here
+  &::before,
+  &::after {
+    content: none;
+  }
 
   &.active,
   &:focus-visible {
-    background: rgba(255, 255, 255, 0.22);
+    background: #e7faf8;
   }
 
   @each $id, $color in $diff-colors {
@@ -318,9 +445,10 @@ html body.home-page {
   width: 100%;
   padding: 0.85rem 1rem;
   box-sizing: border-box;
-  border: 1px solid rgba(255, 255, 255, 0.25);
-  background: rgba(0, 0, 0, 0.18);
-  color: rgba(255, 255, 255, 0.82);
+  border-radius: var(--radius-card);
+  background: rgba(255, 255, 255, 0.75);
+  box-shadow: 0 4px 14px rgba(57, 197, 187, 0.16);
+  color: var(--ink);
 }
 
 .difficulty-detail-title {
@@ -336,7 +464,7 @@ html body.home-page {
   strong {
     flex: 0 0 auto;
     min-width: 2rem;
-    color: #fff;
+    color: var(--ink);
     font-size: 1.3rem;
     line-height: 1;
     text-align: right;
@@ -349,7 +477,7 @@ html body.home-page {
   gap: 0.42rem 0.85rem;
   font-size: 0.72rem;
   line-height: 1.25;
-  color: rgba(255, 255, 255, 0.64);
+  color: var(--ink-soft);
 
   span {
     min-width: 0;
@@ -379,12 +507,13 @@ html body.home-page {
   max-height: calc(100vh - 12rem);
   scrollbar-width: none;
   &::-webkit-scrollbar { display: none; }
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--ink);
 
   h2 {
     font-size: 1rem;
+    font-family: var(--font-display);
     font-weight: bold;
-    color: #fff;
+    color: var(--ink);
     margin: 0 0 0.4rem;
     letter-spacing: 0.05em;
   }
@@ -406,13 +535,14 @@ html body.home-page {
   mark.lyric  { background: rgb(180, 180, 180); color: #111; }
 
   a[href^="spawn:"] {
-    color: #fff;
+    color: var(--miku-teal-deep);
     cursor: pointer;
-    text-decoration: underline dotted rgba(255, 255, 255, 0.4);
+    text-decoration: underline dotted rgba(29, 158, 148, 0.5);
     text-underline-offset: 3px;
 
     &:hover {
-      text-decoration-color: rgba(255, 255, 255, 0.9);
+      background: transparent;
+      text-decoration-color: var(--miku-teal-deep);
     }
   }
 
@@ -425,12 +555,12 @@ html body.home-page {
 
   th, td {
     padding: 0.3rem 0.6rem;
-    border: 1px solid rgba(255, 255, 255, 0.15);
+    border: 1px solid rgba(28, 78, 87, 0.2);
     text-align: left;
   }
 
   th {
-    color: rgba(255, 255, 255, 0.5);
+    color: var(--ink-soft);
     font-weight: normal;
   }
 }
@@ -441,7 +571,7 @@ html body.home-page {
   width: 280px;
   height: 210px;
   background: var(--bg-gradient-song);
-  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: var(--radius-card);
   cursor: none;
 
   @media (min-width: 900px)  { width: 360px; height: 270px; }
@@ -449,14 +579,14 @@ html body.home-page {
 }
 
 .placeholder-text {
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--ink-soft);
   font-style: italic;
   text-align: center;
   margin: 0;
 }
 
 .info-content {
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--ink);
   text-align: center;
   max-width: 480px;
 
@@ -480,11 +610,12 @@ html body.home-page {
 
   img {
     height: 1.5rem;
-    opacity: 0.7;
-    transition: opacity 0.2s;
+    opacity: 0.65;
+    transition: opacity 0.2s, transform 0.3s var(--motion-ease-bouncy);
 
     &:hover {
       opacity: 1;
+      transform: translateY(-3px) rotate(-4deg);
     }
   }
 }

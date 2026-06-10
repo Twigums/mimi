@@ -371,6 +371,7 @@ html body.song-page {
   min-width: 5.5rem;
   padding: 0.45rem 0.85rem;
   border: 1px solid rgba(255, 255, 255, 0.34);
+  border-radius: var(--radius-pill);
   background: rgba(0, 0, 0, 0.24);
   color: rgba(255, 255, 255, 0.82);
   cursor: pointer;
@@ -503,19 +504,22 @@ html body.song-page {
   transform: translate(-50%, -50%);
   pointer-events: none;
   font-size: 0.95rem;
-  font-weight: bold;
-  letter-spacing: 0.1em;
+  font-family: var(--font-display);
+  font-weight: 800;
+  letter-spacing: 0.06em;
   text-shadow: 0 0 8px rgba(0, 0, 0, 0.7);
-  animation: hit-feedback-fade 0.6s ease-out forwards;
+  animation: hit-feedback-pop 0.6s var(--motion-ease-standard) forwards;
 
   &.hit-perfect { color: var(--color-perfect); }
   &.hit-good    { color: var(--color-good); }
   &.hit-miss    { color: var(--color-miss); }
 }
 
-@keyframes hit-feedback-fade {
-  0%   { opacity: 1; transform: translate(-50%, -50%) scale(1);    }
-  100% { opacity: 0; transform: translate(-50%, -120%) scale(1.1); }
+@keyframes hit-feedback-pop {
+  0%   { opacity: 0; transform: translate(-50%, -50%) scale(0.4);  }
+  25%  { opacity: 1; transform: translate(-50%, -62%) scale(1.18); }
+  45%  { transform: translate(-50%, -70%) scale(1);                }
+  100% { opacity: 0; transform: translate(-50%, -130%) scale(1);   }
 }
 
 .song-page-footer {

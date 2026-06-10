@@ -23,11 +23,22 @@ $diff-colors: (
 // ── CSS custom properties ─────────────────────────────────────────────────────
 
 :root {
+  // typography
+  --font-display: 'M PLUS Rounded 1c', 'JetBrains Mono', sans-serif;
+
+  // miku palette
+  --miku-teal: #39c5bb;
+  --miku-teal-deep: #1d9e94;
+  --ink: #1c4e57;
+  --ink-soft: rgba(28, 78, 87, 0.62);
+  --cloud-fill: #ffffff;
+  --cloud-glow: rgba(57, 197, 187, 0.3);
+
   // base page colors
-  --base-color: #f7f3f2;
-  --base-text-color: #272525;
-  --negative-text-color: #f7f3f2;
-  --base-highlight-color: #785ef0;
+  --base-color: #f2fbfc;
+  --base-text-color: #1c4e57;
+  --negative-text-color: #f7fdfe;
+  --base-highlight-color: #1d9e94;
 
   // hit judgment colors
   --color-perfect: #ffd94a;
@@ -39,12 +50,13 @@ $diff-colors: (
   --color-grade-s: #c8b4ff;
   --color-grade-b: #7ddc78;
 
-  // dark surface (panel backgrounds)
-  --surface-panel: #12092a;
-
   // page backgrounds
-  --bg-gradient-home: radial-gradient(ellipse at center, #1a0a2e 0%, #0d0d1a 60%, #000 100%);
+  --bg-gradient-home: linear-gradient(180deg, #b8ecf6 0%, #ddf6fb 55%, #ffffff 100%);
   --bg-gradient-song: radial-gradient(ellipse at center, #120a24 0%, #060610 70%, #000 100%);
+
+  // shape
+  --radius-pill: 999px;
+  --radius-card: 1.1rem;
 
   // z-index stacking layers
   --z-chrome:          10;
@@ -60,4 +72,5 @@ $diff-colors: (
   --motion-duration-base: 240ms;
   --motion-ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --motion-ease-emphasized: cubic-bezier(0.3, 0, 0, 1);
+  --motion-ease-bouncy: cubic-bezier(0.34, 1.56, 0.64, 1);
 }
