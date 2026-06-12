@@ -111,8 +111,17 @@ html.theme-dark .theme-toggle {
 }
 
 .options-panel {
+  // panel-scoped theme tokens: ink on a white cloud by day; the theme-dark
+  // override below flips the whole menu to a dark navy surface. --ink itself
+  // stays constant on purpose (it colors text on the dusk-lit cloud buttons)
+  --panel-fill: var(--cloud-fill);
+  --panel-ink: var(--ink);
+  --panel-ink-soft: var(--ink-soft);
+  --panel-ink-dim: rgba(28, 78, 87, 0.45);
+  --panel-line: rgba(28, 78, 87, 0.15);
+
   position: relative;
-  background: var(--cloud-fill);
+  background: var(--panel-fill);
   border-radius: var(--radius-card);
   box-shadow: 0 18px 40px rgba(20, 90, 100, 0.35);
   padding: 2rem 2rem 1.5rem;
@@ -120,7 +129,17 @@ html.theme-dark .theme-toggle {
   max-width: 90vw;
   max-height: 90vh;
   overflow-y: auto;
-  color: var(--ink);
+  color: var(--panel-ink);
+}
+
+html.theme-dark .options-panel {
+  --panel-fill: #151e38;
+  --panel-ink: #e4f4f8;
+  --panel-ink-soft: rgba(228, 244, 248, 0.62);
+  --panel-ink-dim: rgba(228, 244, 248, 0.45);
+  --panel-line: rgba(228, 244, 248, 0.2);
+
+  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.5);
 }
 
 .options-close {
@@ -129,7 +148,7 @@ html.theme-dark .theme-toggle {
   right: 1rem;
   background: none;
   border: none;
-  color: rgba(28, 78, 87, 0.45);
+  color: var(--panel-ink-dim);
   font-size: 1.5rem;
   line-height: 1;
   cursor: pointer;
@@ -138,7 +157,7 @@ html.theme-dark .theme-toggle {
   transition: color 0.15s, transform 0.3s var(--motion-ease-bouncy);
 
   &:hover {
-    color: var(--miku-teal-deep);
+    color: var(--page-accent);
     transform: rotate(90deg);
   }
 }
@@ -190,7 +209,7 @@ html.theme-dark .theme-toggle {
     background: linear-gradient(
       to right,
       var(--miku-teal) var(--fill, 50%),
-      rgba(28, 78, 87, 0.15) var(--fill, 50%)
+      var(--panel-line) var(--fill, 50%)
     );
   }
 
@@ -208,7 +227,7 @@ html.theme-dark .theme-toggle {
   &::-moz-range-track {
     height: 4px;
     border-radius: 2px;
-    background: rgba(28, 78, 87, 0.15);
+    background: var(--panel-line);
   }
 
   &::-moz-range-progress {
@@ -260,7 +279,7 @@ html.theme-dark .theme-toggle {
   width: 100%;
   background: none;
   border: none;
-  color: var(--ink);
+  color: var(--panel-ink);
   font-family: inherit;
   font-size: 0.75rem;
   font-weight: bold;
@@ -344,10 +363,12 @@ html.theme-dark .theme-toggle {
   opacity: 0.45;
 }
 
-// previews draw on transparent canvases, so the wrap stays dark for contrast
+// previews draw on transparent canvases; the wrap replicates the play-field
+// backdrop (theme gradient under the --game-dim veil) so each theme previews
+// what gameplay actually looks like
 .options-preview-wrap {
   border-radius: 0.6rem;
-  background: #10303a;
+  background: linear-gradient(var(--game-dim), var(--game-dim)), var(--bg-gradient-song);
   overflow: hidden;
 }
 
@@ -402,7 +423,7 @@ html.theme-dark .theme-toggle {
 .color-picker-swatch {
   height: 0.9rem;
   border-radius: 3px;
-  border: 1px solid rgba(28, 78, 87, 0.25);
+  border: 1px solid var(--panel-line);
 }
 
 .cursor-preview {
@@ -419,7 +440,7 @@ html.theme-dark .theme-toggle {
   flex: 1;
   background: rgba(57, 197, 187, 0.06);
   border: 1px solid rgba(57, 197, 187, 0.4);
-  color: var(--ink-soft);
+  color: var(--panel-ink-soft);
   font-family: inherit;
   font-size: 0.75rem;
   letter-spacing: 0.05em;
@@ -435,7 +456,7 @@ html.theme-dark .theme-toggle {
     position: relative;
     z-index: 1;
     background: rgba(57, 197, 187, 0.16);
-    color: var(--ink);
+    color: var(--panel-ink);
   }
 
   &.options-chip--active {

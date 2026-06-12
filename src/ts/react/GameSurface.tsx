@@ -7,73 +7,9 @@ import { useLang } from "./hooks/useLang";
 import { useApproachRate } from "./hooks/useSettings";
 import { ResultsOverlay } from "./ResultsOverlay";
 import { OptionsPanel } from "./OptionsPanel";
+import { GameFrame, useElementSize } from "./GameFrame";
 
 let _toastId = 0;
-
-// cloud border puff pattern, cycled along each edge: [radius, centre offset
-// across the frame line] (negative = outward). drawn as one SVG instead of
-// tiled CSS backgrounds, which show seams and gaps when their tiles stretch
-const FRAME_PUFFS: ReadonlyArray<readonly [number, number]> = [[24, -2], [18, -8], [21, 1], [18, -6]];
-const FRAME_STEP = 31; // target spacing between puff centres
-
-function frameCircles(w: number, h: number): Array<{ cx: number; cy: number; r: number }> {
-  const circles: Array<{ cx: number; cy: number; r: number }> = [];
-  const edge = (len: number, place: (along: number, rel: number) => [number, number]): void => {
-    const n = Math.max(4, Math.round(len / FRAME_STEP));
-    for (let i = 0; i <= n; i++) {
-      const [r, rel] = FRAME_PUFFS[i % FRAME_PUFFS.length];
-      const [cx, cy] = place((i * len) / n, rel);
-      circles.push({ cx, cy, r });
-    }
-  };
-  edge(w, (a, rel) => [a, rel]);     // top
-  edge(w, (a, rel) => [a, h - rel]); // bottom
-  edge(h, (a, rel) => [rel, a]);     // left
-  edge(h, (a, rel) => [w - rel, a]); // right
-  // corner clusters: a big blob on each corner plus a small puff diagonally
-  // inward, bridging the edge rows
-  for (const cx of [6, w - 6]) for (const cy of [6, h - 6]) circles.push({ cx, cy, r: 26 });
-  for (const cx of [28, w - 28]) for (const cy of [28, h - 28]) circles.push({ cx, cy, r: 13 });
-  return circles;
-}
-
-// four-point sparkle for the night frame (unit radius 10, scaled per star);
-// generated alongside the circles so star rows skip a corner margin — tiled
-// strips doubled stars wherever a horizontal and a vertical row met
-const STAR_PATH = "M0 -10 Q1.8 -1.8 10 0 Q1.8 1.8 0 10 Q-1.8 1.8 -10 0 Q-1.8 -1.8 0 -10 Z";
-const STAR_STEP = 72;          // target spacing between stars along an edge
-const STAR_CORNER_MARGIN = 64; // edge zone left bare around each corner
-
-function frameStars(w: number, h: number): Array<{ x: number; y: number; scale: number }> {
-  const stars: Array<{ x: number; y: number; scale: number }> = [];
-  const edge = (len: number, place: (along: number, rel: number) => [number, number]): void => {
-    const usable = len - 2 * STAR_CORNER_MARGIN;
-    if (usable <= 0) return;
-    const n = Math.max(1, Math.round(usable / STAR_STEP));
-    for (let i = 0; i <= n; i++) {
-      const big = i % 2 === 0;
-      // stars stay on the band's outer half: past the frame line they'd sit
-      // behind the glass blur and smear
-      const [x, y] = place(STAR_CORNER_MARGIN + (i * usable) / n, big ? -10 : -15);
-      stars.push({ x, y, scale: big ? 0.9 : 0.55 });
-    }
-  };
-  edge(w, (a, rel) => [a, rel]);     // top
-  edge(w, (a, rel) => [a, h - rel]); // bottom
-  edge(h, (a, rel) => [rel, a]);     // left
-  edge(h, (a, rel) => [w - rel, a]); // right
-  // a deliberate pair per corner (the margin keeps the edge rows out): a big
-  // sparkle on the corner blob's outer diagonal and a small one tucked
-  // between it and the first edge star, mirrored so every corner matches
-  const corners: ReadonlyArray<[number, number, 1 | -1, 1 | -1]> = [
-    [0, 0, 1, 1], [w, 0, -1, 1], [0, h, 1, -1], [w, h, -1, -1],
-  ];
-  for (const [x, y, dx, dy] of corners) {
-    stars.push({ x: x - 4 * dx, y: y - 4 * dy, scale: 0.9 });
-    stars.push({ x: x + 24 * dx, y: y - 14 * dy, scale: 0.55 });
-  }
-  return stars;
-}
 
 interface FeedbackToast {
   id: number;
@@ -136,20 +72,7 @@ export function GameSurface({ onReady, returnHref, onTryAgain }: Props) {
 
   const lang   = useLang();
   const [ar]   = useApproachRate();
-  const [frameSize, setFrameSize] = useState<{ w: number; h: number } | null>(null);
-
-  // the cloud border redraws from the area's real pixel size, so resizing
-  // can never stretch it apart
-  useEffect(() => {
-    const area = gameAreaRef.current;
-    if (!area) return;
-    const observer = new ResizeObserver(() => {
-      const rect = area.getBoundingClientRect();
-      setFrameSize(rect.width > 0 ? { w: rect.width, h: rect.height } : null);
-    });
-    observer.observe(area);
-    return () => observer.disconnect();
-  }, []);
+  const frameSize = useElementSize(gameAreaRef);
 
   useEffect(() => {
     if (playing) {
@@ -236,21 +159,7 @@ export function GameSurface({ onReady, returnHref, onTryAgain }: Props) {
     <>
       <OptionsPanel isSongPage={true} />
 
-      {frameSize && (
-        <svg className="game-frame" viewBox={`0 0 ${frameSize.w} ${frameSize.h}`} aria-hidden="true">
-          {frameCircles(frameSize.w, frameSize.h).map((c, i) => (
-            <circle key={i} cx={c.cx} cy={c.cy} r={c.r} />
-          ))}
-          {frameStars(frameSize.w, frameSize.h).map((s, i) => (
-            <path
-              key={i}
-              className="frame-star"
-              d={STAR_PATH}
-              transform={`translate(${s.x} ${s.y}) scale(${s.scale})`}
-            />
-          ))}
-        </svg>
-      )}
+      {frameSize && <GameFrame w={frameSize.w} h={frameSize.h} />}
 
       <div className={`game-area${playing ? " playing" : ""}`} ref={gameAreaRef}>
         <div id="song-storyboard" className="song-storyboard" />

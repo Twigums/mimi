@@ -719,8 +719,22 @@ html.theme-dark .bg-sky .cloud-layer {
   }
 }
 
-.tutorial-canvas {
+.tutorial-canvas-wrap {
+  position: relative;
   flex-shrink: 0;
+
+  // the shared cloud frame (skin in _song.scss) hugs the canvas box; the
+  // canvas is positioned so it paints above the frame's inner arcs
+  .game-frame {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+  }
+}
+
+.tutorial-canvas {
+  position: relative;
   display: block;
   width: 280px;
   height: 210px;

@@ -326,14 +326,9 @@ html.theme-dark .song-page .bg-overlay::before {
 // set can't disconnect. --game-frame-fill/-glow follow --cloud-fill/-glow by
 // day but go royal purple at night, when the frame's .frame-star sparkles
 // fade in
+// skin shared with the home tutorial canvas (its placement lives in
+// _home.scss under .tutorial-canvas-wrap)
 .game-frame {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  aspect-ratio: 4 / 3;
-  height: calc(100vh - 6rem);
-  max-width: calc((100vh - 6rem) * 4 / 3);
   overflow: visible;
   pointer-events: none;
   filter: drop-shadow(0 4px 0 var(--game-frame-glow));
@@ -353,6 +348,16 @@ html.theme-dark .song-page .bg-overlay::before {
 
 html.theme-dark .game-frame .frame-star {
   opacity: 1;
+}
+
+.song-page .game-frame {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  aspect-ratio: 4 / 3;
+  height: calc(100vh - 6rem);
+  max-width: calc((100vh - 6rem) * 4 / 3);
 }
 
 .game-area {
