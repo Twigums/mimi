@@ -53,12 +53,12 @@
   font-family: var(--font-display);
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: var(--ink-soft);
+  color: var(--page-ink-soft);
 }
 
 .loading-hint {
   font-size: 0.95rem;
-  color: rgba(28, 78, 87, 0.5);
+  color: var(--page-ink-faint);
   opacity: 0;
   animation: loading-hint-appear 0.6s ease forwards;
   animation-delay: 10s;
@@ -74,15 +74,29 @@ html body.song-page {
   width: 100%;
   height: 100vh;
   overflow: hidden;
-  background-color: #020a0d;
-  color: #fff;
+  background-color: var(--song-page-bg);
+  color: var(--song-text);
 }
 
+// night gradient on the element, day gradient on ::before fading out in dark
+// mode — same crossfade trick as the home overlay
 .song-page .bg-overlay {
   position: fixed;
   inset: 0;
   z-index: -2;
-  background: var(--bg-gradient-song);
+  background: var(--bg-night-song);
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: var(--bg-day-song);
+    transition: opacity 0.6s ease;
+  }
+}
+
+html.theme-dark .song-page .bg-overlay::before {
+  opacity: 0;
 }
 
 @keyframes technicolor-hue {
@@ -100,7 +114,7 @@ html body.song-page {
   padding: 2.5rem 1rem 1.5rem;
   pointer-events: none;
   overflow: hidden;
-  background: rgba(0, 0, 0, 0.35);
+  background: var(--game-dim);
 
   .storyboard-line,
   .storyboard-segment {
@@ -109,7 +123,7 @@ html body.song-page {
     font-family: inherit;
     font-size: clamp(1.4rem, 2.6vw, 2.4rem);
     font-weight: bold;
-    color: #fff;
+    color: var(--song-text);
     line-height: 1.6;
     letter-spacing: 0.08em;
     opacity: 0;
@@ -195,7 +209,7 @@ html body.song-page {
   display: none;
   background: none;
   border: none;
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--song-text-dim);
   cursor: pointer;
   padding: 0.3rem;
   align-items: center;
@@ -210,7 +224,7 @@ html body.song-page {
   }
 
   &:hover {
-    color: rgba(255, 255, 255, 0.9);
+    color: var(--song-text);
   }
 }
 
@@ -250,8 +264,8 @@ html body.song-page {
     flex-direction: column;
     align-items: center;
     gap: 0.65rem;
-    background: rgba(6, 22, 28, 0.92);
-    border: 1px solid rgba(57, 197, 187, 0.35);
+    background: var(--surface-hud);
+    border: 1px solid var(--surface-hud-line);
     border-radius: var(--radius-card);
     padding: 0.85rem 1rem;
     backdrop-filter: blur(12px);
@@ -335,7 +349,7 @@ html body.song-page {
   font-size: 1.1rem;
   font-family: var(--font-display);
   font-weight: bold;
-  color: #fff;
+  color: var(--song-text);
   text-decoration: none;
   letter-spacing: 0.05em;
   opacity: 0.85;
@@ -354,7 +368,7 @@ html body.song-page {
   justify-content: center;
   background: rgba(0, 0, 0, 0.08);
   border: none;
-  color: rgba(255, 255, 255, 0.82);
+  color: var(--song-text-dim);
   cursor: pointer;
   font: inherit;
   font-family: var(--font-display);
@@ -362,20 +376,20 @@ html body.song-page {
   font-weight: bold;
   letter-spacing: 0.16em;
   text-transform: uppercase;
-  text-shadow: 0 0 14px rgba(255, 255, 255, 0.22);
+  text-shadow: var(--song-text-shadow);
   z-index: 2;
   transition: background var(--motion-duration-base) var(--motion-ease-standard),
               color      var(--motion-duration-base) var(--motion-ease-standard);
 
   .game-start-label {
-    border-bottom: 1px solid rgba(255, 255, 255, 0.38);
+    border-bottom: 1px solid; // currentColor, so it follows the theme
     padding-bottom: 0.28rem;
   }
 
   &:hover,
   &:focus-visible {
     background: rgba(0, 0, 0, 0.16);
-    color: #fff;
+    color: var(--song-text);
     outline: none;
   }
 }
@@ -387,10 +401,10 @@ html body.song-page {
   transform: translateX(-50%);
   min-width: 5.5rem;
   padding: 0.45rem 0.85rem;
-  border: 1px solid rgba(255, 255, 255, 0.34);
+  border: 1px solid; // currentColor, so it follows the theme
   border-radius: var(--radius-pill);
-  background: rgba(0, 0, 0, 0.24);
-  color: rgba(255, 255, 255, 0.82);
+  background: rgba(128, 128, 128, 0.2);
+  color: var(--song-text-dim);
   cursor: pointer;
   font: inherit;
   font-family: var(--font-display);
@@ -398,17 +412,15 @@ html body.song-page {
   font-weight: 700;
   letter-spacing: 0.12em;
   text-transform: uppercase;
-  text-shadow: 0 0 10px rgba(0, 0, 0, 0.65);
+  text-shadow: var(--song-text-shadow);
   z-index: 2;
   transition: background var(--motion-duration-base) var(--motion-ease-standard),
-              border-color var(--motion-duration-base) var(--motion-ease-standard),
               color var(--motion-duration-base) var(--motion-ease-standard);
 
   &:hover,
   &:focus-visible {
-    background: rgba(255, 255, 255, 0.14);
-    border-color: rgba(255, 255, 255, 0.72);
-    color: #fff;
+    background: rgba(128, 128, 128, 0.34);
+    color: var(--song-text);
     outline: none;
   }
 }
@@ -420,9 +432,9 @@ html body.song-page {
   display: flex;
   flex-direction: column;
   gap: 0.2rem;
-  color: #fff;
+  color: var(--song-text);
   pointer-events: none;
-  text-shadow: 0 0 6px rgba(0, 0, 0, 0.6);
+  text-shadow: var(--song-text-shadow);
   opacity: 1;
   transition: opacity 1s ease;
 
@@ -451,9 +463,9 @@ html body.song-page {
   flex-direction: column;
   align-items: flex-end;
   gap: 0.15rem;
-  color: #fff;
+  color: var(--song-text);
   pointer-events: none;
-  text-shadow: 0 0 6px rgba(0, 0, 0, 0.6);
+  text-shadow: var(--song-text-shadow);
   opacity: 0;
   transition: opacity 0.3s ease;
 
@@ -484,9 +496,9 @@ html body.song-page {
   flex-direction: column;
   align-items: flex-start;
   gap: 0;
-  color: #fff;
+  color: var(--song-text);
   pointer-events: none;
-  text-shadow: 0 0 6px rgba(0, 0, 0, 0.6);
+  text-shadow: var(--song-text-shadow);
   opacity: 0;
   transition: opacity 0.3s ease;
 
@@ -561,7 +573,7 @@ html body.song-page {
 .btn-fullscreen {
   background: none;
   border: none;
-  color: rgba(255, 255, 255, 0.55);
+  color: var(--song-text-dim);
   cursor: pointer;
   padding: 0.3rem;
   display: flex;
@@ -570,7 +582,7 @@ html body.song-page {
   transition: color 0.2s ease;
 
   &:hover {
-    color: rgba(255, 255, 255, 0.9);
+    color: var(--song-text);
   }
 
   svg {

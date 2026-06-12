@@ -18,19 +18,8 @@
     </svg>
 
     <div class="bg-overlay">
-        <svg class="bg-bubbles" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-            <circle class="bubble" cx="160" cy="820" r="46" />
-            <circle class="bubble" cx="340" cy="300" r="22" />
-            <circle class="bubble" cx="640" cy="900" r="30" />
-            <circle class="bubble" cx="900" cy="540" r="14" />
-            <circle class="bubble" cx="1180" cy="180" r="26" />
-            <circle class="bubble" cx="1320" cy="960" r="36" />
-            <circle class="bubble" cx="1500" cy="760" r="52" />
-            <circle class="bubble" cx="1740" cy="380" r="20" />
-            <text class="floating-note" x="240" y="200">♪</text>
-            <text class="floating-note" x="1060" y="320">♫</text>
-            <text class="floating-note" x="1620" y="880">♪</text>
-        </svg>
+        <!-- populated with randomized clouds/notes by src/ts/home/sky.ts -->
+        <svg class="bg-sky" viewBox="0 0 1920 1080" preserveAspectRatio="xMidYMid slice" aria-hidden="true"></svg>
     </div>
 
     <header class="home-header">
@@ -41,6 +30,7 @@
         </div>
         <div class="home-lang">
             $partial("src/templates/lang_toggle.html")$
+            $partial("src/templates/theme_toggle.html")$
             $partial("src/templates/settings_toggle.html")$
         </div>
     </header>

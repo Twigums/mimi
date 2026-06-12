@@ -1,5 +1,15 @@
 @use 'variables' as *;
 
+// seamless light/dark theme switches: every themed color eases between its
+// day and night value; elements that declare their own transition keep it
+*,
+*::before,
+*::after {
+  transition-property: color, background-color, border-color, fill, stroke;
+  transition-duration: 0.4s;
+  transition-timing-function: ease;
+}
+
 .layout-pane {
   animation: layoutPaneIn 0.4s var(--motion-ease-bouncy);
   transition:

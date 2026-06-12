@@ -40,6 +40,27 @@ $diff-colors: (
   --negative-text-color: #f7fdfe;
   --base-highlight-color: #1d9e94;
 
+  // theme-dependent tokens (day values; html.theme-dark overrides below).
+  // --ink/--ink-soft above stay constant: they color text on white surfaces
+  // (cloud buttons, cards, options panel); --page-* color text that sits
+  // directly on the themed page background
+  --page-ink: #1c4e57;
+  --page-ink-soft: rgba(28, 78, 87, 0.62);
+  --page-ink-faint: rgba(28, 78, 87, 0.45);
+  --page-accent: #1d9e94;
+  --page-line: rgba(28, 78, 87, 0.2);
+  --cloud-bright: #ffffff;
+  --pill-fill: rgba(255, 255, 255, 0.7);
+  --card-fill: rgba(255, 255, 255, 0.75);
+  --veil: rgba(255, 255, 255, 0.25);
+  --song-page-bg: #9fcfda;
+  --song-text: #14424d;
+  --song-text-dim: rgba(20, 66, 77, 0.66);
+  --song-text-shadow: 0 0 6px rgba(255, 255, 255, 0.45);
+  --game-dim: rgba(0, 0, 0, 0.3);
+  --surface-hud: rgba(255, 255, 255, 0.92);
+  --surface-hud-line: rgba(57, 197, 187, 0.45);
+
   // hit judgment colors
   --color-perfect: #ffd94a;
   --color-good: #8cf0ff;
@@ -50,9 +71,16 @@ $diff-colors: (
   --color-grade-s: #c8b4ff;
   --color-grade-b: #7ddc78;
 
-  // page backgrounds
-  --bg-gradient-home: linear-gradient(180deg, #b8ecf6 0%, #ddf6fb 55%, #ffffff 100%);
-  --bg-gradient-song: radial-gradient(ellipse at center, #0d2b33 0%, #06161c 70%, #020a0d 100%);
+  // page backgrounds — day/night pairs exist separately so the overlays can
+  // crossfade between them (gradients themselves can't transition); the
+  // --bg-gradient-* aliases resolve to the current theme for single-layer
+  // users (loading screen, tutorial canvas)
+  --bg-day-home: linear-gradient(180deg, #b8ecf6 0%, #ddf6fb 55%, #ffffff 100%);
+  --bg-night-home: linear-gradient(180deg, #060b22 0%, #101d40 55%, #1b2d57 100%);
+  --bg-day-song: radial-gradient(ellipse at center, #cdeef6 0%, #a8d8e2 65%, #8fc3cf 100%);
+  --bg-night-song: radial-gradient(ellipse at center, #07141b 0%, #03080c 70%, #000 100%);
+  --bg-gradient-home: var(--bg-day-home);
+  --bg-gradient-song: var(--bg-day-song);
 
   // shape
   --radius-pill: 999px;
@@ -73,4 +101,35 @@ $diff-colors: (
   --motion-ease-standard: cubic-bezier(0.2, 0, 0, 1);
   --motion-ease-emphasized: cubic-bezier(0.3, 0, 0, 1);
   --motion-ease-bouncy: cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+// night mode — toggled by core/theme.ts via the sun/moon button
+html.theme-dark {
+  --base-color: #0a1126;
+  --base-text-color: #d9ecf2;
+  --base-highlight-color: #5fd4c9;
+
+  // white surfaces go dull blue-grey at night, like dusk clouds
+  --cloud-fill: #c9d3e2;
+  --cloud-glow: rgba(15, 90, 84, 0.45);
+  --cloud-bright: #dde4ef;
+  --pill-fill: rgba(201, 211, 226, 0.55);
+  --card-fill: rgba(201, 211, 226, 0.7);
+
+  --page-ink: #e4f4f8;
+  --page-ink-soft: rgba(228, 244, 248, 0.62);
+  --page-ink-faint: rgba(228, 244, 248, 0.42);
+  --page-accent: #5fd4c9;
+  --page-line: rgba(228, 244, 248, 0.25);
+  --veil: rgba(5, 10, 26, 0.35);
+  --song-page-bg: #000;
+  --song-text: #fff;
+  --song-text-dim: rgba(255, 255, 255, 0.62);
+  --song-text-shadow: 0 0 6px rgba(0, 0, 0, 0.6);
+  --game-dim: rgba(0, 0, 0, 0.55);
+  --surface-hud: rgba(6, 22, 28, 0.92);
+  --surface-hud-line: rgba(57, 197, 187, 0.35);
+
+  --bg-gradient-home: var(--bg-night-home);
+  --bg-gradient-song: var(--bg-night-song);
 }
