@@ -88,32 +88,58 @@ function buildSkyDial(): SVGGElement {
   }
   dial.appendChild(defs);
 
-  const mx = rand(VIEW_W * 0.72, VIEW_W * 0.88);
   const my = rand(130, 260);
   const mr = rand(55, 75);
-  dial.appendChild(el("circle", { class: "moon-glow", cx: mx.toFixed(0), cy: my.toFixed(0), r: (mr * 2.2).toFixed(0) }));
-  dial.appendChild(el("circle", { class: "moon-body", cx: mx.toFixed(0), cy: my.toFixed(0), r: mr.toFixed(0) }));
+  const moonGlow = el("circle", { class: "moon-glow", cy: my.toFixed(0), r: (mr * 2.2).toFixed(0) });
+  const moonBody = el("circle", { class: "moon-body", cy: my.toFixed(0), r: mr.toFixed(0) });
+  dial.appendChild(moonGlow);
+  dial.appendChild(moonBody);
   const craters: ReadonlyArray<[number, number, number]> = [
     [-0.35, -0.1, 0.18],
     [0.2, 0.28, 0.13],
     [0.28, -0.32, 0.1],
   ];
+  const craterParts: Array<[SVGCircleElement, number]> = [];
   for (const [ox, oy, or] of craters) {
-    dial.appendChild(el("circle", {
+    const crater = el("circle", {
       class: "moon-crater",
-      cx: (mx + mr * ox).toFixed(0),
       cy: (my + mr * oy).toFixed(0),
       r: (mr * or).toFixed(0),
-    }));
+    });
+    craterParts.push([crater, ox]);
+    dial.appendChild(crater);
   }
 
   // the sun starts diametrically opposite the moon, below the horizon;
   // rotating the dial 180° lands it exactly on the moon's sky slot
-  const sx = 2 * DIAL_CX - mx;
   const sy = 2 * DIAL_CY - my;
   const sr = mr + 6;
-  dial.appendChild(el("circle", { class: "sun-glow", cx: sx.toFixed(0), cy: sy.toFixed(0), r: (sr * 2.2).toFixed(0) }));
-  dial.appendChild(el("circle", { class: "sun-body", cx: sx.toFixed(0), cy: sy.toFixed(0), r: sr.toFixed(0) }));
+  const sunGlow = el("circle", { class: "sun-glow", cy: sy.toFixed(0), r: (sr * 2.2).toFixed(0) });
+  const sunBody = el("circle", { class: "sun-body", cy: sy.toFixed(0), r: sr.toFixed(0) });
+  dial.appendChild(sunGlow);
+  dial.appendChild(sunBody);
+
+  // the svg's `slice` fit crops the viewBox sides on narrow screens: only a
+  // centred window of width VIEW_H * viewport-aspect stays visible, so the
+  // moon's horizontal slot must be clamped into it (phones and tablets would
+  // otherwise crop the dial away); re-clamped on resize/orientation change.
+  // the sun mirrors through the hub, so it stays visible whenever the moon is
+  const slot = Math.random();
+  const place = (): void => {
+    const aspect = window.innerWidth / Math.max(window.innerHeight, 1);
+    const visibleHalf = Math.min(VIEW_W, VIEW_H * aspect) / 2;
+    const maxX = Math.min(VIEW_W * 0.88, DIAL_CX + visibleHalf - mr * 1.4);
+    const minX = Math.min(VIEW_W * 0.72, maxX - VIEW_W * 0.05);
+    const mx = minX + (maxX - minX) * slot;
+    moonGlow.setAttribute("cx", mx.toFixed(0));
+    moonBody.setAttribute("cx", mx.toFixed(0));
+    for (const [crater, ox] of craterParts) crater.setAttribute("cx", (mx + mr * ox).toFixed(0));
+    const sx = (2 * DIAL_CX - mx).toFixed(0);
+    sunGlow.setAttribute("cx", sx);
+    sunBody.setAttribute("cx", sx);
+  };
+  place();
+  window.addEventListener("resize", place);
 
   return dial;
 }

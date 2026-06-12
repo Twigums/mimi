@@ -319,6 +319,42 @@ html.theme-dark .song-page .bg-overlay::before {
   }
 }
 
+// cloudy outline — one generated SVG (.game-frame, built by GameSurface.tsx
+// from the area's measured size) behind .game-area rather than tiled CSS
+// backgrounds: tiles rasterize separately, so their seams leave hairlines
+// and open into gaps when `round` stretches them on resize; a single circle
+// set can't disconnect. --game-frame-fill/-glow follow --cloud-fill/-glow by
+// day but go royal purple at night, when the frame's .frame-star sparkles
+// fade in
+.game-frame {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  aspect-ratio: 4 / 3;
+  height: calc(100vh - 6rem);
+  max-width: calc((100vh - 6rem) * 4 / 3);
+  overflow: visible;
+  pointer-events: none;
+  filter: drop-shadow(0 4px 0 var(--game-frame-glow));
+
+  circle {
+    fill: var(--game-frame-fill);
+  }
+
+  // yellow sparkles on the night band, generated with the circles
+  // (frameStars skips a corner margin so corners never double up)
+  .frame-star {
+    fill: var(--color-perfect);
+    opacity: 0;
+    transition: opacity 0.4s;
+  }
+}
+
+html.theme-dark .game-frame .frame-star {
+  opacity: 1;
+}
+
 .game-area {
   position: absolute;
   top: 50%;
@@ -327,8 +363,16 @@ html.theme-dark .song-page .bg-overlay::before {
   aspect-ratio: 4 / 3;
   height: calc(100vh - 6rem);
   max-width: calc((100vh - 6rem) * 4 / 3);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  // teal ring + ambient glow, matching the tutorial canvas frame; both
+  // tokens follow the theme so the frame dims at night
+  border: 2px solid var(--surface-hud-line);
+  border-radius: var(--radius-card);
+  box-shadow: 0 0 28px var(--cloud-glow);
   background: transparent;
+  // glassy screen: everything painted behind the field (page gradient, the
+  // cloud band's inner arcs) blurs; the canvas and HUD above stay sharp
+  -webkit-backdrop-filter: blur(18px);
+  backdrop-filter: blur(18px);
   overflow: hidden;
 
   .game-canvas {

@@ -375,17 +375,28 @@ html.theme-dark .bg-sky .cloud-layer {
     background 0.2s,
     color 0.2s;
 
-  // single wisp keeps it cloud-like but clearly lighter than .btn-main
-  &::before {
+  // two wisps keep it cloud-like but clearly lighter than .btn-main
+  &::before,
+  &::after {
     content: '';
     position: absolute;
+    background: inherit;
+    border-radius: 50%;
+    z-index: -1;
+  }
+
+  &::before {
     width: 1.4rem;
     height: 1.4rem;
     top: -0.5rem;
     right: 22%;
-    background: inherit;
-    border-radius: 50%;
-    z-index: -1;
+  }
+
+  &::after {
+    width: 1.9rem;
+    height: 1.9rem;
+    top: -0.6rem;
+    right: 36%;
   }
 
   &:hover {

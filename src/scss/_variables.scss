@@ -58,6 +58,8 @@ $diff-colors: (
   --song-text-dim: rgba(20, 66, 77, 0.66);
   --song-text-shadow: 0 0 6px rgba(255, 255, 255, 0.45);
   --game-dim: rgba(0, 0, 0, 0.3);
+  --game-frame-fill: var(--cloud-fill);
+  --game-frame-glow: var(--cloud-glow);
   --surface-hud: rgba(255, 255, 255, 0.92);
   --surface-hud-line: rgba(57, 197, 187, 0.45);
 
@@ -127,6 +129,10 @@ html.theme-dark {
   --song-text-dim: rgba(255, 255, 255, 0.62);
   --song-text-shadow: 0 0 6px rgba(0, 0, 0, 0.6);
   --game-dim: rgba(0, 0, 0, 0.55);
+  // the game frame goes royal purple at night (the cloud band hosts yellow
+  // stars there) instead of following the dusk --cloud-fill
+  --game-frame-fill: #5b4a9b;
+  --game-frame-glow: rgba(132, 102, 222, 0.5);
   --surface-hud: rgba(6, 22, 28, 0.92);
   --surface-hud-line: rgba(57, 197, 187, 0.35);
 
