@@ -70,6 +70,13 @@ The approach rate controls how far in advance notes become visible before their 
 
 The setting persists across sessions.
 
+## Music Offset
+A player-configurable timing offset (set from the **Timing** section of the options panel) shifts the song position used for note judgement relative to the audio, compensating for audio/display latency. The offset is applied to the position fed to the game each tick and to break-skip targeting.
+
+- **Range:** −5000 ms to +5000 ms in 10 ms steps (default: 0 ms; values within one step of zero snap to 0)
+
+The setting persists across sessions.
+
 ## Play Flow and Break Skipping
 
 Gameplay starts from an intentional player gesture on the game surface, such as a click, tap, or keyboard input. The song page does not keep a persistent play/stop button over the chart. If browser media rules block the first playback request, the game surface may continue to present a start affordance until another gesture successfully starts the song.

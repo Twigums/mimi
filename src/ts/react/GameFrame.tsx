@@ -1,29 +1,40 @@
-import { useEffect, useState } from "react";
+import { memo, useEffect, useState } from "react";
 import type { RefObject } from "react";
 
-// cloud border drawn as one generated SVG instead of tiled CSS backgrounds,
-// which show seams and gaps when their tiles stretch. shared by the song
-// page's game area and the home tutorial canvas (at a smaller scale).
+// cloud border drawn as one generated SVG: tiled CSS backgrounds rasterize
+// per tile, leaving seam hairlines that open into gaps when the tiles
+// stretch on resize. shared by the song page's game area and the home
+// tutorial canvas (at a smaller scale).
 
-// puff pattern, cycled along each edge: [radius, centre offset across the
-// frame line] (negative = outward)
+// runs `draw` once per edge with that edge's length and a mapper from
+// (distance along the edge, offset across the frame line — negative =
+// outward) to frame coordinates
+function forEachEdge(
+  w: number,
+  h: number,
+  draw: (len: number, place: (along: number, rel: number) => [number, number]) => void,
+): void {
+  draw(w, (a, rel) => [a, rel]);     // top
+  draw(w, (a, rel) => [a, h - rel]); // bottom
+  draw(h, (a, rel) => [rel, a]);     // left
+  draw(h, (a, rel) => [w - rel, a]); // right
+}
+
+// puff pattern cycled along each edge: [radius, centre offset across the
+// frame line]
 const FRAME_PUFFS: ReadonlyArray<readonly [number, number]> = [[24, -2], [18, -8], [21, 1], [18, -6]];
 const FRAME_STEP = 31; // target spacing between puff centres
 
 function frameCircles(w: number, h: number, s: number): Array<{ cx: number; cy: number; r: number }> {
   const circles: Array<{ cx: number; cy: number; r: number }> = [];
-  const edge = (len: number, place: (along: number, rel: number) => [number, number]): void => {
+  forEachEdge(w, h, (len, place) => {
     const n = Math.max(4, Math.round(len / (FRAME_STEP * s)));
     for (let i = 0; i <= n; i++) {
       const [r, rel] = FRAME_PUFFS[i % FRAME_PUFFS.length];
       const [cx, cy] = place((i * len) / n, rel * s);
       circles.push({ cx, cy, r: r * s });
     }
-  };
-  edge(w, (a, rel) => [a, rel]);     // top
-  edge(w, (a, rel) => [a, h - rel]); // bottom
-  edge(h, (a, rel) => [rel, a]);     // left
-  edge(h, (a, rel) => [w - rel, a]); // right
+  });
   // corner clusters: a big blob on each corner plus a small puff diagonally
   // inward, bridging the edge rows
   for (const cx of [6 * s, w - 6 * s]) for (const cy of [6 * s, h - 6 * s]) circles.push({ cx, cy, r: 26 * s });
@@ -31,35 +42,28 @@ function frameCircles(w: number, h: number, s: number): Array<{ cx: number; cy: 
   return circles;
 }
 
-// four-point sparkle for the night frame (unit radius 10, scaled per star);
-// generated alongside the circles so star rows skip a corner margin — tiled
-// strips doubled stars wherever a horizontal and a vertical row met
+// four-point sparkle for the night frame (unit radius 10, scaled per star)
 const STAR_PATH = "M0 -10 Q1.8 -1.8 10 0 Q1.8 1.8 0 10 Q-1.8 1.8 -10 0 Q-1.8 -1.8 0 -10 Z";
 const STAR_STEP = 72;          // target spacing between stars along an edge
-const STAR_CORNER_MARGIN = 64; // edge zone left to the corner pairs
+const STAR_CORNER_MARGIN = 64; // edge zone reserved for the corner pairs
 
 function frameStars(w: number, h: number, s: number): Array<{ x: number; y: number; scale: number }> {
   const stars: Array<{ x: number; y: number; scale: number }> = [];
-  const edge = (len: number, place: (along: number, rel: number) => [number, number]): void => {
+  forEachEdge(w, h, (len, place) => {
     const margin = STAR_CORNER_MARGIN * s;
     const usable = len - 2 * margin;
     if (usable <= 0) return;
     const n = Math.max(1, Math.round(usable / (STAR_STEP * s)));
     for (let i = 0; i <= n; i++) {
       const big = i % 2 === 0;
-      // stars stay on the band's outer half: past the frame line they'd sit
-      // behind the glass blur and smear
+      // stars keep to the band's outer half: past the frame line they'd sit
+      // behind the game area's glass blur and smear
       const [x, y] = place(margin + (i * usable) / n, (big ? -10 : -15) * s);
       stars.push({ x, y, scale: (big ? 0.9 : 0.55) * s });
     }
-  };
-  edge(w, (a, rel) => [a, rel]);     // top
-  edge(w, (a, rel) => [a, h - rel]); // bottom
-  edge(h, (a, rel) => [rel, a]);     // left
-  edge(h, (a, rel) => [w - rel, a]); // right
-  // a deliberate pair per corner: a big sparkle on the corner blob's outer
-  // diagonal and a small one tucked between it and the first edge star,
-  // mirrored so every corner matches
+  });
+  // one big sparkle on each corner blob's outer diagonal and a small one
+  // tucked between it and the first edge star, mirrored so corners match
   const corners: ReadonlyArray<[number, number, 1 | -1, 1 | -1]> = [
     [0, 0, 1, 1], [w, 0, -1, 1], [0, h, 1, -1], [w, h, -1, -1],
   ];
@@ -71,7 +75,6 @@ function frameStars(w: number, h: number, s: number): Array<{ x: number; y: numb
 }
 
 // observes an element's rendered size so the frame redraws from real pixels
-// and resizing can never stretch it apart
 export function useElementSize(ref: RefObject<HTMLElement>): { w: number; h: number } | null {
   const [size, setSize] = useState<{ w: number; h: number } | null>(null);
   useEffect(() => {
@@ -93,7 +96,9 @@ interface Props {
   scale?: number;
 }
 
-export function GameFrame({ w, h, scale = 1 }: Props) {
+// memoised: hosts re-render every score tick, but the frame only changes
+// when the observed size does
+export const GameFrame = memo(function GameFrame({ w, h, scale = 1 }: Props) {
   return (
     <svg className="game-frame" viewBox={`0 0 ${w} ${h}`} aria-hidden="true">
       {frameCircles(w, h, scale).map((c, i) => (
@@ -109,4 +114,4 @@ export function GameFrame({ w, h, scale = 1 }: Props) {
       ))}
     </svg>
   );
-}
+});
