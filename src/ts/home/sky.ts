@@ -1,3 +1,5 @@
+import { withPath } from "../core/sitePath";
+
 const SVG_NS = "http://www.w3.org/2000/svg";
 const VIEW_W = 1920;
 const VIEW_H = 1080;
@@ -66,6 +68,37 @@ function buildNightLayer(): SVGGElement {
   return layer;
 }
 
+// the moon's "craters" are the simple-miku.svg drawing, fetched at runtime and
+// inlined onto the moon so it always matches the asset (no path data is copied
+// into this file)
+const MIKU_SRC = "/images/simple-miku.svg";
+// adjustment knobs — tweak these to fit the drawing on the moon:
+const MIKU_FILL = 1.32;    // size: art's larger side ÷ moon diameter; >1 overflows the rim and clips
+const MIKU_ROTATE = 25;     // spin in place, degrees clockwise
+const MIKU_NUDGE_X = 0.09;    // shift across the moon, in moon radii (+ = right, e.g. 0.1 = 10% of the radius)
+const MIKU_NUDGE_Y = 0.4;    // shift up/down the moon, in moon radii (+ = down)
+
+// fetch simple-miku.svg and drop its drawing elements into the moon-face group;
+// the asset's own black stroke is stripped so _home.scss can recolour the lines
+// to the old crater tone, and the group is scaled/centred by reposition()
+async function loadMoonFace(moonFace: SVGGElement, reposition: () => void): Promise<void> {
+  try {
+    const res = await fetch(withPath(MIKU_SRC));
+    if (!res.ok) return;
+    const root = new DOMParser().parseFromString(await res.text(), "image/svg+xml").documentElement;
+    if (root.tagName.toLowerCase() !== "svg") return; // parse error markup
+    for (const node of Array.from(root.children)) {
+      if (node.tagName.toLowerCase() === "defs") continue;
+      const shape = document.importNode(node, true) as SVGElement;
+      for (const attr of ["style", "fill", "stroke"]) shape.removeAttribute(attr);
+      moonFace.appendChild(shape);
+    }
+    reposition(); // the art now has a measurable bbox to scale against
+  } catch {
+    /* decorative: a missing or blocked asset just leaves a plain moon */
+  }
+}
+
 // sun and moon sit on opposite ends of a wheel hubbed at (DIAL_CX, DIAL_CY);
 // CSS rotates the .sky-dial group half a turn per theme, so the moon sets on
 // the right while the sun rises from the left horizon (and vice versa)
@@ -94,21 +127,21 @@ function buildSkyDial(): SVGGElement {
   const moonBody = el("circle", { class: "moon-body", cy: my.toFixed(0), r: mr.toFixed(0) });
   dial.appendChild(moonGlow);
   dial.appendChild(moonBody);
-  const craters: ReadonlyArray<[number, number, number]> = [
-    [-0.35, -0.1, 0.18],
-    [0.2, 0.28, 0.13],
-    [0.28, -0.32, 0.1],
-  ];
-  const craterParts: Array<[SVGCircleElement, number]> = [];
-  for (const [ox, oy, or] of craters) {
-    const crater = el("circle", {
-      class: "moon-crater",
-      cy: (my + mr * oy).toFixed(0),
-      r: (mr * or).toFixed(0),
-    });
-    craterParts.push([crater, ox]);
-    dial.appendChild(crater);
-  }
+
+  // the moon circle doubles as a clip so Miku's hair/twintails that spill past
+  // the rim are cut away; the clip circle tracks the moon body in dial space
+  const clipCircle = el("circle", { cy: my.toFixed(0), r: mr.toFixed(0) });
+  const faceClipPath = el("clipPath", { id: "moon-face-clip", clipPathUnits: "userSpaceOnUse" });
+  faceClipPath.appendChild(clipCircle);
+  defs.appendChild(faceClipPath);
+
+  // the inner group holds the (later-fetched) line art and carries the
+  // placement transform; the outer group carries the clip, so the clip is
+  // evaluated in dial space and lines up with the moon body's coordinates
+  const moonFace = el("g", { class: "moon-face" });
+  const faceClip = el("g", { "clip-path": "url(#moon-face-clip)" });
+  faceClip.appendChild(moonFace);
+  dial.appendChild(faceClip);
 
   // the sun starts diametrically opposite the moon, below the horizon;
   // rotating the dial 180° lands it exactly on the moon's sky slot
@@ -133,13 +166,31 @@ function buildSkyDial(): SVGGElement {
     const mx = minX + (maxX - minX) * slot;
     moonGlow.setAttribute("cx", mx.toFixed(0));
     moonBody.setAttribute("cx", mx.toFixed(0));
-    for (const [crater, ox] of craterParts) crater.setAttribute("cx", (mx + mr * ox).toFixed(0));
+    clipCircle.setAttribute("cx", mx.toFixed(0));
+    // scale the fetched art to fill the moon and centre it on the body; getBBox
+    // reads the raw art bounds (ignoring this group's own transform), so it
+    // stays stable across calls and is empty until the asset loads
+    const bb = moonFace.getBBox();
+    if (bb.width > 0 && bb.height > 0) {
+      const faceScale = (2 * mr * MIKU_FILL) / Math.max(bb.width, bb.height);
+      const fcx = bb.x + bb.width / 2;
+      const fcy = bb.y + bb.height / 2;
+      // applied right-to-left: centre the art on the origin, scale it, rotate it
+      // in place, then move it to the moon centre plus the nudge offset
+      const px = (mx + MIKU_NUDGE_X * mr).toFixed(1);
+      const py = (my + MIKU_NUDGE_Y * mr).toFixed(1);
+      moonFace.setAttribute(
+        "transform",
+        `translate(${px} ${py}) rotate(${MIKU_ROTATE}) scale(${faceScale.toFixed(4)}) translate(${(-fcx).toFixed(2)} ${(-fcy).toFixed(2)})`,
+      );
+    }
     const sx = (2 * DIAL_CX - mx).toFixed(0);
     sunGlow.setAttribute("cx", sx);
     sunBody.setAttribute("cx", sx);
   };
   place();
   window.addEventListener("resize", place);
+  void loadMoonFace(moonFace, place); // populates the moon and re-places once loaded
 
   return dial;
 }

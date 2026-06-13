@@ -105,7 +105,13 @@ html.theme-dark .home-page .bg-overlay::before {
 
     .moon-glow   { fill: url(#moon-glow-gradient); }
     .moon-body   { fill: #f3eecd; }
-    .moon-crater { fill: rgba(196, 189, 148, 0.55); }
+    .moon-face :is(path, rect, line, polyline, polygon, circle, ellipse) {
+      fill: none;
+      stroke: rgba(196, 189, 148, 0.55);
+      stroke-width: 2.3;
+      stroke-linecap: round;
+      stroke-linejoin: round;
+    }
     .sun-glow    { fill: url(#sun-glow-gradient); }
     .sun-body    { fill: #ffdf6b; }
   }
