@@ -4,6 +4,7 @@ import type { Note } from "../game/engine";
 import { drawArrow, drawLyricNote, drawFireworks, NOTE_RADIUS, LYRIC_RADIUS } from "../game/draw";
 import { createCursorRenderer } from "../game/cursor";
 import { angleDiff, clamp } from "../core/utils";
+import { GameFrame, useElementSize } from "./GameFrame";
 
 export interface TutorialCanvasHandle {
   spawnNote(kind: Note["kind"]): void;
@@ -48,6 +49,7 @@ const CY             = LOGICAL_H / (2 * NOTE_SCALE);
 export const TutorialCanvas = forwardRef<TutorialCanvasHandle, {}>((_, ref) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const spawnRef  = useRef<(kind: Note["kind"]) => void>(() => {});
+  const frameSize = useElementSize(canvasRef);
 
   useImperativeHandle(ref, () => ({
     spawnNote: (kind) => spawnRef.current(kind),
@@ -241,7 +243,13 @@ export const TutorialCanvas = forwardRef<TutorialCanvasHandle, {}>((_, ref) => {
     };
   }, []);
 
-  return <canvas ref={canvasRef} className="tutorial-canvas" />;
+  // the wrap hosts the cloud frame, which must sit outside the canvas box
+  return (
+    <div className="tutorial-canvas-wrap">
+      {frameSize && <GameFrame w={frameSize.w} h={frameSize.h} scale={0.75} />}
+      <canvas ref={canvasRef} className="tutorial-canvas" />
+    </div>
+  );
 });
 
 TutorialCanvas.displayName = "TutorialCanvas";

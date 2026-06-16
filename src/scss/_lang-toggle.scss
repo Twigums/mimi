@@ -2,14 +2,17 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   position: relative;
-  background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.4);
+  background: var(--pill-fill);
+  border: none;
+  border-radius: var(--radius-pill);
+  box-shadow: inset 0 0 0 1.5px rgba(57, 197, 187, 0.45);
   padding: 0;
   cursor: pointer;
-  font-family: inherit;
+  font-family: var(--font-display);
   font-size: 0.85rem;
   overflow: hidden;
 
+  // sliding teal bubble under the active language
   &::before {
     content: '';
     position: absolute;
@@ -17,9 +20,10 @@
     left: 0;
     width: 50%;
     height: 100%;
-    background: rgba(255, 255, 255, 0.25);
+    background: var(--miku-teal);
+    border-radius: var(--radius-pill);
     transform: translateX(0);
-    transition: transform 0.2s ease;
+    transition: transform 0.35s var(--motion-ease-bouncy);
 
     @media (prefers-reduced-motion: reduce) {
       transition: none;
@@ -31,21 +35,34 @@
     text-align: center;
     white-space: nowrap;
     padding: 0.4rem 0.9rem;
-    color: #fff;
-    opacity: 0.55;
-    transition: opacity 0.2s;
+    color: var(--ink-soft);
+    transition: color 0.25s;
 
     &.active {
-      opacity: 1;
+      color: #fff;
       font-weight: bold;
     }
 
     &:not(.active):hover {
-      opacity: 0.8;
+      color: var(--miku-teal-deep);
     }
   }
 }
 
 html.lang-jp .lang-toggle::before {
   transform: translateX(100%);
+}
+
+// over the dark night-mode song background the capsule goes translucent;
+// the day-mode song page keeps the default light capsule
+html.theme-dark .song-page .lang-toggle {
+  background: rgba(255, 255, 255, 0.14);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
+
+  .lang-option {
+    color: rgba(255, 255, 255, 0.6);
+
+    &.active { color: #fff; }
+    &:not(.active):hover { color: rgba(255, 255, 255, 0.9); }
+  }
 }

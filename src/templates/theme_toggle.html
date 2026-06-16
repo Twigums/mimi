@@ -1,0 +1,23 @@
+<button class = "settings-btn theme-toggle" id = "theme-toggle" type = "button"
+        role = "switch" aria-checked = "false"
+        aria-label = "Toggle between light and dark theme"
+        data-title-en = "Theme" data-title-jp = "テーマ"
+        title = "Theme">
+    <svg xmlns = "http://www.w3.org/2000/svg" viewBox = "0 0 24 24" aria-hidden = "true">
+        <mask id = "theme-moon-mask">
+            <rect x = "0" y = "0" width = "24" height = "24" fill = "white"/>
+            <circle class = "theme-mask-bite" cx = "27" cy = "-3" r = "6" fill = "black"/>
+        </mask>
+        <circle class = "theme-icon-core" cx = "12" cy = "12" r = "5" mask = "url(#theme-moon-mask)"/>
+        <g class = "theme-icon-rays">
+            <path d = "M12 2.5 V5"/>
+            <path d = "M12 19 V21.5"/>
+            <path d = "M2.5 12 H5"/>
+            <path d = "M19 12 H21.5"/>
+            <path d = "M5.3 5.3 L7 7"/>
+            <path d = "M17 17 L18.7 18.7"/>
+            <path d = "M17 7 L18.7 5.3"/>
+            <path d = "M5.3 18.7 L7 17"/>
+        </g>
+    </svg>
+</button>

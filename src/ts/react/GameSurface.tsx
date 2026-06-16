@@ -7,6 +7,7 @@ import { useLang } from "./hooks/useLang";
 import { useApproachRate } from "./hooks/useSettings";
 import { ResultsOverlay } from "./ResultsOverlay";
 import { OptionsPanel } from "./OptionsPanel";
+import { GameFrame, useElementSize } from "./GameFrame";
 
 let _toastId = 0;
 
@@ -71,6 +72,7 @@ export function GameSurface({ onReady, returnHref, onTryAgain }: Props) {
 
   const lang   = useLang();
   const [ar]   = useApproachRate();
+  const frameSize = useElementSize(gameAreaRef);
 
   useEffect(() => {
     if (playing) {
@@ -156,6 +158,8 @@ export function GameSurface({ onReady, returnHref, onTryAgain }: Props) {
   return (
     <>
       <OptionsPanel isSongPage={true} />
+
+      {frameSize && <GameFrame w={frameSize.w} h={frameSize.h} />}
 
       <div className={`game-area${playing ? " playing" : ""}`} ref={gameAreaRef}>
         <div id="song-storyboard" className="song-storyboard" />
