@@ -6,9 +6,9 @@ title: tutorial
 
 ミミはカーソルを動かしてノーツをスワイプする音楽ゲームです！ミミには3種類のノーツがあります：
 
-<mark class="flick">[フリック](spawn:flick)</mark>：赤い矢印を指定方向にスワイプして。
+<mark class="cut">[カット](spawn:cut)</mark>：赤い矢印を指定方向にスワイプして。
 
-<mark class="stream">[ストリーム](spawn:stream)</mark>：左クリックを押しながらスワイプして。早すぎないように！
+<mark class="flow">[フロー](spawn:flow)</mark>：つながったノーツをなめらかにスワイプして。
 
 <mark class="lyric">[歌詞](spawn:lyric)</mark>：ミクの歌に合わせ、ビートに乗ってノーツをクリックしよう！
 

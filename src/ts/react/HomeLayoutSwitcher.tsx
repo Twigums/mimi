@@ -3,7 +3,6 @@ import { useLang } from "./hooks/useLang";
 import { OptionsPanel } from "./OptionsPanel";
 import { TutorialCanvas } from "./TutorialCanvas";
 import type { TutorialCanvasHandle } from "./TutorialCanvas";
-import type { Note } from "../game/engine";
 
 type Layout = "original" | "play" | "info" | "tutorial";
 
@@ -22,8 +21,8 @@ interface DifficultyInfo {
   level: number;
   ar: number | null;
   noteCount: number;
-  flickCount: number;
-  streamCount: number;
+  cutCount: number;
+  flowCount: number;
   lyricCount: number;
   playableMs: number | null;
   density: number | null;
@@ -57,6 +56,8 @@ interface ManifestSong {
     level: number;
     ar?: number | null;
     noteCount?: number;
+    cutCount?: number;
+    flowCount?: number;
     flickCount?: number;
     streamCount?: number;
     lyricCount?: number;
@@ -92,8 +93,8 @@ function parseManifest(json: string): SongEntry[] {
           level: d.level,
           ar: d.ar ?? null,
           noteCount: d.noteCount ?? 0,
-          flickCount: d.flickCount ?? 0,
-          streamCount: d.streamCount ?? 0,
+          cutCount: d.cutCount ?? d.flickCount ?? 0,
+          flowCount: d.flowCount ?? d.streamCount ?? 0,
           lyricCount: d.lyricCount ?? 0,
           playableMs: d.playableMs ?? null,
           density: d.density ?? null,
@@ -314,8 +315,8 @@ export function HomeLayoutSwitcher({ infoContent, infoContentJp, tutorialContent
                       </div>
                       <div className="difficulty-stats">
                         <span>{t("Notes", "ノーツ")}: {activeDiff.noteCount}</span>
-                        <span>{t("Flicks", "フリック")}: {activeDiff.flickCount}</span>
-                        <span>{t("Streams", "ストリーム")}: {activeDiff.streamCount}</span>
+                        <span>{t("Cuts", "カット")}: {activeDiff.cutCount}</span>
+                        <span>{t("Flows", "フロー")}: {activeDiff.flowCount}</span>
                         <span>{t("Lyrics", "歌詞")}: {activeDiff.lyricCount}</span>
                         <span>{t("Length", "長さ")}: {formatDuration(activeDiff.playableMs)}</span>
                         <span>{t("Density", "密度")}: {formatDensity(activeDiff.density)}</span>
@@ -355,8 +356,9 @@ export function HomeLayoutSwitcher({ infoContent, infoContentJp, tutorialContent
                   const href = (el as HTMLAnchorElement).getAttribute("href") ?? "";
                   if (!href.startsWith("spawn:")) return;
                   e.preventDefault();
-                  const kind = href.slice(6) as Note["kind"];
-                  if (kind === "flick" || kind === "stream" || kind === "lyric") {
+                  const rawKind = href.slice(6);
+                  const kind = rawKind === "flick" ? "cut" : rawKind === "stream" ? "flow" : rawKind;
+                  if (kind === "cut" || kind === "flow" || kind === "lyric") {
                     tutorialRef.current?.spawnNote(kind);
                   }
                 }}

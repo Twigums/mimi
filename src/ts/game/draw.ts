@@ -11,13 +11,19 @@ interface NoteColors {
 
 interface NoteStyle {
   colors: NoteColors;
-  requiresHold: boolean;
 }
 
-export const NOTE_STYLE: Record<Note["kind"], NoteStyle> = {
-  flick:  { colors: { base: "255, 82, 82",   darkBase: "191, 62, 62"   }, requiresHold: false },
-  stream: { colors: { base: "82, 162, 255",  darkBase: "62, 122, 191"  }, requiresHold: true  },
-  lyric:  { colors: { base: "255, 255, 255", darkBase: "200, 200, 200" }, requiresHold: false },
+const CUT_STYLE: NoteStyle   = { colors: { base: "255, 82, 82",   darkBase: "191, 62, 62"   } };
+const FLOW_STYLE: NoteStyle  = { colors: { base: "82, 162, 255",  darkBase: "62, 122, 191"  } };
+const LYRIC_STYLE: NoteStyle = { colors: { base: "255, 255, 255", darkBase: "200, 200, 200" } };
+
+export const NOTE_STYLE: Record<string, NoteStyle> = {
+  cut:    CUT_STYLE,
+  click:  CUT_STYLE,
+  flick:  CUT_STYLE,
+  flow:   FLOW_STYLE,
+  stream: FLOW_STYLE,
+  lyric:  LYRIC_STYLE,
 };
 
 // appearProgress: 0 = faint outline just appearing, 1 = fully filled at hit time
@@ -33,7 +39,18 @@ export function drawArrow(
   const cy = note.y * scale;
   const r  = NOTE_RADIUS * scale;
 
-  const { base, darkBase } = NOTE_STYLE[note.kind].colors;
+  if (!note.kind) {
+    console.error("[mimi] drawArrow: note has no kind", { note, appearProgress });
+    return;
+  }
+
+  const style = NOTE_STYLE[note.kind];
+  if (!style) {
+    console.error("[mimi] drawArrow: unknown note kind", { kind: note.kind, note });
+    return;
+  }
+
+  const { base, darkBase } = style.colors;
 
   const len     = r;         // total arrow length
   const headLen = r * 0.4;  // arrowhead length
@@ -144,6 +161,37 @@ export function drawLyricNote(
   ctx.restore();
 }
 
+export function drawFlowRibbon(
+  ctx: CanvasRenderingContext2D,
+  from: Note,
+  to: Note,
+  scale: number,
+  alpha: number,
+): void {
+  const fromX = from.x * scale;
+  const fromY = from.y * scale;
+  const toX = to.x * scale;
+  const toY = to.y * scale;
+  const { base } = NOTE_STYLE.flow.colors;
+
+  ctx.save();
+  ctx.strokeStyle = `rgba(${base}, ${0.22 * alpha})`;
+  ctx.lineWidth = 10 * scale;
+  ctx.lineCap = "round";
+  ctx.beginPath();
+  ctx.moveTo(fromX, fromY);
+  ctx.lineTo(toX, toY);
+  ctx.stroke();
+
+  ctx.strokeStyle = `rgba(255, 255, 255, ${0.18 * alpha})`;
+  ctx.lineWidth = 2 * scale;
+  ctx.beginPath();
+  ctx.moveTo(fromX, fromY);
+  ctx.lineTo(toX, toY);
+  ctx.stroke();
+  ctx.restore();
+}
+
 export function drawCursorOrb(
   ctx: CanvasRenderingContext2D,
   x: number,
@@ -220,7 +268,18 @@ export function drawFireworks(
   const len = maxLen * (1 - Math.pow(1 - progress, 2));
   const lw = 2.5 * scale * (1 - progress);
 
-  const color = NOTE_STYLE[kind].colors.base;
+  if (!kind) {
+    console.error("[mimi] drawFireworks: animation has no kind", { x, y, kind, progress });
+    return;
+  }
+
+  const style = NOTE_STYLE[kind];
+  if (!style) {
+    console.error("[mimi] drawFireworks: unknown animation kind", { kind });
+    return;
+  }
+
+  const color = style.colors.base;
   const cx = x * scale;
   const cy = y * scale;
 

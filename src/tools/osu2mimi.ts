@@ -33,7 +33,47 @@ interface Note {
     x:       number;
     y:       number;
     degrees: number;
-    noDir:   boolean;
+    isSlider: boolean;
+}
+
+interface CliOptions {
+    fileArg: string | null;
+    difficulty?: number;
+    bpm?: number;
+    beatsPerMeasure: number;
+}
+
+function parseCliArgs(args: string[]): CliOptions {
+    const opts: CliOptions = { fileArg: null, beatsPerMeasure: 4 };
+    let i = 0;
+
+    while (i < args.length) {
+        const arg = args[i];
+        if (arg === "--") {
+            i += 1;
+            if (i < args.length) opts.fileArg = args[i];
+            break;
+        }
+
+        if (arg === "--difficulty") {
+            i += 1;
+            opts.difficulty = Number(args[i]);
+        } else if (arg === "--bpm") {
+            i += 1;
+            opts.bpm = Number(args[i]);
+        } else if (arg === "--beats-per-measure") {
+            i += 1;
+            opts.beatsPerMeasure = Number(args[i]);
+        } else if (arg.startsWith("--")) {
+            process.stderr.write(`Unknown option: ${arg}\n`);
+            process.exit(1);
+        } else if (!opts.fileArg) {
+            opts.fileArg = arg;
+        }
+        i += 1;
+    }
+
+    return opts;
 }
 
 function parseHitObject(line: string): Note | null {
@@ -50,7 +90,6 @@ function parseHitObject(line: string): Note | null {
     const isSlider = !!(type & 2);
 
     let degrees = 0;
-    let noDir   = false;
 
     if (isSlider && parts.length >= 6) {
         const curveData = parts[5];
@@ -66,8 +105,6 @@ function parseHitObject(line: string): Note | null {
             // osu y increases down; standard math y increases up → negate dy
             degrees = Math.atan2(-dy, dx) * (180 / Math.PI);
         }
-    } else {
-        noDir = true;
     }
 
     const xm = parseFloat((osuX * SCALE + OFFSET_X).toFixed(1));
@@ -78,16 +115,15 @@ function parseHitObject(line: string): Note | null {
         x: xm,
         y: ym,
         degrees: parseFloat(degrees.toFixed(1)),
-        noDir,
+        isSlider,
     };
 }
 
 function main(): void {
-    const args    = process.argv.slice(2);
-    const fileArg = args.find(a => !a.startsWith("--"));
+    const { fileArg, difficulty, bpm, beatsPerMeasure } = parseCliArgs(process.argv.slice(2));
 
     if (!fileArg) {
-        process.stderr.write("Usage: osu2mimi {file.osu}\n");
+        process.stderr.write("Usage: osu2mimi [--difficulty N] [--bpm N] [--beats-per-measure N] {file.osu}\n");
         process.exit(1);
     }
 
@@ -112,14 +148,17 @@ function main(): void {
 
     const out: string[] = [
         "time_unit: ms",
-        "beats_per_measure: 4",
+    ];
+    if (bpm !== undefined) out.push(`bpm: ${bpm}`);
+    if (difficulty !== undefined) out.push(`difficulty: ${difficulty}`);
+    out.push(`beats_per_measure: ${beatsPerMeasure}`);
+    out.push(
         "",
         "# kind, time_ms, degrees, x, y",
-    ];
+    );
 
     for (const note of notes) {
-        const kind = note.noDir ? "l" : "f";
-        out.push(`${kind}, ${note.time}, ${note.degrees}, ${note.x}, ${note.y}`);
+        out.push(`c, ${note.time}, ${note.degrees}, ${note.x}, ${note.y}`);
     }
 
     process.stdout.write(out.join("\n") + "\n");

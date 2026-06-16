@@ -54,10 +54,17 @@ parseNote toMs line =
         nx  <- readDouble "x"       x
         ny  <- readDouble "y"       y
         let kind = case map toLower k of
-                "f" -> "flick"
-                "s" -> "stream"
-                "l" -> "lyric"
-                _   -> map toLower k
+                "c"      -> "cut"
+                "cut"    -> "cut"
+                "click"  -> "cut"
+                "f"      -> "cut"
+                "flick"  -> "cut"
+                "s"      -> "flow"
+                "flow"   -> "flow"
+                "stream" -> "flow"
+                "l"      -> "lyric"
+                "lyric"  -> "lyric"
+                _        -> map toLower k
         let timeMs  = toMs t'
         let radians = normalizeAngle (-(deg * pi / 180.0))
         Right $ NoteEntry kind timeMs nx ny radians mChar

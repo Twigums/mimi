@@ -1,22 +1,28 @@
-import { angleDiff, clamp } from "../core/utils";
-import { drawArrow, drawLyricNote, drawFireworks, NOTE_RADIUS, LYRIC_RADIUS, NOTE_STYLE } from "./draw";
+import { clamp } from "../core/utils";
+import { drawArrow, drawLyricNote, drawFireworks, drawFlowRibbon } from "./draw";
 import { arToMs, loadAr, loadHitsoundVolume, subscribeHitsoundVolume, volToFactor, loadHiddenMod, subscribeHiddenMod } from "../core/settings";
 import { createCursorRenderer, type CursorRenderer } from "./cursor";
-
-const PERFECT_MS             = 32;
-const GOOD_MS                = 100;
-const LYRIC_CHAR_MAX_DIST_MS = 80;
-export const PERFECT_POINTS  = 5;
-export const GOOD_POINTS     = 2;
+import {
+  CUT_METRIC_WINDOW_MS,
+  FLOW_LINK_MAX_MS,
+  TIER1_MS,
+  type HitResult,
+  type HitTiming,
+  type MissReason,
+  type NoteKind,
+  type PointerSample,
+  judgeGesture,
+  timingFor,
+} from "./judgement";
+export { MAX_POINTS, TIER1_POINTS, TIER2_POINTS, TIER3_POINTS } from "./judgement";
 
 export const LOGICAL_W = 800;
 export const LOGICAL_H = 600;
 
-const ANGULAR_MARGIN = Math.PI / 6;
+const LYRIC_CHAR_MAX_DIST_MS = 80;
 
-type NoteKind          = "flick" | "stream" | "lyric";
-export type HitResult  = "perfect" | "good" | "miss";
 type NoteState         = "pending" | "hit" | "missed";
+export type { HitResult, HitTiming, MissReason, NoteKind } from "./judgement";
 
 export interface Note {
   kind: NoteKind;
@@ -27,6 +33,23 @@ export interface Note {
   state: NoteState;
   hitResult?: HitResult;
   lyricChar?: string;
+  flowPrevIndex?: number;
+  flowNextIndex?: number;
+}
+
+interface RawNote extends Omit<Note, "kind" | "state"> {
+  kind?: unknown;
+  state?: unknown;
+}
+
+export interface HitDetail {
+  result: HitResult;
+  kind: NoteKind;
+  offsetMs: number;
+  timing: HitTiming;
+  x: number;
+  y: number;
+  missReason?: MissReason;
 }
 
 interface HitAnimation {
@@ -39,11 +62,14 @@ interface HitAnimation {
 
 export interface GameStats {
   score: number;
-  perfect: number;
-  good: number;
+  tier3: number;
+  tier2: number;
+  tier1: number;
   miss: number;
   total: number;
   combo: number;
+  maxCombo: number;
+  hits: HitDetail[];
 }
 
 export interface GameHandle {
@@ -67,6 +93,52 @@ interface GameDeps {
   hitSoundUrl?:    string;
 }
 
+function normalizeNoteKind(kind: unknown): NoteKind | null {
+  if (typeof kind !== "string") return null;
+  switch (kind.toLowerCase()) {
+    case "cut":
+    case "click":
+    case "flick":
+    case "f":
+    case "c":
+      return "cut";
+    case "flow":
+    case "stream":
+    case "s":
+      return "flow";
+    case "lyric":
+    case "l":
+      return "lyric";
+    default:
+      return null;
+  }
+}
+
+function normalizeChartNotes(rawNotes: RawNote[]): Note[] {
+  const normalized: Note[] = [];
+  const droppedKinds = new Set<unknown>();
+
+  for (const raw of rawNotes) {
+    const kind = normalizeNoteKind(raw.kind);
+    if (!kind) {
+      droppedKinds.add(raw.kind);
+      continue;
+    }
+
+    normalized.push({
+      ...raw,
+      kind,
+      state: raw.state === "hit" || raw.state === "missed" ? raw.state : "pending",
+    });
+  }
+
+  if (droppedKinds.size > 0) {
+    console.warn("[mimi] dropped chart notes with unknown kinds:", Array.from(droppedKinds));
+  }
+
+  return normalized.sort((a, b) => a.time - b.time);
+}
+
 export function createGame(deps: GameDeps): GameHandle {
   const { canvas, gameArea, onScore, onFeedback, onComboChange, onPlayingChange } = deps;
   const ctx = canvas.getContext("2d");
@@ -81,11 +153,19 @@ export function createGame(deps: GameDeps): GameHandle {
   let hitSoundBuffer: AudioBuffer | null = null;
   let hitsoundGain: GainNode | null = null;
 
-  const playHitSound = (): void => {
+  const playHitSound = (result: HitResult): void => {
     if (!audioCtx || !hitSoundBuffer || !hitsoundGain) return;
     const source = audioCtx.createBufferSource();
+    const resultGain = audioCtx.createGain();
     source.buffer = hitSoundBuffer;
-    source.connect(hitsoundGain);
+    source.playbackRate.value = result === "tier3" ? 1.08
+      : result === "tier2" ? 1.0
+      : 0.92;
+    resultGain.gain.value = result === "tier3" ? 1.0
+      : result === "tier2" ? 0.85
+      : 0.62;
+    source.connect(resultGain);
+    resultGain.connect(hitsoundGain);
     source.start();
   };
 
@@ -131,9 +211,8 @@ export function createGame(deps: GameDeps): GameHandle {
 
   const getScale = (): number => canvas.width / LOGICAL_W;
 
-  const pointer = { x: 0, y: 0, prevX: 0, prevY: 0, held: false };
-  const keysHeld = new Set<string>();
-  const actionHeld = (): boolean => pointer.held || keysHeld.size > 0;
+  const pointer = { x: 0, y: 0, prevX: 0, prevY: 0 };
+  const pointerSamples: PointerSample[] = [];
 
   const setPointer = (clientX: number, clientY: number): void => {
     const rect = canvas.getBoundingClientRect();
@@ -142,26 +221,18 @@ export function createGame(deps: GameDeps): GameHandle {
   };
 
   const onMouseMove  = (e: MouseEvent): void => setPointer(e.clientX, e.clientY);
-  const onMouseDown  = (e: MouseEvent): void => { setPointer(e.clientX, e.clientY); pointer.held = true; };
-  const onMouseUp    = (): void => { pointer.held = false; };
+  const onMouseDown  = (e: MouseEvent): void => { setPointer(e.clientX, e.clientY); };
   const onTouchMove  = (e: TouchEvent): void => {
     const t = e.touches[0]; if (t) setPointer(t.clientX, t.clientY); e.preventDefault();
   };
   const onTouchStart = (e: TouchEvent): void => {
-    const t = e.touches[0]; if (t) { setPointer(t.clientX, t.clientY); pointer.held = true; } e.preventDefault();
+    const t = e.touches[0]; if (t) setPointer(t.clientX, t.clientY); e.preventDefault();
   };
-  const onTouchEnd   = (): void => { pointer.held = false; };
-  const onKeyDown    = (e: KeyboardEvent): void => { if (!e.repeat) keysHeld.add(e.key); };
-  const onKeyUp      = (e: KeyboardEvent): void => { keysHeld.delete(e.key); };
 
   canvas.addEventListener("mousemove",  onMouseMove);
   canvas.addEventListener("mousedown",  onMouseDown);
-  window.addEventListener("mouseup",    onMouseUp);
   canvas.addEventListener("touchmove",  onTouchMove,  { passive: false });
   canvas.addEventListener("touchstart", onTouchStart, { passive: false });
-  window.addEventListener("touchend",   onTouchEnd);
-  window.addEventListener("keydown",    onKeyDown);
-  window.addEventListener("keyup",      onKeyUp);
   window.addEventListener("resize",     resize);
 
   let notes: Note[] = [];
@@ -169,10 +240,17 @@ export function createGame(deps: GameDeps): GameHandle {
   let animations: HitAnimation[] = [];
   let animStart = 0;
   let score = 0;
-  let perfectCount = 0;
-  let goodCount = 0;
-  let missCount = 0;
+  let tier3Count = 0;
+  let tier2Count = 0;
+  let tier1Count = 0;
+  let missCount  = 0;
   let comboCount = 0;
+  let maxCombo   = 0;
+  let hitDetails: HitDetail[] = [];
+  let reportedUpdateError = false;
+  let reportedDrawError = false;
+  let reportedCursorError = false;
+  let debugDrawOnce = true;
 
   let lyricCharLookup: ((timeMs: number) => { text: string; distMs: number } | null) | null = null;
 
@@ -181,6 +259,16 @@ export function createGame(deps: GameDeps): GameHandle {
   let skipExpiry = false;
 
   const setScore = (v: number): void => { score = v; onScore(v); };
+
+  const recordPointerSample = (songMs: number): void => {
+    pointerSamples.push({
+      x: pointer.x,
+      y: pointer.y,
+      songMs,
+      wallMs: performance.now(),
+    });
+    while (pointerSamples.length > 64) pointerSamples.shift();
+  };
 
   const populateLyricChars = (): void => {
     if (!lyricCharLookup) return;
@@ -197,91 +285,146 @@ export function createGame(deps: GameDeps): GameHandle {
     }
   };
 
-  const scoreFor = (deltaMs: number): { result: HitResult; points: number } => {
-    const d = Math.abs(deltaMs);
-    if (d <= PERFECT_MS) return { result: "perfect", points: PERFECT_POINTS };
-    if (d <= GOOD_MS)    return { result: "good",    points: GOOD_POINTS    };
-    return { result: "miss", points: 0 };
+  const linkFlowPhrases = (): void => {
+    let prevFlowIndex: number | null = null;
+    for (let i = 0; i < notes.length; i++) {
+      const note = notes[i];
+      note.flowPrevIndex = undefined;
+      note.flowNextIndex = undefined;
+      if (note.kind !== "flow") {
+        prevFlowIndex = null;
+        continue;
+      }
+      if (prevFlowIndex !== null) {
+        const prev = notes[prevFlowIndex];
+        if (note.time - prev.time <= FLOW_LINK_MAX_MS) {
+          note.flowPrevIndex = prevFlowIndex;
+          prev.flowNextIndex = i;
+        }
+      }
+      prevFlowIndex = i;
+    }
+  };
+
+  const resolveMiss = (note: Note, offsetMs: number, reason: MissReason): void => {
+    note.state = "missed";
+    note.hitResult = "miss";
+    missCount++;
+    comboCount = 0;
+    onComboChange(0);
+    hitDetails.push({
+      result: "miss",
+      kind: note.kind,
+      offsetMs,
+      timing: timingFor(offsetMs),
+      x: note.x,
+      y: note.y,
+      missReason: reason,
+    });
+    onFeedback("miss", note.x, note.y);
   };
 
   const tryHit = (note: Note, songMs: number): void => {
     if (note.state !== "pending") return;
-    if (Math.abs(songMs - note.time) > GOOD_MS) return;
 
-    if (note.kind === "lyric") {
-      const moveDx = pointer.x - pointer.prevX;
-      const moveDy = pointer.y - pointer.prevY;
-      const lenSq  = moveDx * moveDx + moveDy * moveDy;
-      if (lenSq < 0.5) return;
-      const t = clamp(
-        ((note.x - pointer.prevX) * moveDx + (note.y - pointer.prevY) * moveDy) / lenSq,
-        0, 1,
-      );
-      const closestX = pointer.prevX + t * moveDx;
-      const closestY = pointer.prevY + t * moveDy;
-      if ((closestX - note.x) ** 2 + (closestY - note.y) ** 2 > LYRIC_RADIUS * LYRIC_RADIUS) return;
-    } else {
-      if (NOTE_STYLE[note.kind].requiresHold && !actionHeld()) return;
-      const dx = Math.cos(note.direction);
-      const dy = Math.sin(note.direction);
-      const pPrev = (pointer.prevX - note.x) * dx + (pointer.prevY - note.y) * dy;
-      const pCurr = (pointer.x     - note.x) * dx + (pointer.y     - note.y) * dy;
-      if (pPrev >= 0 || pCurr < 0) return;
-      const perpPrev = -(pointer.prevX - note.x) * dy + (pointer.prevY - note.y) * dx;
-      const perpCurr = -(pointer.x     - note.x) * dy + (pointer.y     - note.y) * dx;
-      const t = -pPrev / (pCurr - pPrev);
-      const perpAtCross = perpPrev + (perpCurr - perpPrev) * t;
-      if (Math.abs(perpAtCross) > NOTE_RADIUS) return;
-      const moveDx = pointer.x - pointer.prevX;
-      const moveDy = pointer.y - pointer.prevY;
-      if (moveDx * moveDx + moveDy * moveDy < 0.5) return;
-      const moveAngle = Math.atan2(moveDy, moveDx);
-      if (Math.abs(angleDiff(moveAngle, note.direction)) > ANGULAR_MARGIN) return;
+    const prevFlow = note.flowPrevIndex === undefined ? undefined : notes[note.flowPrevIndex];
+    const attempt = judgeGesture(note, pointerSamples, prevFlow);
+    if (attempt.status !== "judged") return;
+
+    const { result, points, offsetMs, timing, missReason } = attempt.judgement;
+    if (result === "miss") {
+      resolveMiss(note, offsetMs, missReason ?? "timing");
+      return;
     }
 
-    const { result, points } = scoreFor(songMs - note.time);
     note.state = "hit";
     note.hitResult = result;
-    if (result === "perfect") perfectCount++;
-    else if (result === "good") goodCount++;
+    if (result === "tier3") tier3Count++;
+    else if (result === "tier2") tier2Count++;
+    else if (result === "tier1") tier1Count++;
     if (points > 0) {
       setScore(score + points);
-      comboCount++;
+      if (result === "tier1") {
+        comboCount = 0;
+      } else {
+        comboCount++;
+        maxCombo = Math.max(maxCombo, comboCount);
+      }
       onComboChange(comboCount);
       animations.push({
         x: note.x, y: note.y, kind: note.kind, startMs: songMs,
         seed: Math.floor(note.x * 7919 + note.y * 6271),
       });
     }
+    hitDetails.push({
+      result,
+      kind: note.kind,
+      offsetMs,
+      timing,
+      x: note.x,
+      y: note.y,
+    });
     onFeedback(result, note.x, note.y);
-    playHitSound();
+    playHitSound(result);
   };
 
   const expireMisses = (songMs: number): void => {
-    // Notes are time-sorted: break as soon as a pending note is within the hit window
+    // Notes are time-sorted: break as soon as a pending note can still finalize.
     for (let i = pendingStart; i < notes.length; i++) {
       const n = notes[i];
       if (n.state !== "pending") continue;
-      if (songMs - n.time <= GOOD_MS) break;
-      n.state = "missed";
-      n.hitResult = "miss";
-      missCount++;
-      comboCount = 0;
-      onComboChange(0);
-      onFeedback("miss", n.x, n.y);
+      if (songMs - n.time <= CUT_METRIC_WINDOW_MS) break;
+      resolveMiss(n, songMs - n.time, "timing");
     }
   };
 
   const draw = (songMs: number): void => {
+    if (debugDrawOnce && notes.length > 0) {
+      debugDrawOnce = false;
+      let renderedCount = 0;
+      let drawnCount = 0;
+      for (let i = pendingStart; i < notes.length; i++) {
+        const note = notes[i];
+        const dt = note.time - songMs;
+        if (note.state === "pending") {
+          renderedCount++;
+          if (dt <= approachMs && dt >= -TIER1_MS) drawnCount++;
+        }
+        if (dt > approachMs) break;
+      }
+      console.log("[mimi] DRAW FIRST FRAME:", {
+        songMs,
+        approachMs,
+        TIER1_MS,
+        CUT_METRIC_WINDOW_MS,
+        notesTotal: notes.length,
+        pendingStart,
+        pendingNotes: renderedCount,
+        drawnNotes: drawnCount,
+        firstNote: notes[pendingStart]?.time,
+        firstNoteDt: notes[pendingStart] ? notes[pendingStart].time - songMs : undefined,
+      });
+    }
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     const scale = getScale();
+    for (let i = pendingStart; i < notes.length; i++) {
+      const note = notes[i];
+      if (note.state !== "pending" || note.kind !== "flow" || note.flowNextIndex === undefined) continue;
+      const next = notes[note.flowNextIndex];
+      if (!next || next.state !== "pending") continue;
+      const dt = next.time - songMs;
+      if (dt > approachMs) break;
+      if (dt < -TIER1_MS) continue;
+      const appearProgress = clamp(1 - dt / approachMs, 0, 1);
+      drawFlowRibbon(ctx, note, next, scale, appearProgress);
+    }
     // Notes are time-sorted: break once a pending note is past the approach window
     for (let i = pendingStart; i < notes.length; i++) {
       const note = notes[i];
       if (note.state !== "pending") continue;
       const dt = note.time - songMs;
       if (dt > approachMs) break;
-      if (dt < -GOOD_MS) continue;
+      if (dt < -TIER1_MS) continue;
       const appearProgress = clamp(1 - dt / approachMs, 0, 1);
       if (note.kind === "lyric") {
         drawLyricNote(ctx, note, appearProgress, scale, hiddenMod);
@@ -300,8 +443,10 @@ export function createGame(deps: GameDeps): GameHandle {
 
   return {
     setChart(n: Note[]): void {
-      notes = n;
+      notes = normalizeChartNotes(n as RawNote[]);
       pendingStart = 0;
+      debugDrawOnce = true;
+      linkFlowPhrases();
       populateLyricChars();
     },
 
@@ -317,10 +462,14 @@ export function createGame(deps: GameDeps): GameHandle {
       animations = [];
       animStart = 0;
       setScore(0);
-      perfectCount = 0;
-      goodCount    = 0;
-      missCount    = 0;
-      comboCount   = 0;
+      tier3Count = 0;
+      tier2Count = 0;
+      tier1Count = 0;
+      missCount  = 0;
+      comboCount = 0;
+      maxCombo   = 0;
+      hitDetails = [];
+      pointerSamples.length = 0;
       onComboChange(0);
       onPlayingChange(false);
     },
@@ -332,11 +481,14 @@ export function createGame(deps: GameDeps): GameHandle {
     getStats(): GameStats {
       return {
         score,
-        perfect: perfectCount,
-        good:    goodCount,
+        tier3:   tier3Count,
+        tier2:   tier2Count,
+        tier1:   tier1Count,
         miss:    missCount,
-        total:   perfectCount + goodCount + missCount,
+        total:   tier3Count + tier2Count + tier1Count + missCount,
         combo:   comboCount,
+        maxCombo,
+        hits:    hitDetails.slice(),
       };
     },
 
@@ -345,21 +497,43 @@ export function createGame(deps: GameDeps): GameHandle {
     },
 
     tick(songMs: number): void {
-      // Only check notes within the hit window; notes are time-sorted so break early
-      for (let i = pendingStart; i < notes.length; i++) {
-        const n = notes[i];
-        if (n.time > songMs + GOOD_MS) break;
-        if (n.state === "pending") tryHit(n, songMs);
+      recordPointerSample(songMs);
+      try {
+        // Only check notes within the hit window; notes are time-sorted so break early
+        for (let i = pendingStart; i < notes.length; i++) {
+          const n = notes[i];
+          if (n.time > songMs + TIER1_MS) break;
+          if (n.state === "pending") tryHit(n, songMs);
+        }
+        if (skipExpiry) {
+          if (songMs > approachMs) skipExpiry = false;
+        } else {
+          expireMisses(songMs);
+        }
+        // Advance past resolved notes (hit or missed) at the front
+        while (pendingStart < notes.length && notes[pendingStart].state !== "pending") pendingStart++;
+      } catch (err) {
+        if (!reportedUpdateError) {
+          reportedUpdateError = true;
+          console.error("[mimi] gameplay update failed:", err);
+        }
       }
-      if (skipExpiry) {
-        if (songMs <= approachMs) skipExpiry = false;
-      } else {
-        expireMisses(songMs);
+      try {
+        draw(songMs);
+      } catch (err) {
+        if (!reportedDrawError) {
+          reportedDrawError = true;
+          console.error("[mimi] gameplay draw failed:", err);
+        }
       }
-      // Advance past resolved notes (hit or missed) at the front
-      while (pendingStart < notes.length && notes[pendingStart].state !== "pending") pendingStart++;
-      draw(songMs);
-      cursor.render(performance.now());
+      try {
+        cursor.render(performance.now());
+      } catch (err) {
+        if (!reportedCursorError) {
+          reportedCursorError = true;
+          console.error("[mimi] cursor render failed:", err);
+        }
+      }
       pointer.prevX = pointer.x;
       pointer.prevY = pointer.y;
     },
@@ -367,12 +541,8 @@ export function createGame(deps: GameDeps): GameHandle {
     destroy(): void {
       canvas.removeEventListener("mousemove",  onMouseMove);
       canvas.removeEventListener("mousedown",  onMouseDown);
-      window.removeEventListener("mouseup",    onMouseUp);
       canvas.removeEventListener("touchmove",  onTouchMove);
       canvas.removeEventListener("touchstart", onTouchStart);
-      window.removeEventListener("touchend",   onTouchEnd);
-      window.removeEventListener("keydown",    onKeyDown);
-      window.removeEventListener("keyup",      onKeyUp);
       window.removeEventListener("resize",     resize);
       cursor.destroy();
       unsubHitsound();

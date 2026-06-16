@@ -121,7 +121,6 @@ export const TutorialCanvas = forwardRef<TutorialCanvasHandle, {}>((_, ref) => {
         const closestY = pointer.prevY + t * moveDy;
         if ((closestX - note.x) ** 2 + (closestY - note.y) ** 2 > LYRIC_RADIUS * LYRIC_RADIUS) return null;
       } else {
-        if (note.kind === "stream" && !pointer.held) return null;
         const dx    = Math.cos(note.direction);
         const dy    = Math.sin(note.direction);
         const pPrev = (pointer.prevX - note.x) * dx + (pointer.prevY - note.y) * dy;
@@ -211,7 +210,7 @@ export const TutorialCanvas = forwardRef<TutorialCanvasHandle, {}>((_, ref) => {
     spawnRef.current = (kind: Note["kind"]) => {
       const direction = Math.random() * Math.PI * 2;
       const now       = performance.now();
-      if (kind === "stream") {
+      if (kind === "flow") {
         const spacing = NOTE_RADIUS * 1.4;
         const offX    = Math.cos(direction) * spacing;
         const offY    = Math.sin(direction) * spacing;

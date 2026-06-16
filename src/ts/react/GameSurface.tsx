@@ -11,6 +11,13 @@ import { GameFrame, useElementSize } from "./GameFrame";
 
 let _toastId = 0;
 
+const FEEDBACK_LABEL: Record<HitResult, string> = {
+  tier3: "PERFECT",
+  tier2: "GREAT",
+  tier1: "GOOD",
+  miss: "MISS",
+};
+
 interface FeedbackToast {
   id: number;
   result: HitResult;
@@ -42,36 +49,36 @@ interface Props {
 }
 
 export function GameSurface({ onReady, returnHref, onTryAgain }: Props) {
-  const canvasRef       = useRef<HTMLCanvasElement>(null);
-  const gameAreaRef     = useRef<HTMLDivElement>(null);
-  const gameRef         = useRef<GameHandle | null>(null);
-  const comboRef        = useRef<HTMLSpanElement>(null);
-  const startButtonRef  = useRef<HTMLButtonElement>(null);
-  const fadeTimerRef    = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const startRef        = useRef<(() => void) | null>(null);
-  const skipBreakRef    = useRef<(() => void) | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const gameAreaRef = useRef<HTMLDivElement>(null);
+  const gameRef = useRef<GameHandle | null>(null);
+  const comboRef = useRef<HTMLSpanElement>(null);
+  const startButtonRef = useRef<HTMLButtonElement>(null);
+  const fadeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const startRef = useRef<(() => void) | null>(null);
+  const skipBreakRef = useRef<(() => void) | null>(null);
 
-  const [score, setScore]             = useState(0);
-  const [combo, setCombo]             = useState(0);
-  const [playing, setPlaying]         = useState(false);
+  const [score, setScore] = useState(0);
+  const [combo, setCombo] = useState(0);
+  const [playing, setPlaying] = useState(false);
   const [playerReady, setPlayerReady] = useState(false);
-  const [infoFaded, setInfoFaded]     = useState(false);
+  const [infoFaded, setInfoFaded] = useState(false);
   const [breakSkipKind, setBreakSkipKind] = useState<BreakSkipKind | null>(null);
-  const [feedbacks, setFeedbacks]     = useState<FeedbackToast[]>([]);
-  const [result, setResult]           = useState<GameStats | null>(null);
-  const [songInfo, setSongInfo]       = useState<SongInfo>(() => {
+  const [feedbacks, setFeedbacks] = useState<FeedbackToast[]>([]);
+  const [result, setResult] = useState<GameStats | null>(null);
+  const [songInfo, setSongInfo] = useState<SongInfo>(() => {
     const b = document.body.dataset;
     return {
-      name:     b.songName     ?? "",
-      nameJp:   b.songNameJp   ?? "",
-      author:   b.songAuthor   ?? "",
+      name: b.songName ?? "",
+      nameJp: b.songNameJp ?? "",
+      author: b.songAuthor ?? "",
       authorJp: b.songAuthorJp ?? "",
-      mapper:   b.songMapper   ?? "",
+      mapper: b.songMapper ?? "",
     };
   });
 
-  const lang   = useLang();
-  const [ar]   = useApproachRate();
+  const lang = useLang();
+  const [ar] = useApproachRate();
   const frameSize = useElementSize(gameAreaRef);
 
   useEffect(() => {
@@ -87,7 +94,7 @@ export function GameSurface({ onReady, returnHref, onTryAgain }: Props) {
   }, [playing]);
 
   useEffect(() => {
-    const canvas   = canvasRef.current;
+    const canvas = canvasRef.current;
     const gameArea = gameAreaRef.current;
     if (!canvas || !gameArea) return;
 
@@ -132,7 +139,7 @@ export function GameSurface({ onReady, returnHref, onTryAgain }: Props) {
     }
   }, [combo]);
 
-  const displayName   = lang === "jp" && songInfo.nameJp   ? songInfo.nameJp   : songInfo.name;
+  const displayName = lang === "jp" && songInfo.nameJp ? songInfo.nameJp : songInfo.name;
   const displayAuthor = lang === "jp" && songInfo.authorJp ? songInfo.authorJp : songInfo.author;
   const showStartPrompt = playerReady && !playing && !result;
   const showBreakSkip = playing && !result && breakSkipKind !== null;
@@ -214,10 +221,10 @@ export function GameSurface({ onReady, returnHref, onTryAgain }: Props) {
             className={`hit-feedback hit-${f.result}`}
             style={{
               left: `${(f.x / LOGICAL_W) * 100}%`,
-              top:  `${(f.y / LOGICAL_H) * 100}%`,
+              top: `${(f.y / LOGICAL_H) * 100}%`,
             }}
           >
-            {f.result.toUpperCase()}
+            {FEEDBACK_LABEL[f.result]}
           </div>
         ))}
 

@@ -4,6 +4,7 @@ import {
   CURSOR_SIZE_MIN, CURSOR_SIZE_MAX,
   TRAIL_FADE_MIN, TRAIL_FADE_MAX,
   OFFSET_MIN, OFFSET_MAX, OFFSET_STEP,
+  TIMING_OFFSET_MIN, TIMING_OFFSET_MAX,
 } from "../core/settings";
 import { useApproachRate, useVolume, useHitsoundVolume, useHiddenMod, useCursorSize, useCursorR, useCursorG, useCursorB, useTrailFadeSpeed, useTrailShape, useTrailDecay, useMusicOffset } from "./hooks/useSettings";
 import { ApproachPreview } from "./ApproachPreview";
@@ -39,13 +40,13 @@ export function OptionsPanel({ isSongPage = false }: Props) {
   const [vol, setVol] = useVolume();
   const [hsVol, setHsVol] = useHitsoundVolume();
   const [hidden, setHidden] = useHiddenMod();
-  const [cursorSize, setCursorSize]         = useCursorSize();
-  const [cursorR, setCursorR]               = useCursorR();
-  const [cursorG, setCursorG]               = useCursorG();
-  const [cursorB, setCursorB]               = useCursorB();
+  const [cursorSize, setCursorSize] = useCursorSize();
+  const [cursorR, setCursorR] = useCursorR();
+  const [cursorG, setCursorG] = useCursorG();
+  const [cursorB, setCursorB] = useCursorB();
   const [trailFadeSpeed, setTrailFadeSpeed] = useTrailFadeSpeed();
-  const [trailShape, setTrailShape]         = useTrailShape();
-  const [trailDecay, setTrailDecay]         = useTrailDecay();
+  const [trailShape, setTrailShape] = useTrailShape();
+  const [trailDecay, setTrailDecay] = useTrailDecay();
   const [musicOffset, setMusicOffset] = useMusicOffset();
   const lang = useLang();
 
@@ -62,16 +63,16 @@ export function OptionsPanel({ isSongPage = false }: Props) {
     setCursorB(b);
   }, [setCursorR, setCursorG, setCursorB]);
 
-  const [volumeOpen, setVolumeOpen]   = useState(() => localStorage.getItem("volumeAccordionOpen") !== "false");
-  const [timingOpen, setTimingOpen]   = useState(() => localStorage.getItem("timingAccordionOpen") !== "false");
-  const [modsOpen, setModsOpen]       = useState(() => localStorage.getItem("modsAccordionOpen") !== "false");
-  const [notesOpen, setNotesOpen]     = useState(() => localStorage.getItem("notesAccordionOpen") === "true");
-  const [cursorOpen, setCursorOpen]   = useState(() => localStorage.getItem("cursorAccordionOpen") === "true");
+  const [volumeOpen, setVolumeOpen] = useState(() => localStorage.getItem("volumeAccordionOpen") !== "false");
+  const [timingOpen, setTimingOpen] = useState(() => localStorage.getItem("timingAccordionOpen") !== "false");
+  const [modsOpen, setModsOpen] = useState(() => localStorage.getItem("modsAccordionOpen") !== "false");
+  const [notesOpen, setNotesOpen] = useState(() => localStorage.getItem("notesAccordionOpen") === "true");
+  const [cursorOpen, setCursorOpen] = useState(() => localStorage.getItem("cursorAccordionOpen") === "true");
 
   if (!open) return null;
 
-  const ms    = Math.round(arToMs(ar));
-  const isJp  = lang === "jp";
+  const ms = Math.round(arToMs(ar));
+  const isJp = lang === "jp";
   const fmtOffset = (ms: number): string =>
     (ms >= 0 ? "+" : "") + (ms / 1000).toFixed(2) + "s";
 
@@ -167,17 +168,21 @@ export function OptionsPanel({ isSongPage = false }: Props) {
                 <input
                   type="range"
                   className="options-slider"
-                  min={OFFSET_MIN}
-                  max={OFFSET_MAX}
+                  min={TIMING_OFFSET_MIN}
+                  max={TIMING_OFFSET_MAX}
                   step={OFFSET_STEP}
                   value={musicOffset}
-                  style={sliderFill(musicOffset, OFFSET_MIN, OFFSET_MAX)}
-                  onChange={e => { const v = Number(e.target.value); setMusicOffset(Math.abs(v) <= OFFSET_STEP ? 0 : v); }}
+                  style={sliderFill(
+                    Math.max(TIMING_OFFSET_MIN, Math.min(TIMING_OFFSET_MAX, musicOffset)),
+                    TIMING_OFFSET_MIN,
+                    TIMING_OFFSET_MAX,
+                  )}
+                  onChange={e => setMusicOffset(Number(e.target.value))}
                 />
                 <p className="options-note">
                   {isJp
-                    ? "曲が遅れる場合は増やし、曲が早い場合は減らす。"
-                    : "Increase if song is late, decrease if song is early."}
+                    ? "早押しなら負の方向に、遅れ気味なら正の方向に調整してください。"
+                    : "If you are hitting early, move this negative; if you are hitting late, move this positive."}
                 </p>
               </div>
 

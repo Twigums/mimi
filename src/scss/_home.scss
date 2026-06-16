@@ -103,8 +103,14 @@ html.theme-dark .home-page .bg-overlay::before {
     transform-origin: 960px 3000px;
     transition: transform 1.1s ease-in-out;
 
-    .moon-glow   { fill: url(#moon-glow-gradient); }
-    .moon-body   { fill: #f3eecd; }
+    .moon-glow {
+      fill: url(#moon-glow-gradient);
+    }
+
+    .moon-body {
+      fill: #f3eecd;
+    }
+
     .moon-face :is(path, rect, line, polyline, polygon, circle, ellipse) {
       fill: none;
       stroke: rgba(196, 189, 148, 0.55);
@@ -112,8 +118,14 @@ html.theme-dark .home-page .bg-overlay::before {
       stroke-linecap: round;
       stroke-linejoin: round;
     }
-    .sun-glow    { fill: url(#sun-glow-gradient); }
-    .sun-body    { fill: #ffdf6b; }
+
+    .sun-glow {
+      fill: url(#sun-glow-gradient);
+    }
+
+    .sun-body {
+      fill: #ffdf6b;
+    }
   }
 }
 
@@ -126,17 +138,35 @@ html.theme-dark .bg-sky .cloud-layer {
 }
 
 @keyframes star-twinkle {
-  0%, 100% { opacity: 0.25; }
-  50%      { opacity: 1; }
+
+  0%,
+  100% {
+    opacity: 0.25;
+  }
+
+  50% {
+    opacity: 1;
+  }
 }
 
 @keyframes shooting-star {
-  0%   { opacity: 0; transform: translate(0, 0); }
-  12%  { opacity: 0.9; }
-  100% { opacity: 0; transform: translate(var(--ss-dx, -420px), var(--ss-dy, 220px)); }
+  0% {
+    opacity: 0;
+    transform: translate(0, 0);
+  }
+
+  12% {
+    opacity: 0.9;
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate(var(--ss-dx, -420px), var(--ss-dy, 220px));
+  }
 }
 
 .bg-sky {
+
   // solid color — sky.ts puts the translucency on the note group so that
   // overlapping head/stem/flag joints don't stack alpha unevenly.
   // notes are draggable (sky.ts); the invisible note-hit rect is the grab area
@@ -158,8 +188,15 @@ html.theme-dark .bg-sky .cloud-layer {
     pointer-events: all;
   }
 
-  .note-fill { fill: currentColor; }
-  .note-open { fill: none; stroke: currentColor; stroke-width: 3; }
+  .note-fill {
+    fill: currentColor;
+  }
+
+  .note-open {
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 3;
+  }
 
   .note-stem {
     fill: none;
@@ -170,19 +207,36 @@ html.theme-dark .bg-sky .cloud-layer {
 }
 
 @keyframes cloud-rise {
-  0%   { transform: translate(0, 0); }
-  50%  { transform: translate(var(--sway-x, 40px), calc(var(--rise-y, -1200px) * 0.5)); }
-  100% { transform: translate(0, var(--rise-y, -1200px)); }
+  0% {
+    transform: translate(0, 0);
+  }
+
+  50% {
+    transform: translate(var(--sway-x, 40px), calc(var(--rise-y, -1200px) * 0.5));
+  }
+
+  100% {
+    transform: translate(0, var(--rise-y, -1200px));
+  }
 }
 
 @keyframes note-fall {
-  0%   { transform: translate(0, 0) rotate(0deg); }
-  50%  { transform: translate(var(--sway-x, -40px), calc(var(--fall-y, 1300px) * 0.5)) rotate(calc(var(--spin, 12deg) * 0.5)); }
-  100% { transform: translate(0, var(--fall-y, 1300px)) rotate(var(--spin, 12deg)); }
+  0% {
+    transform: translate(0, 0) rotate(0deg);
+  }
+
+  50% {
+    transform: translate(var(--sway-x, -40px), calc(var(--fall-y, 1300px) * 0.5)) rotate(calc(var(--spin, 12deg) * 0.5));
+  }
+
+  100% {
+    transform: translate(0, var(--fall-y, 1300px)) rotate(var(--spin, 12deg));
+  }
 }
 
 // sky.ts places elements in-view without animation under reduced motion
 @media (prefers-reduced-motion: reduce) {
+
   .bg-sky .cloud,
   .bg-sky .floating-note,
   .bg-sky .star {
@@ -355,10 +409,17 @@ html.theme-dark .bg-sky .cloud-layer {
 }
 
 // alternate puff placement so neighbouring clouds aren't identical
-.layout-pane > .btn-main:nth-of-type(even),
+.layout-pane>.btn-main:nth-of-type(even),
 .song-list-entry:nth-child(even) .btn-main {
-  &::before { left: auto; right: 17%; }
-  &::after  { left: auto; right: 36%; }
+  &::before {
+    left: auto;
+    right: 17%;
+  }
+
+  &::after {
+    left: auto;
+    right: 36%;
+  }
 }
 
 .btn-back {
@@ -656,7 +717,11 @@ html.theme-dark .bg-sky .cloud-layer {
   overflow-y: auto;
   max-height: calc(100vh - 12rem);
   scrollbar-width: none;
-  &::-webkit-scrollbar { display: none; }
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+
   color: var(--page-ink);
 
   h2 {
@@ -680,9 +745,22 @@ html.theme-dark .bg-sky .cloud-layer {
     fill: currentColor;
   }
 
-  mark.flick  { background: rgb(255, 82,  82);  color: #fff; }
-  mark.stream { background: rgb(82,  162, 255); color: #fff; }
-  mark.lyric  { background: rgb(180, 180, 180); color: #111; }
+  mark.cut,
+  mark.flick {
+    background: rgb(255, 82, 82);
+    color: #fff;
+  }
+
+  mark.flow,
+  mark.stream {
+    background: rgb(82, 162, 255);
+    color: #fff;
+  }
+
+  mark.lyric {
+    background: rgb(180, 180, 180);
+    color: #111;
+  }
 
   a[href^="spawn:"] {
     color: var(--page-accent);
@@ -713,7 +791,8 @@ html.theme-dark .bg-sky .cloud-layer {
     font-size: 0.85rem;
   }
 
-  th, td {
+  th,
+  td {
     padding: 0.3rem 0.6rem;
     border: 1px solid var(--page-line);
     text-align: left;
@@ -749,8 +828,15 @@ html.theme-dark .bg-sky .cloud-layer {
   box-shadow: 0 0 0 2px rgba(57, 197, 187, 0.35), 0 10px 24px rgba(57, 197, 187, 0.2);
   cursor: none;
 
-  @media (min-width: 900px)  { width: 360px; height: 270px; }
-  @media (min-width: 1200px) { width: 480px; height: 360px; }
+  @media (min-width: 900px) {
+    width: 360px;
+    height: 270px;
+  }
+
+  @media (min-width: 1200px) {
+    width: 480px;
+    height: 360px;
+  }
 }
 
 .placeholder-text {
