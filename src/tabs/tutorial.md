@@ -6,9 +6,9 @@ title: tutorial
 
 Mimi is a rhythm game that focuses on moving your cursor to swipe notes! In mimi, we have 3 types of notes:
 
-<mark class="flick">[Flick](spawn:flick)</mark>: Swipe through the red arrow in the marked direction.
+<mark class="cut">[Cut](spawn:cut)</mark>: Swipe through the red arrow in the marked direction.
 
-<mark class="stream">[Stream](spawn:stream)</mark>: Hold left click while swiping. Don't go too fast!
+<mark class="flow">[Flow](spawn:flow)</mark>: Keep a continuous motion through the connected notes.
 
 <mark class="lyric">[Lyric](spawn:lyric)</mark>: Follow Miku's singing, and tap the notes to the beat!
 

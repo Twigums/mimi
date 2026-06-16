@@ -135,8 +135,8 @@ data ChartStats = ChartStats
     { csLevel       :: Int
     , csAr          :: Maybe Double
     , csNoteCount   :: Int
-    , csFlickCount  :: Int
-    , csStreamCount :: Int
+    , csCutCount    :: Int
+    , csFlowCount   :: Int
     , csLyricCount  :: Int
     , csFirstMs     :: Maybe Double
     , csLastMs      :: Maybe Double
@@ -159,8 +159,8 @@ parseChartStats content =
         { csLevel       = parseMimiDifficulty content
         , csAr          = parseMimiAr content
         , csNoteCount   = length noteRows
-        , csFlickCount  = countKind "flick"
-        , csStreamCount = countKind "stream"
+        , csCutCount    = countKind "cut"
+        , csFlowCount   = countKind "flow"
         , csLyricCount  = countKind "lyric"
         , csFirstMs     = if null times then Nothing else Just (minimum times)
         , csLastMs      = if null times then Nothing else Just (maximum times)
@@ -184,10 +184,17 @@ parseChartStats content =
         case map safeTrim (splitOn ',' line) of
             (k:t:_:_:_:_) ->
                 let kind = case map toLower k of
-                        "f" -> "flick"
-                        "s" -> "stream"
-                        "l" -> "lyric"
-                        other -> other
+                        "c"      -> "cut"
+                        "cut"    -> "cut"
+                        "click"  -> "cut"
+                        "f"      -> "cut"
+                        "flick"  -> "cut"
+                        "s"      -> "flow"
+                        "flow"   -> "flow"
+                        "stream" -> "flow"
+                        "l"      -> "lyric"
+                        "lyric"  -> "lyric"
+                        other    -> other
                 in Just $ NoteRow kind (parseMimiNumber t >>= toMs)
             _ -> Nothing
 
@@ -211,8 +218,8 @@ renderDifficulty diffId stats =
     ++ "\"level\":" ++ show (csLevel stats) ++ ","
     ++ "\"ar\":" ++ jsonMaybeNumber (csAr stats) ++ ","
     ++ "\"noteCount\":" ++ show (csNoteCount stats) ++ ","
-    ++ "\"flickCount\":" ++ show (csFlickCount stats) ++ ","
-    ++ "\"streamCount\":" ++ show (csStreamCount stats) ++ ","
+    ++ "\"cutCount\":" ++ show (csCutCount stats) ++ ","
+    ++ "\"flowCount\":" ++ show (csFlowCount stats) ++ ","
     ++ "\"lyricCount\":" ++ show (csLyricCount stats) ++ ","
     ++ "\"firstNoteMs\":" ++ jsonMaybeNumber (csFirstMs stats) ++ ","
     ++ "\"lastNoteMs\":" ++ jsonMaybeNumber (csLastMs stats) ++ ","

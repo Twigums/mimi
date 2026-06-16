@@ -680,9 +680,9 @@ html.theme-dark .bg-sky .cloud-layer {
     fill: currentColor;
   }
 
-  mark.flick  { background: rgb(255, 82,  82);  color: #fff; }
-  mark.stream { background: rgb(82,  162, 255); color: #fff; }
-  mark.lyric  { background: rgb(180, 180, 180); color: #111; }
+  mark.cut, mark.flick   { background: rgb(255, 82,  82);  color: #fff; }
+  mark.flow, mark.stream { background: rgb(82,  162, 255); color: #fff; }
+  mark.lyric             { background: rgb(180, 180, 180); color: #111; }
 
   a[href^="spawn:"] {
     color: var(--page-accent);
