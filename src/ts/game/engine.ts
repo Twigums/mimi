@@ -37,6 +37,11 @@ export interface Note {
   flowNextIndex?: number;
 }
 
+interface RawNote extends Omit<Note, "kind" | "state"> {
+  kind?: unknown;
+  state?: unknown;
+}
+
 export interface HitDetail {
   result: HitResult;
   kind: NoteKind;
@@ -86,6 +91,52 @@ interface GameDeps {
   onComboChange:   (combo: number) => void;
   onPlayingChange: (playing: boolean) => void;
   hitSoundUrl?:    string;
+}
+
+function normalizeNoteKind(kind: unknown): NoteKind | null {
+  if (typeof kind !== "string") return null;
+  switch (kind.toLowerCase()) {
+    case "cut":
+    case "click":
+    case "flick":
+    case "f":
+    case "c":
+      return "cut";
+    case "flow":
+    case "stream":
+    case "s":
+      return "flow";
+    case "lyric":
+    case "l":
+      return "lyric";
+    default:
+      return null;
+  }
+}
+
+function normalizeChartNotes(rawNotes: RawNote[]): Note[] {
+  const normalized: Note[] = [];
+  const droppedKinds = new Set<unknown>();
+
+  for (const raw of rawNotes) {
+    const kind = normalizeNoteKind(raw.kind);
+    if (!kind) {
+      droppedKinds.add(raw.kind);
+      continue;
+    }
+
+    normalized.push({
+      ...raw,
+      kind,
+      state: raw.state === "hit" || raw.state === "missed" ? raw.state : "pending",
+    });
+  }
+
+  if (droppedKinds.size > 0) {
+    console.warn("[mimi] dropped chart notes with unknown kinds:", Array.from(droppedKinds));
+  }
+
+  return normalized.sort((a, b) => a.time - b.time);
 }
 
 export function createGame(deps: GameDeps): GameHandle {
@@ -392,8 +443,9 @@ export function createGame(deps: GameDeps): GameHandle {
 
   return {
     setChart(n: Note[]): void {
-      notes = n;
+      notes = normalizeChartNotes(n as RawNote[]);
       pendingStart = 0;
+      debugDrawOnce = true;
       linkFlowPhrases();
       populateLyricChars();
     },

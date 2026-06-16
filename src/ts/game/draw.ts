@@ -13,10 +13,17 @@ interface NoteStyle {
   colors: NoteColors;
 }
 
-export const NOTE_STYLE: Record<Note["kind"], NoteStyle> = {
-  cut:   { colors: { base: "255, 82, 82",   darkBase: "191, 62, 62"   } },
-  flow:  { colors: { base: "82, 162, 255",  darkBase: "62, 122, 191"  } },
-  lyric: { colors: { base: "255, 255, 255", darkBase: "200, 200, 200" } },
+const CUT_STYLE: NoteStyle   = { colors: { base: "255, 82, 82",   darkBase: "191, 62, 62"   } };
+const FLOW_STYLE: NoteStyle  = { colors: { base: "82, 162, 255",  darkBase: "62, 122, 191"  } };
+const LYRIC_STYLE: NoteStyle = { colors: { base: "255, 255, 255", darkBase: "200, 200, 200" } };
+
+export const NOTE_STYLE: Record<string, NoteStyle> = {
+  cut:    CUT_STYLE,
+  click:  CUT_STYLE,
+  flick:  CUT_STYLE,
+  flow:   FLOW_STYLE,
+  stream: FLOW_STYLE,
+  lyric:  LYRIC_STYLE,
 };
 
 // appearProgress: 0 = faint outline just appearing, 1 = fully filled at hit time
