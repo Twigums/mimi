@@ -1788,7 +1788,9 @@ html body.overlay-page {
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: var(--radius-card);
-  min-width: 280px;
+  box-sizing: border-box;
+  width: 425px;
+  max-width: 100%;
 }
 
 .results-title {
@@ -1857,6 +1859,7 @@ html body.overlay-page {
   font-size: 1rem;
   font-weight: bold;
   font-variant-numeric: tabular-nums;
+  color: #fff;
 }
 
 .results-breakdown {
@@ -1866,6 +1869,11 @@ html body.overlay-page {
   gap: 1.2rem;
   margin-top: 0.25rem;
   font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+  width: 100%;
+}
+.results-breakdown span {
+  transition: opacity 0.15s ease, text-shadow 0.15s ease;
 }
 .results-breakdown__tier3 {
   color: var(--color-perfect);
@@ -1878,6 +1886,60 @@ html body.overlay-page {
 }
 .results-breakdown__miss {
   color: var(--color-miss);
+}
+
+.results-tierbtn {
+  cursor: default;
+}
+
+.results-breakdown .is-active,
+.results-issue.is-active {
+  opacity: 1;
+  text-shadow: 0 0 10px currentColor;
+}
+
+.results-breakdown .is-dim,
+.results-issue.is-dim {
+  opacity: 0.3;
+}
+
+.results-issues {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  width: 100%;
+  margin-top: 0.1rem;
+  font-size: 0.74rem;
+  font-variant-numeric: tabular-nums;
+}
+.results-issues__label {
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.5);
+}
+.results-issues__filter {
+  color: rgba(255, 255, 255, 0.85);
+}
+.results-issues__list {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem 0.9rem;
+  width: 100%;
+  color: rgba(255, 255, 255, 0.68);
+}
+.results-issues__empty {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.results-issue {
+  cursor: default;
+  transition: opacity 0.15s ease, color 0.15s ease, text-shadow 0.15s ease;
+}
+.results-issue.is-active {
+  color: #fff;
 }
 
 .results-detail {
