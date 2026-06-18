@@ -39,6 +39,7 @@ interface SongPageDeps {
   onSongFinish: (stats: GameStats) => void;
   hideResult: () => void;
   onSongInfo?: (nameJp: string, authorJp: string) => void;
+  onPreparing?: () => void;
   onPlayerReady?: () => void;
   onBreakSkipAvailable?: (kind: BreakSkipKind | null) => void;
 }
@@ -54,7 +55,7 @@ interface BreakSkipTarget {
   targetSongMs: number;
 }
 
-export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPlayerReady, onBreakSkipAvailable }: SongPageDeps): SongPageHandle {
+export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPreparing, onPlayerReady, onBreakSkipAvailable }: SongPageDeps): SongPageHandle {
   const body    = document.body;
   const songUrl = body.dataset.songUrl ?? "";
   const chartDir = body.dataset.songChartDir ?? "";
@@ -91,20 +92,39 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPla
   const loadingScreen = document.getElementById("loading-screen");
   const loadingBar    = document.getElementById("loading-bar-fill") as HTMLElement | null;
 
+  let loadingPct = 0;
+  let loadingDismissed = false;
+  let trickleTimer: ReturnType<typeof setInterval> | null = null;
+
   const setProgress = (pct: number): void => {
-    if (loadingBar) loadingBar.style.width = `${pct}%`;
+    loadingPct = Math.max(loadingPct, Math.min(100, pct));
+    if (loadingBar) loadingBar.style.width = `${loadingPct}%`;
+  };
+
+  const stopTrickle = (): void => {
+    if (trickleTimer !== null) { clearInterval(trickleTimer); trickleTimer = null; }
+  };
+
+  // TextAlive emits no progress events while fetching the song analysis, so ease
+  // the bar asymptotically toward a ceiling to keep it visibly moving meanwhile.
+  const startTrickle = (ceiling: number): void => {
+    if (trickleTimer !== null) return;
+    trickleTimer = setInterval(() => setProgress(loadingPct + (ceiling - loadingPct) * 0.08), 250);
   };
 
   const dismissLoading = (): void => {
-    if (!loadingScreen) return;
+    if (loadingDismissed) return;
+    loadingDismissed = true;
+    stopTrickle();
     setProgress(100);
+    if (!loadingScreen) return;
     setTimeout(() => {
       loadingScreen.classList.add("loaded");
       loadingScreen.addEventListener("transitionend", () => loadingScreen.remove(), { once: true });
     }, 400);
   };
 
-  if (loadingBar) setProgress(30);
+  setProgress(8);
 
   let musicOffsetMs = loadMusicOffset();
   const unsubMusicOffset = subscribeMusicOffset(v => { musicOffsetMs = v; });
@@ -185,16 +205,18 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPla
     player.addListener({
       onAppReady(app) {
         if (!app.songUrl && player) {
+          setProgress(30);
           const videoOpts = hasVideoIds ? {
             video: { beatId, chordId, repetitiveSegmentId, lyricId, lyricDiffId }
           } : undefined;
           player.createFromSongUrl(songUrl, videoOpts).catch(err => {
+            stopTrickle();
             console.error("[mimi] createFromSongUrl failed:", err);
           });
+          startTrickle(88);
         }
       },
       onVideoReady(video) {
-        setProgress(70);
         storyboard?.setVideo(video);
         game.setCharLookup(makeCharLookup(video));
         songLengthMs = video.duration;
@@ -202,9 +224,15 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPla
           const { name, artist } = player.data.song;
           onSongInfo?.(name, artist.name);
         }
+        // Analysis is ready: drop the loading screen now and let the audio keep
+        // buffering behind a "preparing" indicator on the song page itself.
+        onPreparing?.();
+        dismissLoading();
       },
       onTimerReady() {
         clearTimeout(loadTimeout);
+        // Audio is buffered: reveal the Start button, which triggers playback
+        // from the user's click gesture (so no autoplay-policy rejection).
         playerReady = true;
         onPlayerReady?.();
         dismissLoading();

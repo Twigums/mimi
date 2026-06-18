@@ -436,6 +436,23 @@ html.theme-dark .game-frame .frame-star {
     color: var(--song-text);
     outline: none;
   }
+
+  // Audio still buffering after the loading screen has gone: same overlay, but
+  // inert and softly pulsing instead of clickable.
+  &.is-preparing {
+    cursor: default;
+    color: var(--song-text-dim);
+
+    .game-start-label {
+      border-bottom: none;
+      animation: game-preparing-pulse 1.1s var(--motion-ease-standard) infinite alternate;
+    }
+  }
+}
+
+@keyframes game-preparing-pulse {
+  from { opacity: 0.45; }
+  to   { opacity: 1; }
 }
 
 .game-break-skip {

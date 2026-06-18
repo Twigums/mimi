@@ -37,6 +37,7 @@ interface Props {
     registerSkipBreak: (fn: () => void) => void,
     setPlayerReady: () => void,
     setBreakSkipKind: (kind: BreakSkipKind | null) => void,
+    setPreparing: () => void,
   ) => void;
   returnHref: string;
   onTryAgain: () => void;
@@ -56,6 +57,7 @@ export function GameSurface({ onReady, returnHref, onTryAgain }: Props) {
   const [combo, setCombo] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [playerReady, setPlayerReady] = useState(false);
+  const [preparing, setPreparing] = useState(false);
   const [infoFaded, setInfoFaded] = useState(false);
   const [breakSkipKind, setBreakSkipKind] = useState<BreakSkipKind | null>(null);
   const [feedbacks, setFeedbacks] = useState<FeedbackToast[]>([]);
@@ -117,6 +119,7 @@ export function GameSurface({ onReady, returnHref, onTryAgain }: Props) {
       (fn) => { skipBreakRef.current = fn; },
       () => setPlayerReady(true),
       setBreakSkipKind,
+      () => setPreparing(true),
     );
     return () => game.destroy();
   }, []);
@@ -136,6 +139,7 @@ export function GameSurface({ onReady, returnHref, onTryAgain }: Props) {
   const displayName = lang === "jp" && songInfo.nameJp ? songInfo.nameJp : songInfo.name;
   const displayAuthor = lang === "jp" && songInfo.authorJp ? songInfo.authorJp : songInfo.author;
   const showStartPrompt = playerReady && !playing && !result;
+  const showPreparing = preparing && !playerReady && !playing && !result;
   const showBreakSkip = playing && !result && breakSkipKind !== null;
   const breakSkipLabel = breakSkipKind === "finish"
     ? (lang === "jp" ? "完了" : "Finish")
@@ -181,6 +185,12 @@ export function GameSurface({ onReady, returnHref, onTryAgain }: Props) {
           >
             <span className="game-start-label">{lang === "jp" ? "開始" : "Start"}</span>
           </button>
+        )}
+
+        {showPreparing && (
+          <div className="game-start-surface is-preparing" aria-live="polite">
+            <span className="game-start-label">{lang === "jp" ? "準備中…" : "Preparing…"}</span>
+          </div>
         )}
 
         {showBreakSkip && (

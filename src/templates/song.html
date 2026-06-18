@@ -7,6 +7,24 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>mimi - $title$</title>
     $partial("src/templates/imports.html")$
+
+    <!-- Song-load critical path is all third-party: warm up DNS/TLS to the SDK CDN,
+         Songle analysis API, TextAlive backend, and Piapro audio host so the
+         handshakes overlap page parse instead of stacking before createFromSongUrl. -->
+    <link rel="preconnect" href="https://unpkg.com" crossorigin>
+    <link rel="preconnect" href="https://api.songle.jp" crossorigin>
+    <link rel="preconnect" href="https://api.textalive.jp" crossorigin>
+    <link rel="preconnect" href="https://piapro.jp" crossorigin>
+    <link rel="dns-prefetch" href="https://unpkg.com">
+    <link rel="dns-prefetch" href="https://api.songle.jp">
+    <link rel="dns-prefetch" href="https://api.textalive.jp">
+    <link rel="dns-prefetch" href="https://piapro.jp">
+
+    <!-- Deferred in <head> so the SDK downloads during parse (ordered: axios -> textalive -> main);
+         defer still runs main.js after the DOM is parsed, matching the old end-of-body placement. -->
+    <script defer src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <script defer src="https://unpkg.com/textalive-app-api/dist/index.js"></script>
+    <script defer src="$path$/js/main.js"></script>
 </head>
 
 <body class="song-page"
@@ -81,10 +99,6 @@
         </button>
         <a href="$path$/" class="btn-back" data-en="Back" data-jp="戻る">Back</a>
     </div>
-
-    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
-    <script src="https://unpkg.com/textalive-app-api/dist/index.js"></script>
-    <script src="$path$/js/main.js"></script>
 
 </body>
 
