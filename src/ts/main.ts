@@ -36,12 +36,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
     createRoot(gameRoot).render(
       createElement(GameSurface, {
-        onReady: (game, show, hide, setSongInfoJp, registerStart, registerSkipBreak, setPlayerReady, setBreakSkipKind) => {
+        onReady: (game, show, hide, setSongInfoJp, registerStart, registerSkipBreak, setPlayerReady, setBreakSkipKind, setPreparing) => {
           const handle = initSongPage({
             game,
             onSongFinish: show,
             hideResult: hide,
             onSongInfo: setSongInfoJp,
+            onPreparing: setPreparing,
             onPlayerReady: setPlayerReady,
             onBreakSkipAvailable: setBreakSkipKind,
           });

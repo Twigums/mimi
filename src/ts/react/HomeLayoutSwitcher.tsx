@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { warmSongOrigins } from "../core/preload";
 import { useLang } from "./hooks/useLang";
 import { OptionsPanel } from "./OptionsPanel";
 import { TestPlay } from "./TestPlay";
@@ -165,6 +166,9 @@ export function HomeLayoutSwitcher({ infoContent, infoContentJp, tutorialContent
 
   useEffect(() => {
     setActiveDiffId(renderedSong?.difficulties[0]?.id ?? null);
+    // The difficulty select is the last screen before navigating to a song;
+    // warm the song-page origins now so its TextAlive load starts on warm sockets.
+    if (renderedSong) warmSongOrigins();
   }, [renderedSong]);
 
   useEffect(() => () => {
