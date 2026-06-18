@@ -15,12 +15,19 @@ const LABELS_JP = {
   clean: "クリーン", share: "シェア", copied: "コピー済み！", failed: "失敗", tryAgain: "やり直す", back: "戻る",
 };
 
-const ISSUE_LABELS: Record<IssueReason, string> = {
+const ISSUE_LABELS_EN: Record<IssueReason, string> = {
   timing: "timing",
   contact: "contact",
   direction: "direction",
   travel: "travel",
   continuity: "flow",
+};
+const ISSUE_LABELS_JP: Record<IssueReason, string> = {
+  timing: "タイミング",
+  contact: "接触",
+  direction: "方向",
+  travel: "距離",
+  continuity: "フロー",
 };
 const ISSUE_ORDER: IssueReason[] = ["timing", "contact", "direction", "travel", "continuity"];
 
@@ -53,6 +60,7 @@ export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, artist
   const pct = (accuracy * 100).toFixed(2);
 
   const labels = lang === "jp" ? LABELS_JP : LABELS_EN;
+  const issueLabels = lang === "jp" ? ISSUE_LABELS_JP : ISSUE_LABELS_EN;
   const acceptedHits = stats.hits.filter(hit => hit.result !== "miss");
   const avgOffset = acceptedHits.length === 0
     ? 0
@@ -167,7 +175,7 @@ export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, artist
                     onPointerEnter={() => setFocus({ kind: "issue", issue })}
                     onPointerLeave={() => setFocus(null)}
                   >
-                    {ISSUE_LABELS[issue]} {count}
+                    {issueLabels[issue]} {count}
                   </span>
                 );
               })}

@@ -24,7 +24,9 @@
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: var(--radius-card);
-  min-width: 280px;
+  box-sizing: border-box;
+  width: 425px;
+  max-width: 100%;
 }
 
 .results-title {
@@ -77,6 +79,9 @@
     font-size: 1rem;
     font-weight: bold;
     font-variant-numeric: tabular-nums;
+    // Panel always sits on the dark overlay, so pin the dark-mode ink rather
+    // than inheriting the theme-sensitive --song-text (dark in light mode).
+    color: #fff;
   }
 }
 
@@ -88,6 +93,9 @@
   margin-top: 0.25rem;
   font-size: 0.8rem;
   font-variant-numeric: tabular-nums;
+  // Full-width so the row keeps a constant width as hover swaps the counts;
+  // items only re-center within it instead of resizing the block.
+  width: 100%;
 
   span { transition: opacity 0.15s ease, text-shadow 0.15s ease; }
 
@@ -135,6 +143,7 @@
     flex-wrap: wrap;
     justify-content: center;
     gap: 0.5rem 0.9rem;
+    width: 100%;
     color: rgba(255, 255, 255, 0.68);
   }
 
