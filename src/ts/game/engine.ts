@@ -72,6 +72,16 @@ export interface GameStats {
   hits: HitDetail[];
 }
 
+export interface SpawnSpec {
+  kind: NoteKind;
+  time: number;
+  x: number;
+  y: number;
+  direction: number;
+  lyricChar?: string;
+  flowPrevIndex?: number;
+}
+
 export interface GameHandle {
   setChart(notes: Note[]): void;
   setCharLookup(findClosestChar: (timeMs: number) => { text: string; distMs: number } | null): void;
@@ -80,6 +90,7 @@ export interface GameHandle {
   tick(songMs: number): void;
   getStats(): GameStats;
   setApproachMs(ms: number): void;
+  spawnNote(spec: SpawnSpec): number;
   destroy(): void;
 }
 
@@ -495,6 +506,31 @@ export function createGame(deps: GameDeps): GameHandle {
 
     setApproachMs(ms: number): void {
       approachMs = ms;
+    },
+
+    // Append a single live note. Used by the testplay surface, which has no song
+    // timeline: callers pass an absolute `time` (the shared clock) so spawned
+    // notes stay time-sorted, preserving the early-break assumptions in tick/draw.
+    spawnNote(spec: SpawnSpec): number {
+      const note: Note = {
+        kind: spec.kind,
+        time: spec.time,
+        x: spec.x,
+        y: spec.y,
+        direction: spec.direction,
+        state: "pending",
+        lyricChar: spec.lyricChar,
+      };
+      const index = notes.length;
+      notes.push(note);
+      if (spec.flowPrevIndex !== undefined && spec.kind === "flow") {
+        const prev = notes[spec.flowPrevIndex];
+        if (prev && prev.kind === "flow") {
+          note.flowPrevIndex = spec.flowPrevIndex;
+          prev.flowNextIndex = index;
+        }
+      }
+      return index;
     },
 
     tick(songMs: number): void {

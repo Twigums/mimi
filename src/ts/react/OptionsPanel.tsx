@@ -7,8 +7,7 @@ import {
   TIMING_OFFSET_MIN, TIMING_OFFSET_MAX,
 } from "../core/settings";
 import { useApproachRate, useVolume, useHitsoundVolume, useHiddenMod, useCursorSize, useCursorR, useCursorG, useCursorB, useTrailFadeSpeed, useTrailShape, useTrailDecay, useMusicOffset } from "./hooks/useSettings";
-import { ApproachPreview } from "./ApproachPreview";
-import { CursorPreview } from "./CursorPreview";
+import { TestPlay } from "./TestPlay";
 import { ColorPicker } from "./ColorPicker";
 import { useLang } from "./hooks/useLang";
 
@@ -91,6 +90,11 @@ export function OptionsPanel({ isSongPage = false }: Props) {
         <h2 className="options-title">
           {isJp ? "オプション" : "Options"}
         </h2>
+
+        <p className="options-preview-label">
+          {isJp ? "テストプレイ" : "Testplay"}
+        </p>
+        <TestPlay loop variant="panel" />
 
         <div className={`options-accordion${volumeOpen ? " options-accordion--open" : ""}`}>
           <button
@@ -260,13 +264,6 @@ export function OptionsPanel({ isSongPage = false }: Props) {
                 )}
               </div>
 
-              <p className="options-preview-label">
-                {isJp ? "プレビュー" : "Preview"}
-              </p>
-              <div className="options-preview-wrap">
-                <ApproachPreview ar={ar} hidden={hidden} />
-              </div>
-
             </div>
           </div>
         </div>
@@ -370,13 +367,6 @@ export function OptionsPanel({ isSongPage = false }: Props) {
                       : "Trail fade speed only applies in Fade decay mode."}
                   </p>
                 )}
-              </div>
-
-              <p className="options-preview-label">
-                {isJp ? "プレビュー" : "Preview"}
-              </p>
-              <div className="options-preview-wrap">
-                <CursorPreview r={cursorR} g={cursorG} b={cursorB} cursorSize={cursorSize} trailFadeSpeed={trailFadeSpeed} trailShape={trailShape} trailDecay={trailDecay} />
               </div>
 
             </div>

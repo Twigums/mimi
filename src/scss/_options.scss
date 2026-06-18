@@ -363,19 +363,9 @@ html.theme-dark .options-panel {
   opacity: 0.45;
 }
 
-// previews draw on transparent canvases; the wrap replicates the play-field
-// backdrop (theme gradient under the --game-dim veil) so each theme previews
-// what gameplay actually looks like
-.options-preview-wrap {
-  border-radius: 0.6rem;
-  background: linear-gradient(var(--game-dim), var(--game-dim)), var(--bg-gradient-song);
-  overflow: hidden;
-}
-
-.approach-preview {
-  display: block;
-  width: 100%;
-  aspect-ratio: 4 / 3;
+// the menu's single testplay surface sits above the accordions
+.testplay-wrap--panel {
+  margin-bottom: 1rem;
 }
 
 .color-picker {
@@ -424,12 +414,6 @@ html.theme-dark .options-panel {
   height: 0.9rem;
   border-radius: 3px;
   border: 1px solid var(--panel-line);
-}
-
-.cursor-preview {
-  display: block;
-  width: 100%;
-  aspect-ratio: 4 / 3;
 }
 
 .options-chip-group {

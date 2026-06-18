@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLang } from "./hooks/useLang";
 import { OptionsPanel } from "./OptionsPanel";
-import { TutorialCanvas } from "./TutorialCanvas";
-import type { TutorialCanvasHandle } from "./TutorialCanvas";
+import { TestPlay } from "./TestPlay";
+import type { TestPlayHandle } from "./TestPlay";
 
 type Layout = "original" | "play" | "info" | "tutorial";
 
@@ -127,7 +127,7 @@ export function HomeLayoutSwitcher({ infoContent, infoContentJp, tutorialContent
   const [exiting, setExiting] = useState(false);
   const [paneKey, setPaneKey] = useState(0);
   const exitTimer       = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const tutorialRef     = useRef<TutorialCanvasHandle>(null);
+  const tutorialRef     = useRef<TestPlayHandle>(null);
   const tutorialInfoRef = useRef<HTMLDivElement>(null);
 
   const [selectedSong, setSelectedSong] = useState<SongEntry | null>(null);
@@ -363,7 +363,7 @@ export function HomeLayoutSwitcher({ infoContent, infoContentJp, tutorialContent
                   }
                 }}
               />
-              <TutorialCanvas ref={tutorialRef} />
+              <TestPlay ref={tutorialRef} variant="tutorial" />
             </div>
             <button className="btn-back" onClick={() => setLayout("original")}>
               {t("Back", "戻る")}
