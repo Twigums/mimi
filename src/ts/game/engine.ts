@@ -102,6 +102,10 @@ interface GameDeps {
   onComboChange:   (combo: number) => void;
   onPlayingChange: (playing: boolean) => void;
   hitSoundUrl?:    string;
+  // logical play-field span in gameplay px; a smaller span than the default
+  // 800×600 zooms the same notes in (used by the testplay surface)
+  logicalW?:       number;
+  logicalH?:       number;
 }
 
 function normalizeNoteKind(kind: unknown): NoteKind | null {
@@ -155,7 +159,11 @@ export function createGame(deps: GameDeps): GameHandle {
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("2D canvas context unavailable");
 
-  const cursor: CursorRenderer = createCursorRenderer(canvas);
+  const logicalW = deps.logicalW ?? LOGICAL_W;
+  const logicalH = deps.logicalH ?? LOGICAL_H;
+  const getScale = (): number => canvas.width / logicalW;
+
+  const cursor: CursorRenderer = createCursorRenderer(canvas, getScale);
 
   let approachMs = arToMs(loadAr());
   let hiddenMod  = loadHiddenMod();
@@ -220,15 +228,13 @@ export function createGame(deps: GameDeps): GameHandle {
   };
   resize();
 
-  const getScale = (): number => canvas.width / LOGICAL_W;
-
   const pointer = { x: 0, y: 0, prevX: 0, prevY: 0 };
   const pointerSamples: PointerSample[] = [];
 
   const setPointer = (clientX: number, clientY: number): void => {
     const rect = canvas.getBoundingClientRect();
-    pointer.x = (clientX - rect.left) * (LOGICAL_W / rect.width);
-    pointer.y = (clientY - rect.top)  * (LOGICAL_H / rect.height);
+    pointer.x = (clientX - rect.left) * (logicalW / rect.width);
+    pointer.y = (clientY - rect.top)  * (logicalH / rect.height);
   };
 
   const onMouseMove  = (e: MouseEvent): void => setPointer(e.clientX, e.clientY);

@@ -1,5 +1,5 @@
 import { forwardRef, useEffect, useImperativeHandle, useRef, useState } from "react";
-import { createGame, LOGICAL_W, LOGICAL_H } from "../game/engine";
+import { createGame } from "../game/engine";
 import type { GameHandle, NoteKind, HitResult } from "../game/engine";
 import { NOTE_RADIUS } from "../game/draw";
 import { JUDGEMENT_LABEL } from "../game/grade";
@@ -18,6 +18,13 @@ interface Props {
   loop?: boolean;
   variant?: "tutorial" | "panel";
   frameScale?: number;
+  // gameplay-px span of the surface; smaller than the real 800×600 field so the
+  // same notes render zoomed in. keep the 4:3 ratio to match the canvas
+  logicalW?: number;
+  logicalH?: number;
+  // fixed AR (skips the live setting) — the tutorial pins this so its pace is
+  // independent of the player's chosen approach rate
+  arOverride?: number;
 }
 
 interface Toast {
@@ -29,15 +36,13 @@ interface Toast {
 
 const DEMO_CHAR  = "か";
 const LOOP_KINDS: NoteKind[] = ["cut", "flow", "lyric"];
-const LOOP_GAP   = 900;   // pause after a note's approach before the next spawns
-const MARGIN     = 110;   // keep notes (and flow offsets) inside the play-field
-const CENTER_X   = LOGICAL_W / 2;
-const CENTER_Y   = LOGICAL_H / 2;
+const LOOP_GAP   = 900;            // pause after a note's approach before the next spawns
+const MARGIN     = NOTE_RADIUS * 2; // keep notes (and flow offsets) inside the play-field
 
 let _toastId = 0;
 
 export const TestPlay = forwardRef<TestPlayHandle, Props>(
-  ({ loop = false, variant = "panel", frameScale = 0.75 }, ref) => {
+  ({ loop = false, variant = "panel", frameScale = 0.75, logicalW = 400, logicalH = 300, arOverride }, ref) => {
     const canvasRef = useRef<HTMLCanvasElement>(null);
     const wrapRef   = useRef<HTMLDivElement>(null);
     const gameRef   = useRef<GameHandle | null>(null);
@@ -46,7 +51,8 @@ export const TestPlay = forwardRef<TestPlayHandle, Props>(
     const spawnRef  = useRef<(kind: NoteKind) => void>(() => {});
     const frameSize = useElementSize(canvasRef);
 
-    const [ar] = useApproachRate();
+    const [liveAr] = useApproachRate();
+    const ar = arOverride ?? liveAr;
     const [toasts, setToasts] = useState<Toast[]>([]);
 
     leadRef.current = arToMs(ar);
@@ -67,6 +73,8 @@ export const TestPlay = forwardRef<TestPlayHandle, Props>(
       const game = createGame({
         canvas,
         gameArea: wrap,
+        logicalW,
+        logicalH,
         onScore:         () => {},
         onComboChange:   () => {},
         onPlayingChange: () => {},
@@ -96,7 +104,7 @@ export const TestPlay = forwardRef<TestPlayHandle, Props>(
         }
       };
 
-      spawnRef.current = (kind) => spawn(kind, CENTER_X, CENTER_Y);
+      spawnRef.current = (kind) => spawn(kind, logicalW / 2, logicalH / 2);
 
       let start = 0;
       let kindIndex = 0;
@@ -113,8 +121,8 @@ export const TestPlay = forwardRef<TestPlayHandle, Props>(
           kindIndex++;
           spawn(
             kind,
-            clamp(MARGIN + Math.random() * (LOGICAL_W - 2 * MARGIN), MARGIN, LOGICAL_W - MARGIN),
-            clamp(MARGIN + Math.random() * (LOGICAL_H - 2 * MARGIN), MARGIN, LOGICAL_H - MARGIN),
+            clamp(MARGIN + Math.random() * (logicalW - 2 * MARGIN), MARGIN, logicalW - MARGIN),
+            clamp(MARGIN + Math.random() * (logicalH - 2 * MARGIN), MARGIN, logicalH - MARGIN),
           );
           nextSpawnAt = clock + leadRef.current + LOOP_GAP;
         }
@@ -130,7 +138,7 @@ export const TestPlay = forwardRef<TestPlayHandle, Props>(
         gameRef.current = null;
         game.destroy();
       };
-    }, [loop]);
+    }, [loop, logicalW, logicalH]);
 
     return (
       <div ref={wrapRef} className={`testplay-wrap testplay-wrap--${variant}`}>
@@ -140,7 +148,7 @@ export const TestPlay = forwardRef<TestPlayHandle, Props>(
           <div
             key={t.id}
             className={`hit-feedback hit-${t.result}`}
-            style={{ left: `${(t.x / LOGICAL_W) * 100}%`, top: `${(t.y / LOGICAL_H) * 100}%` }}
+            style={{ left: `${(t.x / logicalW) * 100}%`, top: `${(t.y / logicalH) * 100}%` }}
           >
             {JUDGEMENT_LABEL[t.result]}
           </div>

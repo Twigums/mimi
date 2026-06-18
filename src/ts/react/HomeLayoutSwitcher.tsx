@@ -363,7 +363,7 @@ export function HomeLayoutSwitcher({ infoContent, infoContentJp, tutorialContent
                   }
                 }}
               />
-              <TestPlay ref={tutorialRef} variant="tutorial" />
+              <TestPlay ref={tutorialRef} variant="tutorial" arOverride={0} />
             </div>
             <button className="btn-back" onClick={() => setLayout("original")}>
               {t("Back", "戻る")}
