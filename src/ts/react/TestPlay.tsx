@@ -39,6 +39,9 @@ const DEMO_CHAR  = "か";
 const LOOP_KINDS: NoteKind[] = ["cut", "flow", "lyric"];
 const LOOP_GAP   = 900;            // pause after a note's approach before the next spawns
 const MARGIN     = NOTE_RADIUS * 2; // keep notes (and flow offsets) inside the play-field
+// the demo flow pair is spaced in time relative to the approach pace: 150 ms
+// reads well at AR 14, so scale that gap by approachMs / arToMs(14)
+const FLOW_GAP_RATIO = 150 / arToMs(14);
 
 let _toastId = 0;
 
@@ -96,8 +99,9 @@ export const TestPlay = forwardRef<TestPlayHandle, Props>(
           const spacing = NOTE_RADIUS * 1.4;
           const ox = Math.cos(direction) * spacing;
           const oy = Math.sin(direction) * spacing;
+          const gap = leadRef.current * FLOW_GAP_RATIO;
           const first = game.spawnNote({ kind, time: base,       x: cx - ox, y: cy - oy, direction });
-          game.spawnNote({ kind, time: base + 150, x: cx + ox, y: cy + oy, direction, flowPrevIndex: first });
+          game.spawnNote({ kind, time: base + gap, x: cx + ox, y: cy + oy, direction, flowPrevIndex: first });
         } else {
           game.spawnNote({
             kind, time: base, x: cx, y: cy, direction,
