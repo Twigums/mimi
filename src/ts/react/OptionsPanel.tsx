@@ -3,12 +3,12 @@ import {
   AR_MIN, AR_MAX, arToMs, VOLUME_MIN, VOLUME_MAX, VOLUME_STEP,
   CURSOR_SIZE_MIN, CURSOR_SIZE_MAX,
   TRAIL_FADE_MIN, TRAIL_FADE_MAX,
-  OFFSET_MIN, OFFSET_MAX, OFFSET_STEP,
+  OFFSET_STEP,
   TIMING_OFFSET_MIN, TIMING_OFFSET_MAX,
+  resetSettings,
 } from "../core/settings";
 import { useApproachRate, useVolume, useHitsoundVolume, useHiddenMod, useCursorSize, useCursorR, useCursorG, useCursorB, useTrailFadeSpeed, useTrailShape, useTrailDecay, useMusicOffset } from "./hooks/useSettings";
-import { ApproachPreview } from "./ApproachPreview";
-import { CursorPreview } from "./CursorPreview";
+import { TestPlay } from "./TestPlay";
 import { ColorPicker } from "./ColorPicker";
 import { useLang } from "./hooks/useLang";
 
@@ -63,11 +63,8 @@ export function OptionsPanel({ isSongPage = false }: Props) {
     setCursorB(b);
   }, [setCursorR, setCursorG, setCursorB]);
 
-  const [volumeOpen, setVolumeOpen] = useState(() => localStorage.getItem("volumeAccordionOpen") !== "false");
-  const [timingOpen, setTimingOpen] = useState(() => localStorage.getItem("timingAccordionOpen") !== "false");
-  const [modsOpen, setModsOpen] = useState(() => localStorage.getItem("modsAccordionOpen") !== "false");
-  const [notesOpen, setNotesOpen] = useState(() => localStorage.getItem("notesAccordionOpen") === "true");
-  const [cursorOpen, setCursorOpen] = useState(() => localStorage.getItem("cursorAccordionOpen") === "true");
+  // common settings stay open; only the rarely-touched trail tweaks fold away
+  const [trailOpen, setTrailOpen] = useState(() => localStorage.getItem("trailAccordionOpen") === "true");
 
   if (!open) return null;
 
@@ -92,296 +89,242 @@ export function OptionsPanel({ isSongPage = false }: Props) {
           {isJp ? "オプション" : "Options"}
         </h2>
 
-        <div className={`options-accordion${volumeOpen ? " options-accordion--open" : ""}`}>
-          <button
-            className="options-accordion-summary"
-            onClick={() => {
-              const v = !volumeOpen;
-              setVolumeOpen(v);
-              localStorage.setItem("volumeAccordionOpen", String(v));
-            }}
-          >
-            <span>{isJp ? "音量" : "Volume"}</span>
-            <span className="options-accordion-chevron">▾</span>
-          </button>
-          <div className="options-accordion-body">
-            <div className="options-accordion-body-inner">
+        <TestPlay loop variant="panel" frameScale={0.6} />
 
-              <div className="options-row">
-                <label className="options-label">
-                  <span>{isJp ? "音楽音量" : "Music Volume"}</span>
-                  <span className="options-setting-value">{vol}%</span>
-                </label>
-                <input
-                  type="range"
-                  className="options-slider"
-                  min={VOLUME_MIN}
-                  max={VOLUME_MAX}
-                  step={VOLUME_STEP}
-                  value={vol}
-                  style={sliderFill(vol, VOLUME_MIN, VOLUME_MAX)}
-                  onChange={e => setVol(Number(e.target.value))}
-                />
-              </div>
+        <div className="options-grid">
 
-              <div className="options-row">
-                <label className="options-label">
-                  <span>{isJp ? "ヒット音量" : "Hitsound Volume"}</span>
-                  <span className="options-setting-value">{hsVol}%</span>
-                </label>
-                <input
-                  type="range"
-                  className="options-slider"
-                  min={VOLUME_MIN}
-                  max={VOLUME_MAX}
-                  step={VOLUME_STEP}
-                  value={hsVol}
-                  style={sliderFill(hsVol, VOLUME_MIN, VOLUME_MAX)}
-                  onChange={e => setHsVol(Number(e.target.value))}
-                />
-              </div>
+          <section className="options-section">
+            <h3 className="options-section-title">{isJp ? "音量" : "Audio"}</h3>
 
+            <div className="options-row">
+              <label className="options-label">
+                <span>{isJp ? "音楽音量" : "Music Volume"}</span>
+                <span className="options-setting-value">{vol}%</span>
+              </label>
+              <input
+                type="range"
+                className="options-slider"
+                min={VOLUME_MIN}
+                max={VOLUME_MAX}
+                step={VOLUME_STEP}
+                value={vol}
+                style={sliderFill(vol, VOLUME_MIN, VOLUME_MAX)}
+                onChange={e => setVol(Number(e.target.value))}
+              />
             </div>
-          </div>
-        </div>
 
-        <div className={`options-accordion${timingOpen ? " options-accordion--open" : ""}`}>
-          <button
-            className="options-accordion-summary"
-            onClick={() => {
-              const v = !timingOpen;
-              setTimingOpen(v);
-              localStorage.setItem("timingAccordionOpen", String(v));
-            }}
-          >
-            <span>{isJp ? "タイミング" : "Timing"}</span>
-            <span className="options-accordion-chevron">▾</span>
-          </button>
-          <div className="options-accordion-body">
-            <div className="options-accordion-body-inner">
+            <div className="options-row">
+              <label className="options-label">
+                <span>{isJp ? "ヒット音量" : "Hitsound Volume"}</span>
+                <span className="options-setting-value">{hsVol}%</span>
+              </label>
+              <input
+                type="range"
+                className="options-slider"
+                min={VOLUME_MIN}
+                max={VOLUME_MAX}
+                step={VOLUME_STEP}
+                value={hsVol}
+                style={sliderFill(hsVol, VOLUME_MIN, VOLUME_MAX)}
+                onChange={e => setHsVol(Number(e.target.value))}
+              />
+            </div>
+          </section>
 
-              <div className="options-row">
-                <label className="options-label">
-                  <span>{isJp ? "音楽オフセット" : "Music Offset"}</span>
-                  <span className="options-setting-value">{fmtOffset(musicOffset)}</span>
-                </label>
-                <input
-                  type="range"
-                  className="options-slider"
-                  min={TIMING_OFFSET_MIN}
-                  max={TIMING_OFFSET_MAX}
-                  step={OFFSET_STEP}
-                  value={musicOffset}
-                  style={sliderFill(
-                    Math.max(TIMING_OFFSET_MIN, Math.min(TIMING_OFFSET_MAX, musicOffset)),
-                    TIMING_OFFSET_MIN,
-                    TIMING_OFFSET_MAX,
-                  )}
-                  onChange={e => setMusicOffset(Number(e.target.value))}
-                />
+          <section className="options-section">
+            <h3 className="options-section-title">{isJp ? "ゲームプレイ" : "Gameplay"}</h3>
+
+            <div className="options-row">
+              <label className="options-label">
+                <span>{isJp ? "アプローチレート" : "Approach Rate"}</span>
+                <span className="options-setting-value">AR {ar}</span>
+              </label>
+              <input
+                type="range"
+                className="options-slider"
+                min={AR_MIN}
+                max={AR_MAX}
+                step={1}
+                value={ar}
+                style={sliderFill(ar, AR_MIN, AR_MAX)}
+                disabled={isSongPage}
+                onChange={e => setAr(Number(e.target.value))}
+              />
+              <span className="options-ms-label">{ms}ms</span>
+              {isSongPage && (
                 <p className="options-note">
                   {isJp
-                    ? "早押しなら負の方向に、遅れ気味なら正の方向に調整してください。"
-                    : "If you are hitting early, move this negative; if you are hitting late, move this positive."}
+                    ? "ARはホームページでのみ変更できます。"
+                    : "Approach rate can only be changed from the home page."}
                 </p>
-              </div>
-
+              )}
             </div>
-          </div>
-        </div>
 
-        <div className={`options-accordion${modsOpen ? " options-accordion--open" : ""}`}>
-          <button
-            className="options-accordion-summary"
-            onClick={() => {
-              const v = !modsOpen;
-              setModsOpen(v);
-              localStorage.setItem("modsAccordionOpen", String(v));
-            }}
-          >
-            <span>{isJp ? "MOD" : "Mods"}</span>
-            <span className="options-accordion-chevron">▾</span>
-          </button>
-          <div className="options-accordion-body">
-            <div className="options-accordion-body-inner">
-              <div className="options-row options-row--mod">
-                <label className="options-mod-label">
+            <div className="options-row">
+              <label className="options-label">
+                <span>{isJp ? "音楽オフセット" : "Music Offset"}</span>
+                <span className="options-setting-value">{fmtOffset(musicOffset)}</span>
+              </label>
+              <input
+                type="range"
+                className="options-slider"
+                min={TIMING_OFFSET_MIN}
+                max={TIMING_OFFSET_MAX}
+                step={OFFSET_STEP}
+                value={musicOffset}
+                style={sliderFill(
+                  Math.max(TIMING_OFFSET_MIN, Math.min(TIMING_OFFSET_MAX, musicOffset)),
+                  TIMING_OFFSET_MIN,
+                  TIMING_OFFSET_MAX,
+                )}
+                onChange={e => setMusicOffset(Number(e.target.value))}
+              />
+              <p className="options-note">
+                {isJp
+                  ? "早押しなら負の方向に、遅れ気味なら正の方向に調整してください。"
+                  : "If you are hitting early, move this negative; if you are hitting late, move this positive."}
+              </p>
+            </div>
+          </section>
+
+          <section className="options-section">
+            <h3 className="options-section-title">{isJp ? "モディファイア" : "Modifiers"}</h3>
+
+            <div className="options-row options-row--mod">
+              <label className="options-mod-label">
+                <input
+                  type="checkbox"
+                  className="options-mod-checkbox"
+                  checked={hidden}
+                  onChange={e => setHidden(e.target.checked)}
+                />
+                <span>{isJp ? "ヒドゥン" : "Hidden"}</span>
+              </label>
+            </div>
+          </section>
+
+          <section className="options-section">
+            <h3 className="options-section-title">{isJp ? "カーソル" : "Cursor"}</h3>
+
+            <div className="options-row">
+              <label className="options-label">
+                <span>{isJp ? "カーソルサイズ" : "Cursor Size"}</span>
+                <span className="options-setting-value">{cursorSize}</span>
+              </label>
+              <input
+                type="range"
+                className="options-slider"
+                min={CURSOR_SIZE_MIN}
+                max={CURSOR_SIZE_MAX}
+                step={1}
+                value={cursorSize}
+                style={sliderFill(cursorSize, CURSOR_SIZE_MIN, CURSOR_SIZE_MAX)}
+                onChange={e => setCursorSize(Number(e.target.value))}
+              />
+            </div>
+
+            <div className="options-row">
+              <label className="options-label">
+                <span>{isJp ? "カーソルカラー" : "Cursor Color"}</span>
+              </label>
+              <ColorPicker r={cursorR} g={cursorG} b={cursorB} onChange={handleColorChange} />
+            </div>
+          </section>
+
+          <section className={`options-section options-accordion${trailOpen ? " options-accordion--open" : ""}`}>
+            <button
+              className="options-accordion-summary"
+              onClick={() => {
+                const v = !trailOpen;
+                setTrailOpen(v);
+                localStorage.setItem("trailAccordionOpen", String(v));
+              }}
+            >
+              <span>{isJp ? "トレイル" : "Trail"}</span>
+              <span className="options-accordion-chevron">▾</span>
+            </button>
+            <div className="options-accordion-body">
+              <div className="options-accordion-body-inner">
+
+                <div className="options-row">
+                  <label className="options-label">
+                    <span>{isJp ? "トレイル形状" : "Trail Shape"}</span>
+                  </label>
+                  <div className="options-chip-group">
+                    {(["circle", "star", "square"] as const).map(s => (
+                      <button
+                        key={s}
+                        className={`options-chip${trailShape === s ? " options-chip--active" : ""}`}
+                        onClick={() => setTrailShape(s)}
+                      >
+                        {isJp
+                          ? s === "circle" ? "丸" : s === "star" ? "星" : "四角"
+                          : s === "circle" ? "Circle" : s === "star" ? "Star" : "Square"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="options-row">
+                  <label className="options-label">
+                    <span>{isJp ? "トレイル動作" : "Trail Decay"}</span>
+                  </label>
+                  <div className="options-chip-group">
+                    {(["fade", "scatter"] as const).map(d => (
+                      <button
+                        key={d}
+                        className={`options-chip${trailDecay === d ? " options-chip--active" : ""}`}
+                        onClick={() => setTrailDecay(d)}
+                      >
+                        {isJp
+                          ? d === "fade" ? "フェード" : "散布"
+                          : d === "fade" ? "Fade" : "Scatter"}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="options-row">
+                  <label className="options-label">
+                    <span>{isJp ? "フェード速度" : "Trail Fade Speed"}</span>
+                    <span className="options-setting-value">{trailFadeSpeed}</span>
+                  </label>
                   <input
-                    type="checkbox"
-                    className="options-mod-checkbox"
-                    checked={hidden}
-                    onChange={e => setHidden(e.target.checked)}
+                    type="range"
+                    className="options-slider"
+                    min={TRAIL_FADE_MIN}
+                    max={TRAIL_FADE_MAX}
+                    step={1}
+                    value={trailFadeSpeed}
+                    style={sliderFill(trailFadeSpeed, TRAIL_FADE_MIN, TRAIL_FADE_MAX)}
+                    onChange={e => setTrailFadeSpeed(Number(e.target.value))}
                   />
-                  <span>{isJp ? "ヒドゥン" : "Hidden"}</span>
-                </label>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className={`options-accordion${notesOpen ? " options-accordion--open" : ""}`}>
-          <button
-            className="options-accordion-summary"
-            onClick={() => {
-              const v = !notesOpen;
-              setNotesOpen(v);
-              localStorage.setItem("notesAccordionOpen", String(v));
-            }}
-          >
-            <span>{isJp ? "ノーツ" : "Notes"}</span>
-            <span className="options-accordion-chevron">▾</span>
-          </button>
-          <div className="options-accordion-body">
-            <div className="options-accordion-body-inner">
-
-              <div className="options-row">
-                <label className="options-label">
-                  <span>{isJp ? "アプローチレート" : "Approach Rate"}</span>
-                  <span className="options-setting-value">AR {ar}</span>
-                </label>
-                <input
-                  type="range"
-                  className="options-slider"
-                  min={AR_MIN}
-                  max={AR_MAX}
-                  step={1}
-                  value={ar}
-                  style={sliderFill(ar, AR_MIN, AR_MAX)}
-                  disabled={isSongPage}
-                  onChange={e => setAr(Number(e.target.value))}
-                />
-                <span className="options-ms-label">{ms}ms</span>
-                {isSongPage && (
-                  <p className="options-note">
-                    {isJp
-                      ? "ARはホームページでのみ変更できます。"
-                      : "Approach rate can only be changed from the home page."}
-                  </p>
-                )}
-              </div>
-
-              <p className="options-preview-label">
-                {isJp ? "プレビュー" : "Preview"}
-              </p>
-              <div className="options-preview-wrap">
-                <ApproachPreview ar={ar} hidden={hidden} />
-              </div>
-
-            </div>
-          </div>
-        </div>
-
-        <div className={`options-accordion${cursorOpen ? " options-accordion--open" : ""}`}>
-          <button
-            className="options-accordion-summary"
-            onClick={() => {
-              const v = !cursorOpen;
-              setCursorOpen(v);
-              localStorage.setItem("cursorAccordionOpen", String(v));
-            }}
-          >
-            <span>{isJp ? "カーソル" : "Cursor"}</span>
-            <span className="options-accordion-chevron">▾</span>
-          </button>
-          <div className="options-accordion-body">
-            <div className="options-accordion-body-inner">
-
-              <div className="options-row">
-                <label className="options-label">
-                  <span>{isJp ? "カーソルサイズ" : "Cursor Size"}</span>
-                  <span className="options-setting-value">{cursorSize}</span>
-                </label>
-                <input
-                  type="range"
-                  className="options-slider"
-                  min={CURSOR_SIZE_MIN}
-                  max={CURSOR_SIZE_MAX}
-                  step={1}
-                  value={cursorSize}
-                  style={sliderFill(cursorSize, CURSOR_SIZE_MIN, CURSOR_SIZE_MAX)}
-                  onChange={e => setCursorSize(Number(e.target.value))}
-                />
-              </div>
-
-              <div className="options-row">
-                <label className="options-label">
-                  <span>{isJp ? "カーソルカラー" : "Cursor Color"}</span>
-                </label>
-                <ColorPicker r={cursorR} g={cursorG} b={cursorB} onChange={handleColorChange} />
-              </div>
-
-              <div className="options-row">
-                <label className="options-label">
-                  <span>{isJp ? "トレイル形状" : "Trail Shape"}</span>
-                </label>
-                <div className="options-chip-group">
-                  {(["circle", "star", "square"] as const).map(s => (
-                    <button
-                      key={s}
-                      className={`options-chip${trailShape === s ? " options-chip--active" : ""}`}
-                      onClick={() => setTrailShape(s)}
-                    >
+                  {trailDecay === "scatter" && (
+                    <p className="options-note">
                       {isJp
-                        ? s === "circle" ? "丸" : s === "star" ? "星" : "四角"
-                        : s === "circle" ? "Circle" : s === "star" ? "Star" : "Square"}
-                    </button>
-                  ))}
+                        ? "フェード速度はフェードモードのみ適用されます。"
+                        : "Trail fade speed only applies in Fade decay mode."}
+                    </p>
+                  )}
                 </div>
-              </div>
 
-              <div className="options-row">
-                <label className="options-label">
-                  <span>{isJp ? "トレイル動作" : "Trail Decay"}</span>
-                </label>
-                <div className="options-chip-group">
-                  {(["fade", "scatter"] as const).map(d => (
-                    <button
-                      key={d}
-                      className={`options-chip${trailDecay === d ? " options-chip--active" : ""}`}
-                      onClick={() => setTrailDecay(d)}
-                    >
-                      {isJp
-                        ? d === "fade" ? "フェード" : "散布"
-                        : d === "fade" ? "Fade" : "Scatter"}
-                    </button>
-                  ))}
-                </div>
               </div>
-
-              <div className="options-row">
-                <label className="options-label">
-                  <span>{isJp ? "フェード速度" : "Trail Fade Speed"}</span>
-                  <span className="options-setting-value">{trailFadeSpeed}</span>
-                </label>
-                <input
-                  type="range"
-                  className="options-slider"
-                  min={TRAIL_FADE_MIN}
-                  max={TRAIL_FADE_MAX}
-                  step={1}
-                  value={trailFadeSpeed}
-                  style={sliderFill(trailFadeSpeed, TRAIL_FADE_MIN, TRAIL_FADE_MAX)}
-                  onChange={e => setTrailFadeSpeed(Number(e.target.value))}
-                />
-                {trailDecay === "scatter" && (
-                  <p className="options-note">
-                    {isJp
-                      ? "フェード速度はフェードモードのみ適用されます。"
-                      : "Trail fade speed only applies in Fade decay mode."}
-                  </p>
-                )}
-              </div>
-
-              <p className="options-preview-label">
-                {isJp ? "プレビュー" : "Preview"}
-              </p>
-              <div className="options-preview-wrap">
-                <CursorPreview r={cursorR} g={cursorG} b={cursorB} cursorSize={cursorSize} trailFadeSpeed={trailFadeSpeed} trailShape={trailShape} trailDecay={trailDecay} />
-              </div>
-
             </div>
-          </div>
+          </section>
+
         </div>
+
+        <button
+          className="options-reset"
+          onClick={() => {
+            const keepAr = ar;
+            resetSettings();
+            // AR is locked on the song page, so don't let a reset jump it mid-song
+            if (isSongPage) setAr(keepAr);
+          }}
+        >
+          {isJp ? "デフォルトに戻す" : "Reset to defaults"}
+        </button>
 
       </div>
     </div>

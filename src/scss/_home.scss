@@ -804,12 +804,12 @@ html.theme-dark .bg-sky .cloud-layer {
   }
 }
 
-.tutorial-canvas-wrap {
+// shared interactive testplay surface (tutorial pane + options menu)
+.testplay-wrap {
   position: relative;
-  flex-shrink: 0;
 
   // the shared cloud frame (skin in _song.scss) hugs the canvas box; the
-  // canvas is positioned so it paints above the frame's inner arcs
+  // canvas paints above the frame's inner arcs
   .game-frame {
     position: absolute;
     inset: 0;
@@ -818,25 +818,24 @@ html.theme-dark .bg-sky .cloud-layer {
   }
 }
 
-.tutorial-canvas {
+.testplay-canvas {
   position: relative;
   display: block;
-  width: 280px;
-  height: 210px;
+  width: 100%;
+  aspect-ratio: 4 / 3;
   background: var(--bg-gradient-song);
   border-radius: var(--radius-card);
   box-shadow: 0 0 0 2px rgba(57, 197, 187, 0.35), 0 10px 24px rgba(57, 197, 187, 0.2);
   cursor: none;
+}
 
-  @media (min-width: 900px) {
-    width: 360px;
-    height: 270px;
-  }
+// the tutorial pane sizes its TestPlay surface to a fixed responsive width
+.testplay-wrap--tutorial {
+  flex-shrink: 0;
+  width: 280px;
 
-  @media (min-width: 1200px) {
-    width: 480px;
-    height: 360px;
-  }
+  @media (min-width: 900px)  { width: 360px; }
+  @media (min-width: 1200px) { width: 480px; }
 }
 
 .placeholder-text {

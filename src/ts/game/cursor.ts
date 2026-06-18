@@ -30,7 +30,9 @@ export interface CursorRenderer {
   destroy(): void;
 }
 
-export function createCursorRenderer(canvas: HTMLCanvasElement): CursorRenderer {
+// getScale returns canvas device-px per logical (gameplay) px, so the cursor
+// and trail are sized in gameplay px and shrink/grow with the play-field
+export function createCursorRenderer(canvas: HTMLCanvasElement, getScale: () => number): CursorRenderer {
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("2D canvas context unavailable");
 
@@ -104,9 +106,7 @@ export function createCursorRenderer(canvas: HTMLCanvasElement): CursorRenderer 
     render(now: number): void {
       const rgb      = `${cursorR}, ${cursorG}, ${cursorB}`;
       const lifetime = trailFadeToLifetimeMs(fadeSpeed);
-      const rect     = canvas.getBoundingClientRect();
-      const dpr      = rect.width > 0 ? canvas.width / rect.width : 1;
-      const orbR     = cursorSize * dpr;
+      const orbR     = cursorSize * getScale();
 
       ctx.save();
       for (let i = 0; i < activeSlots(); i++) {

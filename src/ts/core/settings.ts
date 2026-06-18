@@ -184,3 +184,20 @@ export const subscribeTrailShape = (cb: (v: TrailShape) => void): (() => void) =
 export const loadTrailDecay      = (): TrailDecay => loadStringSetting("trailDecay", TRAIL_DECAYS, "fade");
 export const saveTrailDecay      = (v: TrailDecay): void => saveStringSetting("trailDecay", "trailDecayChange", v);
 export const subscribeTrailDecay = (cb: (v: TrailDecay) => void): (() => void) => subscribeStringSetting<TrailDecay>("trailDecayChange", cb);
+
+// Restore every persisted setting to its default; each save dispatches its
+// change event, so subscribed renderers (engine, cursor, options hooks) update.
+export function resetSettings(): void {
+  saveAr(AR_DEFAULT);
+  saveVolume(VOLUME_DEFAULT);
+  saveHitsoundVolume(VOLUME_DEFAULT);
+  saveHiddenMod(false);
+  saveCursorSize(CURSOR_SIZE_DEFAULT);
+  saveTrailFadeSpeed(TRAIL_FADE_DEFAULT);
+  saveCursorR(0);
+  saveCursorG(255);
+  saveCursorB(255);
+  saveMusicOffset(0);
+  saveTrailShape("circle");
+  saveTrailDecay("fade");
+}

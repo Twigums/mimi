@@ -125,8 +125,8 @@ html.theme-dark .theme-toggle {
   border-radius: var(--radius-card);
   box-shadow: 0 18px 40px rgba(20, 90, 100, 0.35);
   padding: 2rem 2rem 1.5rem;
-  min-width: min(320px, 90vw);
-  max-width: 90vw;
+  width: min(640px, 92vw);
+  max-width: 92vw;
   max-height: 90vh;
   overflow-y: auto;
   color: var(--panel-ink);
@@ -355,27 +355,48 @@ html.theme-dark .options-panel {
   accent-color: var(--miku-teal);
 }
 
-.options-preview-label {
-  margin: 0 0 0.4rem;
-  font-size: 0.75rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  opacity: 0.45;
+// the menu's single testplay surface sits above the settings grid; the margins
+// clear the cloud frame, which overflows the canvas box
+.testplay-wrap--panel {
+  max-width: 360px;
+  margin: 0.5rem auto 2.5rem;
 }
 
-// previews draw on transparent canvases; the wrap replicates the play-field
-// backdrop (theme gradient under the --game-dim veil) so each theme previews
-// what gameplay actually looks like
-.options-preview-wrap {
-  border-radius: 0.6rem;
-  background: linear-gradient(var(--game-dim), var(--game-dim)), var(--bg-gradient-song);
-  overflow: hidden;
+// common settings stay visible; sections pack into two columns and never split
+.options-grid {
+  column-count: 2;
+  column-gap: 1.75rem;
 }
 
-.approach-preview {
+@media (max-width: 560px) {
+  .options-grid { column-count: 1; }
+}
+
+.options-section {
+  break-inside: avoid;
+  margin-bottom: 0.75rem;
+}
+
+.options-reset {
   display: block;
   width: 100%;
-  aspect-ratio: 4 / 3;
+  margin-top: 1rem;
+  padding: 0.5rem;
+  background: transparent;
+  border: 1px solid var(--panel-line);
+  border-radius: var(--radius-pill);
+  color: var(--panel-ink-soft);
+  font-family: inherit;
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+
+  &:hover {
+    background: rgba(57, 197, 187, 0.1);
+    border-color: rgba(57, 197, 187, 0.5);
+    color: var(--panel-ink);
+  }
 }
 
 .color-picker {
@@ -424,12 +445,6 @@ html.theme-dark .options-panel {
   height: 0.9rem;
   border-radius: 3px;
   border: 1px solid var(--panel-line);
-}
-
-.cursor-preview {
-  display: block;
-  width: 100%;
-  aspect-ratio: 4 / 3;
 }
 
 .options-chip-group {
