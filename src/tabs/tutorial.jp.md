@@ -10,7 +10,7 @@ title: tutorial
 
 <mark class="flow">[フロー](spawn:flow)</mark>：つながったノーツをなめらかにスワイプして。
 
-<mark class="lyric">[歌詞](spawn:lyric)</mark>：ミクの歌に合わせ、ビートに乗ってノーツをクリックしよう！
+<mark class="lyric">[歌詞](spawn:lyric)</mark>：ミクの歌に合わせ、ビートに乗ってノーツをなぞろう！
 
 各ノーツをクリックして、右のゲームエリアで試してみてください。
 
