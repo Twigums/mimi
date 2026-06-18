@@ -1411,7 +1411,23 @@ html.theme-dark .game-frame .frame-star {
   color: var(--song-text);
   outline: none;
 }
+.game-start-surface.is-preparing {
+  cursor: default;
+  color: var(--song-text-dim);
+}
+.game-start-surface.is-preparing .game-start-label {
+  border-bottom: none;
+  animation: game-preparing-pulse 1.1s var(--motion-ease-standard) infinite alternate;
+}
 
+@keyframes game-preparing-pulse {
+  from {
+    opacity: 0.45;
+  }
+  to {
+    opacity: 1;
+  }
+}
 .game-break-skip {
   position: absolute;
   left: 50%;
