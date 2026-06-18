@@ -3,6 +3,7 @@ import { createGame, LOGICAL_W, LOGICAL_H } from "../game/engine";
 import type { GameHandle, HitResult, GameStats } from "../game/engine";
 import type { BreakSkipKind } from "../song/controller";
 import { arToMs } from "../core/settings";
+import { JUDGEMENT_LABEL } from "../game/grade";
 import { useLang } from "./hooks/useLang";
 import { useApproachRate } from "./hooks/useSettings";
 import { ResultsOverlay } from "./ResultsOverlay";
@@ -10,13 +11,6 @@ import { OptionsPanel } from "./OptionsPanel";
 import { GameFrame, useElementSize } from "./GameFrame";
 
 let _toastId = 0;
-
-const FEEDBACK_LABEL: Record<HitResult, string> = {
-  tier3: "PERFECT",
-  tier2: "GREAT",
-  tier1: "GOOD",
-  miss: "MISS",
-};
 
 interface FeedbackToast {
   id: number;
@@ -224,7 +218,7 @@ export function GameSurface({ onReady, returnHref, onTryAgain }: Props) {
               top: `${(f.y / LOGICAL_H) * 100}%`,
             }}
           >
-            {FEEDBACK_LABEL[f.result]}
+            {JUDGEMENT_LABEL[f.result]}
           </div>
         ))}
 

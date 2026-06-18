@@ -87,11 +87,65 @@
   gap: 1.2rem;
   margin-top: 0.25rem;
   font-size: 0.8rem;
+  font-variant-numeric: tabular-nums;
+
+  span { transition: opacity 0.15s ease, text-shadow 0.15s ease; }
 
   &__tier3 { color: var(--color-perfect); }
   &__tier2 { color: var(--color-good); }
   &__tier1 { color: rgba(255, 255, 255, 0.82); }
   &__miss  { color: var(--color-miss); }
+}
+
+// Tier counts double as filters for the issue breakdown.
+.results-tierbtn { cursor: default; }
+
+.results-breakdown .is-active,
+.results-issue.is-active {
+  opacity: 1;
+  text-shadow: 0 0 10px currentColor;
+}
+
+.results-breakdown .is-dim,
+.results-issue.is-dim {
+  opacity: 0.3;
+}
+
+.results-issues {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  width: 100%;
+  margin-top: 0.1rem;
+  font-size: 0.74rem;
+  font-variant-numeric: tabular-nums;
+
+  &__label {
+    font-size: 0.7rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: rgba(255, 255, 255, 0.5);
+  }
+
+  &__filter { color: rgba(255, 255, 255, 0.85); }
+
+  &__list {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 0.5rem 0.9rem;
+    color: rgba(255, 255, 255, 0.68);
+  }
+
+  &__empty { color: rgba(255, 255, 255, 0.4); }
+}
+
+.results-issue {
+  cursor: default;
+  transition: opacity 0.15s ease, color 0.15s ease, text-shadow 0.15s ease;
+
+  &.is-active { color: #fff; }
 }
 
 .results-detail {

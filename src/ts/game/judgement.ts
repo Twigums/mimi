@@ -26,7 +26,7 @@ export const FLOW_CONT_TIER1     = 85 * Math.PI / 180;
 export type NoteKind   = "cut" | "flow" | "lyric";
 export type HitResult  = "tier3" | "tier2" | "tier1" | "miss";
 export type HitTiming  = "early" | "late" | "on";
-export type MissReason = "timing" | "contact" | "direction" | "travel" | "continuity";
+export type IssueReason = "timing" | "contact" | "direction" | "travel" | "continuity";
 
 export interface JudgementNote {
   kind: NoteKind;
@@ -63,7 +63,7 @@ export interface Judgement {
   points: number;
   offsetMs: number;
   timing: HitTiming;
-  missReason?: MissReason;
+  issue?: IssueReason;
   gesture: GesturePhrase;
 }
 
@@ -174,18 +174,25 @@ function contactForSegment(note: JudgementNote, start: PointerSample, end: Point
   };
 }
 
-function missReasonFor(
+// The issue is the binding constraint that held the note below Tier 3: the
+// first metric (in priority order) whose cap equals the final result. Since the
+// result is the minimum of all caps, at least one cap matches it for any
+// non-Tier-3 note; a clean Tier 3 has no issue. For a miss this resolves to the
+// first metric that fell past Tier 1, identical to the previous miss-only logic.
+function issueFor(
+  result: HitResult,
   timingCap: HitResult,
   contactCap: HitResult,
   travelCap: HitResult,
   directionCap: HitResult,
   continuityCap: HitResult,
-): MissReason | undefined {
-  if (timingCap === "miss") return "timing";
-  if (contactCap === "miss") return "contact";
-  if (travelCap === "miss") return "travel";
-  if (directionCap === "miss") return "direction";
-  if (continuityCap === "miss") return "continuity";
+): IssueReason | undefined {
+  if (result === "tier3") return undefined;
+  if (timingCap === result) return "timing";
+  if (contactCap === result) return "contact";
+  if (travelCap === result) return "travel";
+  if (directionCap === result) return "direction";
+  if (continuityCap === result) return "continuity";
   return undefined;
 }
 
@@ -238,14 +245,14 @@ function buildCandidate(
     : result === "tier2" ? TIER2_POINTS
     : result === "tier1" ? TIER1_POINTS
     : 0;
-  const missReason = missReasonFor(timingScore.result, contactCap, travelCap, directionCap, continuityCap);
+  const issue = issueFor(result, timingScore.result, contactCap, travelCap, directionCap, continuityCap);
 
   return {
     result,
     points,
     offsetMs,
     timing: timingFor(offsetMs),
-    missReason,
+    issue,
     gesture: {
       travel,
       direction,

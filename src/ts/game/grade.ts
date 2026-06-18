@@ -1,7 +1,16 @@
-import type { GameStats } from "./engine";
+import type { GameStats, HitResult } from "./engine";
 import { MAX_POINTS } from "./engine";
 
 export type Grade = "SSS" | "SS" | "S" | "A" | "B" | "C" | "F";
+
+// Player-facing name for each judgement tier, shared by the in-game hit toasts
+// and the results screen.
+export const JUDGEMENT_LABEL: Record<HitResult, string> = {
+  tier3: "PERFECT",
+  tier2: "GREAT",
+  tier1: "GOOD",
+  miss:  "MISS",
+};
 
 export function computeGrade(stats: GameStats): Grade {
   if (stats.total === 0) return "F";

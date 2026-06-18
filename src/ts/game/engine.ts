@@ -8,7 +8,7 @@ import {
   TIER1_MS,
   type HitResult,
   type HitTiming,
-  type MissReason,
+  type IssueReason,
   type NoteKind,
   type PointerSample,
   judgeGesture,
@@ -22,7 +22,7 @@ export const LOGICAL_H = 600;
 const LYRIC_CHAR_MAX_DIST_MS = 80;
 
 type NoteState         = "pending" | "hit" | "missed";
-export type { HitResult, HitTiming, MissReason, NoteKind } from "./judgement";
+export type { HitResult, HitTiming, IssueReason, NoteKind } from "./judgement";
 
 export interface Note {
   kind: NoteKind;
@@ -49,7 +49,7 @@ export interface HitDetail {
   timing: HitTiming;
   x: number;
   y: number;
-  missReason?: MissReason;
+  issue?: IssueReason;
 }
 
 interface HitAnimation {
@@ -306,7 +306,7 @@ export function createGame(deps: GameDeps): GameHandle {
     }
   };
 
-  const resolveMiss = (note: Note, offsetMs: number, reason: MissReason): void => {
+  const resolveMiss = (note: Note, offsetMs: number, reason: IssueReason): void => {
     note.state = "missed";
     note.hitResult = "miss";
     missCount++;
@@ -319,7 +319,7 @@ export function createGame(deps: GameDeps): GameHandle {
       timing: timingFor(offsetMs),
       x: note.x,
       y: note.y,
-      missReason: reason,
+      issue: reason,
     });
     onFeedback("miss", note.x, note.y);
   };
@@ -331,9 +331,9 @@ export function createGame(deps: GameDeps): GameHandle {
     const attempt = judgeGesture(note, pointerSamples, prevFlow);
     if (attempt.status !== "judged") return;
 
-    const { result, points, offsetMs, timing, missReason } = attempt.judgement;
+    const { result, points, offsetMs, timing, issue } = attempt.judgement;
     if (result === "miss") {
-      resolveMiss(note, offsetMs, missReason ?? "timing");
+      resolveMiss(note, offsetMs, issue ?? "timing");
       return;
     }
 
@@ -363,6 +363,7 @@ export function createGame(deps: GameDeps): GameHandle {
       timing,
       x: note.x,
       y: note.y,
+      issue,
     });
     onFeedback(result, note.x, note.y);
     playHitSound(result);
