@@ -355,19 +355,11 @@ html.theme-dark .options-panel {
   accent-color: var(--miku-teal);
 }
 
-.options-preview-label {
-  margin: 0 0 0.4rem;
-  font-size: 0.75rem;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-  opacity: 0.45;
-}
-
-// the menu's single testplay surface sits above the settings grid; the top/side
-// margins clear the cloud frame, which overflows the canvas box
+// the menu's single testplay surface sits above the settings grid; the margins
+// clear the cloud frame, which overflows the canvas box
 .testplay-wrap--panel {
-  max-width: 320px;
-  margin: 1rem auto 1.75rem;
+  max-width: 360px;
+  margin: 0.5rem auto 2.5rem;
 }
 
 // common settings stay visible; sections pack into two columns and never split

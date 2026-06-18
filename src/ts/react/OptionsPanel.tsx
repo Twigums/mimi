@@ -89,9 +89,6 @@ export function OptionsPanel({ isSongPage = false }: Props) {
           {isJp ? "オプション" : "Options"}
         </h2>
 
-        <p className="options-preview-label">
-          {isJp ? "テストプレイ" : "Testplay"}
-        </p>
         <TestPlay loop variant="panel" frameScale={0.6} />
 
         <div className="options-grid">
@@ -188,6 +185,10 @@ export function OptionsPanel({ isSongPage = false }: Props) {
                   : "If you are hitting early, move this negative; if you are hitting late, move this positive."}
               </p>
             </div>
+          </section>
+
+          <section className="options-section">
+            <h3 className="options-section-title">{isJp ? "モディファイア" : "Modifiers"}</h3>
 
             <div className="options-row options-row--mod">
               <label className="options-mod-label">

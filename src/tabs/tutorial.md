@@ -16,16 +16,12 @@ If you want to see what the notes look like, feel free to click on each of the n
 
 ## Settings
 
-Click the settings icon, <svg class="inline-icon"><use href="#icon-settings"/></svg>, on the top right to change game-specific settings. This includes:
+Click the settings icon, <svg class="inline-icon"><use href="#icon-settings"/></svg>, on the top right to change game settings, with a live testplay to preview them as you go:
 
-- **Volume**: Increase or decrease the hitsound and music volumes.
+- **Audio**: Increase or decrease the hitsound and music volumes.
 
-- **Timing**: Some devices may introduce latency. Play with the offset to determine what works for you (increase the offset if you feel like the song feels too late, decrease if it feels too early).
+- **Gameplay**: Some devices introduce latency, so play with the offset (raise it if the song feels too late, lower it if it feels too early). You can also change the approach rate — how fast notes appear — and try mods like Hidden if you want more of a challenge.
 
-- **Mods**: Do you feel like the game is too easy? Try it with mods!
-
-- **Notes**: You can change how fast the notes appear, called approach rate, to better suit your preference.
-
-- **Cursor**: Feel free to customize your cursor by choosing a favorite color, shape, and trail.
+- **Cursor**: Feel free to customize your cursor's size, color, shape, and trail.
 
 Make **mimi** *your* **Magical Mirai**!

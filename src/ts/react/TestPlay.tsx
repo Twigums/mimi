@@ -5,6 +5,7 @@ import { NOTE_RADIUS } from "../game/draw";
 import { JUDGEMENT_LABEL } from "../game/grade";
 import { clamp } from "../core/utils";
 import { arToMs } from "../core/settings";
+import { withPath } from "../core/sitePath";
 import { useApproachRate } from "./hooks/useSettings";
 import { GameFrame, useElementSize } from "./GameFrame";
 
@@ -75,6 +76,7 @@ export const TestPlay = forwardRef<TestPlayHandle, Props>(
         gameArea: wrap,
         logicalW,
         logicalH,
+        hitSoundUrl: withPath("/audio/snare.mp3"),
         onScore:         () => {},
         onComboChange:   () => {},
         onPlayingChange: () => {},
