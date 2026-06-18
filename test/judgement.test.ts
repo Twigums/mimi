@@ -109,7 +109,7 @@ check("resting on a note still misses for insufficient travel", () => {
   const judgement = judged(judgeGesture(note(), gesture));
 
   assert.equal(judgement.result, "miss");
-  assert.equal(judgement.missReason, "travel");
+  assert.equal(judgement.issue, "travel");
   assert.ok(judgement.gesture.travel < CUT_TRAVEL_TIER1);
 });
 
@@ -122,7 +122,7 @@ check("opposite-direction cuts miss even when contact and timing are good", () =
   const judgement = judged(judgeGesture(note(), withLatest(lineThroughCenter(Math.PI, 40), NOTE_TIME + CUT_METRIC_WINDOW_MS)));
 
   assert.equal(judgement.result, "miss");
-  assert.equal(judgement.missReason, "direction");
+  assert.equal(judgement.issue, "direction");
 });
 
 check("near misses by contact cap to lower accepted tiers", () => {
@@ -143,7 +143,7 @@ check("gestures outside the contact zone are not judged immediately", () => {
   assert.equal(judgeGesture(note(), gesture).status, "pending");
   const judgement = judged(judgeGesture(note(), withLatest(gesture, NOTE_TIME + CUT_METRIC_WINDOW_MS)));
   assert.equal(judgement.result, "miss");
-  assert.equal(judgement.missReason, "contact");
+  assert.equal(judgement.issue, "contact");
 });
 
 check("lyric notes ignore gesture direction but still require motion", () => {
@@ -169,7 +169,7 @@ check("flow path continuity can reject a sharp path break", () => {
   ));
 
   assert.equal(judgement.result, "miss");
-  assert.equal(judgement.missReason, "continuity");
+  assert.equal(judgement.issue, "continuity");
 });
 
 check("best sub-gesture is selected when another motion shares the metric window", () => {
