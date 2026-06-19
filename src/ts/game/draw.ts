@@ -168,26 +168,37 @@ export function drawFlowRibbon(
   scale: number,
   alpha: number,
 ): void {
-  const fromX = from.x * scale;
-  const fromY = from.y * scale;
-  const toX = to.x * scale;
-  const toY = to.y * scale;
   const { base } = NOTE_STYLE.flow.colors;
 
+  // Cubic Hermite from `from` to `to` using each anchor's ribbon tangent, so the
+  // drawn ribbon matches the curve the anchors trace. Missing tangents (e.g. a lone
+  // link) fall back to the straight chord.
+  const ax = from.x, ay = from.y, bx = to.x, by = to.y;
+  const chordX = bx - ax, chordY = by - ay;
+  const tax = from.flowTanX ?? chordX, tay = from.flowTanY ?? chordY;
+  const tbx = to.flowTanX   ?? chordX, tby = to.flowTanY   ?? chordY;
+  const STEPS = 14;
+
   ctx.save();
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  ctx.beginPath();
+  for (let i = 0; i <= STEPS; i++) {
+    const s  = i / STEPS;
+    const s2 = s * s, s3 = s2 * s;
+    const h00 = 2 * s3 - 3 * s2 + 1;
+    const h10 = s3 - 2 * s2 + s;
+    const h01 = -2 * s3 + 3 * s2;
+    const h11 = s3 - s2;
+    const px = (h00 * ax + h10 * tax + h01 * bx + h11 * tbx) * scale;
+    const py = (h00 * ay + h10 * tay + h01 * by + h11 * tby) * scale;
+    if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+  }
   ctx.strokeStyle = `rgba(${base}, ${0.22 * alpha})`;
   ctx.lineWidth = 10 * scale;
-  ctx.lineCap = "round";
-  ctx.beginPath();
-  ctx.moveTo(fromX, fromY);
-  ctx.lineTo(toX, toY);
   ctx.stroke();
-
   ctx.strokeStyle = `rgba(255, 255, 255, ${0.18 * alpha})`;
   ctx.lineWidth = 2 * scale;
-  ctx.beginPath();
-  ctx.moveTo(fromX, fromY);
-  ctx.lineTo(toX, toY);
   ctx.stroke();
   ctx.restore();
 }

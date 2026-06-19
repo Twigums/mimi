@@ -35,6 +35,8 @@ export interface Note {
   lyricChar?: string;
   flowPrevIndex?: number;
   flowNextIndex?: number;
+  flowTanX?: number;
+  flowTanY?: number;
 }
 
 interface RawNote extends Omit<Note, "kind" | "state"> {
@@ -312,30 +314,39 @@ export function createGame(deps: GameDeps): GameHandle {
     }
   };
 
-  // Flow anchors take their direction from the ribbon they trace: the local tangent
-  // is the bisector of the incoming (prev->this) and outgoing (this->next) unit chords,
-  // so the arrow and the judged direction follow the shaped path instead of a hand-set
-  // angle. A lone anchor (no links) returns null and keeps its authored direction.
-  const flowTangent = (index: number): number | null => {
+  // Flow anchors take their direction from the ribbon they trace. The tangent points
+  // along the bisector of the incoming (prev->this) and outgoing (this->next) unit
+  // chords; its length is half the shorter adjacent chord, a tension that keeps the
+  // cubic Hermite ribbon from overshooting where spacing is uneven. The arrow and the
+  // judged direction use the angle; `draw` uses the full vector for a smooth curve. A
+  // lone anchor (no links) or a 180-degree cusp returns null and keeps its direction.
+  const flowTangent = (index: number): { x: number; y: number } | null => {
     const n = notes[index];
-    let tx = 0, ty = 0;
+    let dirX = 0, dirY = 0;
+    let span = Infinity;
     if (n.flowPrevIndex !== undefined) {
       const p = notes[n.flowPrevIndex];
       const dx = n.x - p.x, dy = n.y - p.y, len = Math.hypot(dx, dy);
-      if (len > 0) { tx += dx / len; ty += dy / len; }
+      if (len > 0) { dirX += dx / len; dirY += dy / len; span = Math.min(span, len); }
     }
     if (n.flowNextIndex !== undefined) {
       const x = notes[n.flowNextIndex];
       const dx = x.x - n.x, dy = x.y - n.y, len = Math.hypot(dx, dy);
-      if (len > 0) { tx += dx / len; ty += dy / len; }
+      if (len > 0) { dirX += dx / len; dirY += dy / len; span = Math.min(span, len); }
     }
-    if (tx === 0 && ty === 0) return null;
-    return Math.atan2(ty, tx);
+    const dirLen = Math.hypot(dirX, dirY);
+    if (dirLen === 0 || !Number.isFinite(span)) return null;
+    const mag = 0.5 * span;
+    return { x: (dirX / dirLen) * mag, y: (dirY / dirLen) * mag };
   };
 
   const applyFlowTangent = (index: number): void => {
     const t = flowTangent(index);
-    if (t !== null) notes[index].direction = t;
+    if (!t) return;
+    const n = notes[index];
+    n.flowTanX = t.x;
+    n.flowTanY = t.y;
+    n.direction = Math.atan2(t.y, t.x);
   };
 
   const linkFlowPhrases = (): void => {

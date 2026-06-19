@@ -240,9 +240,9 @@ function buildCandidate(
 
   const isFlow = note.kind === "flow";
   const timingScore = scoreFor(offsetMs);
-  const contactCap = isFlow
-    ? capUpper(contactDistance, FLOW_CONTACT_TIER3, FLOW_CONTACT_TIER2, FLOW_CONTACT_TIER1)
-    : capUpper(contactDistance, CUT_CONTACT_TIER3, CUT_CONTACT_TIER2, CUT_CONTACT_TIER1);
+  // Contact uses the cut thresholds for both kinds until there's evidence to tune
+  // flow separately; FLOW_CONTACT_* are kept defined for that future tuning.
+  const contactCap = capUpper(contactDistance, CUT_CONTACT_TIER3, CUT_CONTACT_TIER2, CUT_CONTACT_TIER1);
   const travelCap = isFlow
     ? capLower(travel, FLOW_TRAVEL_TIER3, FLOW_TRAVEL_TIER2, FLOW_TRAVEL_TIER1)
     : capLower(travel, CUT_TRAVEL_TIER3, CUT_TRAVEL_TIER2, CUT_TRAVEL_TIER1);
