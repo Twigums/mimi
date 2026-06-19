@@ -28,13 +28,19 @@ function parseSections(text: string): Map<string, string[]> {
     return sections;
 }
 
+// Flow is the default marker for imported hit objects; a clap hitsound tags a
+// lyric note instead. Direction is no longer derived — flow anchors take their
+// direction from the ribbon tangent at runtime, so a fixed 0 is emitted.
+type NoteKind = "s" | "l";
+
 interface Note {
-    time:    number;
-    x:       number;
-    y:       number;
-    degrees: number;
-    isSlider: boolean;
+    time: number;
+    x:    number;
+    y:    number;
+    kind: NoteKind;
 }
+
+const OSU_CLAP = 1 << 3; // hitSound bit: tags the object as a lyric note
 
 interface CliOptions {
     fileArg: string | null;
@@ -80,50 +86,33 @@ function parseHitObject(line: string): Note | null {
     const parts = line.split(",");
     if (parts.length < 5) return null;
 
-    const osuX = parseFloat(parts[0]);
-    const osuY = parseFloat(parts[1]);
-    const time = parseInt(parts[2], 10);
-    const type = parseInt(parts[3], 10);
+    const osuX     = parseFloat(parts[0]);
+    const osuY     = parseFloat(parts[1]);
+    const time     = parseInt(parts[2], 10);
+    const type     = parseInt(parts[3], 10);
+    const hitSound = parseInt(parts[4], 10);
 
-    if (type & 8) return null;  // spinner
+    if (type & 8) return null;    // spinner
+    if (type & 128) return null;  // mania hold
 
-    const isSlider = !!(type & 2);
-
-    let degrees = 0;
-
-    if (isSlider && parts.length >= 6) {
-        const curveData = parts[5];
-        const pipeIdx   = curveData.indexOf("|");
-        if (pipeIdx !== -1) {
-            // Take first curve point: "L|cx:cy|..." → "cx:cy"
-            const firstPt        = curveData.slice(pipeIdx + 1).split("|")[0];
-            const [cxStr, cyStr] = firstPt.split(":");
-            const cx = parseFloat(cxStr);
-            const cy = parseFloat(cyStr);
-            const dx = cx - osuX;
-            const dy = cy - osuY;
-            // osu y increases down; standard math y increases up → negate dy
-            degrees = Math.atan2(-dy, dx) * (180 / Math.PI);
-        }
-    }
+    // Hitcircles and slider heads alike become flow anchors (consecutive anchors
+    // link into a phrase at runtime); a clap hitsound marks the object as a lyric.
+    const kind: NoteKind = (hitSound & OSU_CLAP) ? "l" : "s";
 
     const xm = parseFloat((osuX * SCALE + OFFSET_X).toFixed(1));
     const ym = parseFloat((osuY * SCALE + OFFSET_Y).toFixed(1));
 
-    return {
-        time,
-        x: xm,
-        y: ym,
-        degrees: parseFloat(degrees.toFixed(1)),
-        isSlider,
-    };
+    return { time, x: xm, y: ym, kind };
 }
 
 function main(): void {
     const { fileArg, difficulty, bpm, beatsPerMeasure } = parseCliArgs(process.argv.slice(2));
 
     if (!fileArg) {
-        process.stderr.write("Usage: osu2mimi [--difficulty N] [--bpm N] [--beats-per-measure N] {file.osu}\n");
+        process.stderr.write(
+            "Usage: osu2mimi [--difficulty N] [--bpm N] [--beats-per-measure N] {file.osu}\n" +
+            "Hit objects import as flow anchors; objects with a clap hitsound import as lyric notes.\n",
+        );
         process.exit(1);
     }
 
@@ -157,8 +146,10 @@ function main(): void {
         "# kind, time_ms, degrees, x, y",
     );
 
+    // degrees is a fixed 0: flow and lyric notes ignore it (flow direction comes
+    // from the ribbon tangent at runtime).
     for (const note of notes) {
-        out.push(`c, ${note.time}, ${note.degrees}, ${note.x}, ${note.y}`);
+        out.push(`${note.kind}, ${note.time}, 0, ${note.x}, ${note.y}`);
     }
 
     process.stdout.write(out.join("\n") + "\n");

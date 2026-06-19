@@ -123,13 +123,13 @@ Cut notes use these timing tiers:
 
 ## osu! Conversion
 
-Charts may be authored in the osu! editor using linear sliders and converted with:
+Charts may be authored in the osu! editor and converted with:
 
 ```bash
 npm run --silent convert:osu -- path/to/file.osu > src/songs/<song-id>/hard.mimi
 ```
 
-The osu play area is scaled into mimi's 800 x 600 play area. Linear sliders become cut notes with direction taken from slider start to endpoint. Add lyric rows manually when a note should display a sung character or vocal accent.
+The osu play area is scaled into mimi's 800 x 600 play area. Each hit object (hitcircle or slider head; spinners and holds are skipped) imports as a flow anchor, so consecutive objects link into flowing phrases. Give an object a **clap** hitsound in the osu editor to import it as a lyric note instead. Directions are not imported — flow anchors take their direction from the ribbon tangent — so the converter is no longer a way to author cut notes; add cut rows by hand.
 
 ## Minimal Example
 
