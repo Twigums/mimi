@@ -351,11 +351,11 @@ export function createGame(deps: GameDeps): GameHandle {
     onFeedback("miss", note.x, note.y);
   };
 
-  const tryHit = (note: Note, songMs: number): void => {
+  const tryHit = (note: Note, songMs: number, prevNoteTime?: number): void => {
     if (note.state !== "pending") return;
 
     const prevFlow = note.flowPrevIndex === undefined ? undefined : notes[note.flowPrevIndex];
-    const attempt = judgeGesture(note, pointerSamples, prevFlow);
+    const attempt = judgeGesture(note, pointerSamples, prevFlow, prevNoteTime);
     if (attempt.status !== "judged") return;
 
     const { result, points, offsetMs, timing, issue } = attempt.judgement;
@@ -556,7 +556,7 @@ export function createGame(deps: GameDeps): GameHandle {
         for (let i = pendingStart; i < notes.length; i++) {
           const n = notes[i];
           if (n.time > songMs + TIER1_MS) break;
-          if (n.state === "pending") tryHit(n, songMs);
+          if (n.state === "pending") tryHit(n, songMs, notes[i - 1]?.time);
         }
         if (skipExpiry) {
           if (songMs > approachMs) skipExpiry = false;
