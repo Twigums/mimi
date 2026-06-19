@@ -21,6 +21,11 @@ export const LOGICAL_H = 600;
 
 const LYRIC_CHAR_MAX_DIST_MS = 80;
 
+// How far the ribbon bows through each flow anchor, as a fraction of the shorter
+// adjacent chord. Higher = rounder curves (less kinking at the waypoint) at the cost
+// of some overshoot risk on very uneven spacing.
+const FLOW_TANGENT_WEIGHT = 0.9;
+
 type NoteState         = "pending" | "hit" | "missed";
 export type { HitResult, HitTiming, IssueReason, NoteKind } from "./judgement";
 
@@ -336,7 +341,7 @@ export function createGame(deps: GameDeps): GameHandle {
     }
     const dirLen = Math.hypot(dirX, dirY);
     if (dirLen === 0 || !Number.isFinite(span)) return null;
-    const mag = 0.5 * span;
+    const mag = FLOW_TANGENT_WEIGHT * span;
     return { x: (dirX / dirLen) * mag, y: (dirY / dirLen) * mag };
   };
 
