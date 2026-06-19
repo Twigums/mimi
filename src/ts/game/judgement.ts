@@ -362,16 +362,38 @@ function canStillImprove(candidate: Candidate, latestSongMs: number, noteTime: n
   return latestSongMs < noteTime + CUT_METRIC_WINDOW_MS;
 }
 
+// The gesture for a cut is "settled" once the pointer has left the contact zone:
+// no current motion is improving contact, and a better-timed re-cut would need a
+// physically implausible re-approach within the few ms left. Committing here
+// instead of holding for the timing window keeps non-perfect feedback from lagging
+// behind an early cut (issue #53). `prevNoteTime` gates how early this can fire so a
+// sweep toward an adjacent note can't claim this note during the previous note's
+// territory; the min() clamps the gate at the note's own perfect-window start when a
+// near-simultaneous previous note would otherwise over-delay it.
+function gestureSettled(
+  best: Candidate,
+  note: JudgementNote,
+  latest: PointerSample,
+  prevNoteTime: number | undefined,
+): boolean {
+  if (best.result === "miss" || note.kind !== "cut") return false;
+  const earliestCommitMs = Math.min(note.time - TIER3_MS, prevNoteTime ?? -Infinity);
+  if (latest.songMs < earliestCommitMs) return false;
+  return Math.hypot(latest.x - note.x, latest.y - note.y) > CUT_CONTACT_TIER1;
+}
+
 export function judgeGesture(
   note: JudgementNote,
   pointerSamples: PointerSample[],
   previousFlowNote?: PreviousFlowNote,
+  prevNoteTime?: number,
 ): JudgementAttempt {
-  const latestSongMs = pointerSamples[pointerSamples.length - 1]?.songMs;
-  if (latestSongMs === undefined) return { status: "noGesture" };
+  const latest = pointerSamples[pointerSamples.length - 1];
+  if (latest === undefined) return { status: "noGesture" };
 
   const best = selectBestCandidate(note, pointerSamples, previousFlowNote);
   if (!best) return { status: "noGesture" };
-  if (canStillImprove(best, latestSongMs, note.time)) return { status: "pending", best };
+  if (gestureSettled(best, note, latest, prevNoteTime)) return { status: "judged", judgement: best };
+  if (canStillImprove(best, latest.songMs, note.time)) return { status: "pending", best };
   return { status: "judged", judgement: best };
 }
