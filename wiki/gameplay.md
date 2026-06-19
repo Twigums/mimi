@@ -18,7 +18,7 @@ All note types gradually appear as the song approaches their hit time. Cut and f
 
 ## Note Eligibility
 
-The game does not use notelock. Every pending note whose hit time is within the early timing window is eligible for consideration on each frame. A note stops being eligible once it is hit or missed. Notes more than 120 ms in the future are not considered yet, and cut notes can remain pending briefly after the timing window while their gesture metrics are finalized.
+The game does not use notelock. Every pending note whose hit time is within the early timing window is eligible for consideration on each frame. A note stops being eligible once it is hit or missed. Notes more than 160 ms in the future are not considered yet, and cut notes can remain pending briefly after the timing window while their gesture metrics are finalized.
 
 A pointer path that stays outside a note's contact zone does not immediately judge that note. The note stays pending until a qualifying path appears or the note expires.
 
@@ -30,10 +30,10 @@ Cut notes start with a timing tier, then gesture quality can cap the final resul
 
 | Tier | Timing | Score weight |
 |------|--------|--------------|
-| Tier 3 | +/- 30 ms | 100% |
-| Tier 2 | +/- 60 ms | 90% |
-| Tier 1 | +/- 120 ms | 50% |
-| Miss | outside +/- 120 ms, or invalid gesture | 0% |
+| Tier 3 | +/- 40 ms | 100% |
+| Tier 2 | +/- 80 ms | 90% |
+| Tier 1 | +/- 160 ms | 50% |
+| Miss | outside +/- 160 ms, or invalid gesture | 0% |
 
 | Gesture metric | Tier 3 | Tier 2 | Tier 1 | Miss |
 |----------------|--------|--------|--------|------|
@@ -51,7 +51,16 @@ Calculation of gesture metrics observes the cursor movement through a "judgement
 
 ## Flow Judgement
 
-Flow notes use the same timing tiers as cut notes. Consecutive flow anchors within 700 ms are linked into a phrase. Each anchor is scored individually, and continuity through the phrase can cap later anchors when the pointer stalls, breaks path, or jumps between anchors without a readable motion.
+Flow notes use the same timing tiers as cut notes, but their gesture metrics are deliberately more lenient than cut so a continuous motion feels forgiving. Consecutive flow anchors within 700 ms are linked into a phrase. Each anchor is scored individually, and continuity through the phrase can cap later anchors when the pointer stalls, breaks path, or jumps between anchors without a readable motion.
+
+| Gesture metric | Tier 3 | Tier 2 | Tier 1 | Miss |
+|----------------|--------|--------|--------|------|
+| Direction error | <= 40 degrees | <= 65 degrees | <= 95 degrees | > 95 degrees |
+| Contact distance | <= 65 logical px | <= 95 logical px | <= 130 logical px | > 130 logical px |
+| Travel | >= 24 logical px | >= 12 logical px | >= 4 logical px | < 4 logical px |
+| Continuity error | <= 45 degrees | <= 70 degrees | <= 100 degrees | > 100 degrees |
+
+Continuity error is the angle between the pointer's motion through an anchor and the path from the previous hit anchor. The first anchor of a phrase has no continuity constraint; an anchor following a missed or unhit anchor is capped at Tier 1.
 
 ## Lyric Judgement
 

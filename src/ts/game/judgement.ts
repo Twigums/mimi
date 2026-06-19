@@ -1,8 +1,8 @@
 import { angleDiff, clamp } from "../core/utils";
 
-export const TIER3_MS               = 30;
-export const TIER2_MS               = 60;
-export const TIER1_MS               = 120;
+export const TIER3_MS               = 40;
+export const TIER2_MS               = 80;
+export const TIER1_MS               = 160;
 export const CUT_METRIC_WINDOW_MS   = 240;
 export const MAX_POINTS             = 100;
 export const TIER3_POINTS           = 100;
@@ -18,10 +18,21 @@ export const CUT_CONTACT_TIER1   = 110;
 export const CUT_TRAVEL_TIER3    = 40;
 export const CUT_TRAVEL_TIER2    = 24;
 export const CUT_TRAVEL_TIER1    = 8;
+// Flow gesture caps are deliberately looser than cut: flow rewards a continuous
+// motion, so direction/contact/travel forgive more than a precise slash.
+export const FLOW_DIRECTION_TIER3 = 40 * Math.PI / 180;
+export const FLOW_DIRECTION_TIER2 = 65 * Math.PI / 180;
+export const FLOW_DIRECTION_TIER1 = 95 * Math.PI / 180;
+export const FLOW_CONTACT_TIER3  = 65;
+export const FLOW_CONTACT_TIER2  = 95;
+export const FLOW_CONTACT_TIER1  = 130;
+export const FLOW_TRAVEL_TIER3   = 24;
+export const FLOW_TRAVEL_TIER2   = 12;
+export const FLOW_TRAVEL_TIER1   = 4;
 export const FLOW_LINK_MAX_MS    = 700;
-export const FLOW_CONT_TIER3     = 30 * Math.PI / 180;
-export const FLOW_CONT_TIER2     = 55 * Math.PI / 180;
-export const FLOW_CONT_TIER1     = 85 * Math.PI / 180;
+export const FLOW_CONT_TIER3     = 45 * Math.PI / 180;
+export const FLOW_CONT_TIER2     = 70 * Math.PI / 180;
+export const FLOW_CONT_TIER1     = 100 * Math.PI / 180;
 
 export type NoteKind   = "cut" | "flow" | "lyric";
 export type HitResult  = "tier3" | "tier2" | "tier1" | "miss";
@@ -221,18 +232,25 @@ function buildCandidate(
   const durationMs = end.songMs - start.songMs;
   const offsetMs = impactSongMs - note.time;
 
+  const isFlow = note.kind === "flow";
   const timingScore = scoreFor(offsetMs);
-  const contactCap = capUpper(contactDistance, CUT_CONTACT_TIER3, CUT_CONTACT_TIER2, CUT_CONTACT_TIER1);
-  const travelCap = capLower(travel, CUT_TRAVEL_TIER3, CUT_TRAVEL_TIER2, CUT_TRAVEL_TIER1);
+  const contactCap = isFlow
+    ? capUpper(contactDistance, FLOW_CONTACT_TIER3, FLOW_CONTACT_TIER2, FLOW_CONTACT_TIER1)
+    : capUpper(contactDistance, CUT_CONTACT_TIER3, CUT_CONTACT_TIER2, CUT_CONTACT_TIER1);
+  const travelCap = isFlow
+    ? capLower(travel, FLOW_TRAVEL_TIER3, FLOW_TRAVEL_TIER2, FLOW_TRAVEL_TIER1)
+    : capLower(travel, CUT_TRAVEL_TIER3, CUT_TRAVEL_TIER2, CUT_TRAVEL_TIER1);
   let directionError = 0;
   let directionCap: HitResult = "tier3";
   let continuityCap: HitResult = "tier3";
 
   if (note.kind !== "lyric") {
     directionError = Math.abs(angleDiff(direction, note.direction));
-    directionCap = capUpper(directionError, CUT_DIRECTION_TIER3, CUT_DIRECTION_TIER2, CUT_DIRECTION_TIER1);
+    directionCap = isFlow
+      ? capUpper(directionError, FLOW_DIRECTION_TIER3, FLOW_DIRECTION_TIER2, FLOW_DIRECTION_TIER1)
+      : capUpper(directionError, CUT_DIRECTION_TIER3, CUT_DIRECTION_TIER2, CUT_DIRECTION_TIER1);
 
-    if (note.kind === "flow") {
+    if (isFlow) {
       continuityCap = flowContinuityCap(note, direction, previousFlowNote);
     }
   }

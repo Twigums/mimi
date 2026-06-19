@@ -177,14 +177,24 @@ export function createGame(deps: GameDeps): GameHandle {
     const source = audioCtx.createBufferSource();
     const resultGain = audioCtx.createGain();
     source.buffer = hitSoundBuffer;
-    source.playbackRate.value = result === "tier3" ? 1.08
+    source.playbackRate.value = result === "tier3" ? 1.2
       : result === "tier2" ? 1.0
-      : 0.92;
+      : 0.85;
     resultGain.gain.value = result === "tier3" ? 1.0
-      : result === "tier2" ? 0.85
-      : 0.62;
+      : result === "tier2" ? 0.82
+      : 0.6;
     source.connect(resultGain);
-    resultGain.connect(hitsoundGain);
+    if (result === "tier3") {
+      // brighten the perfect hit so it reads as distinctly sharper/crisper
+      const bright = audioCtx.createBiquadFilter();
+      bright.type = "highshelf";
+      bright.frequency.value = 3200;
+      bright.gain.value = 10;
+      resultGain.connect(bright);
+      bright.connect(hitsoundGain);
+    } else {
+      resultGain.connect(hitsoundGain);
+    }
     source.start();
   };
 

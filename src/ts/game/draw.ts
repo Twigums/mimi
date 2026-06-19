@@ -1,8 +1,8 @@
 import type { Note } from "./engine";
 import type { TrailShape } from "../core/settings";
 
-export const NOTE_RADIUS  = 42;
-export const LYRIC_RADIUS = 28;
+export const NOTE_RADIUS  = 52;
+export const LYRIC_RADIUS = 34;
 
 interface NoteColors {
   base: string;
