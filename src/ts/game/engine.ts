@@ -312,6 +312,32 @@ export function createGame(deps: GameDeps): GameHandle {
     }
   };
 
+  // Flow anchors take their direction from the ribbon they trace: the local tangent
+  // is the bisector of the incoming (prev->this) and outgoing (this->next) unit chords,
+  // so the arrow and the judged direction follow the shaped path instead of a hand-set
+  // angle. A lone anchor (no links) returns null and keeps its authored direction.
+  const flowTangent = (index: number): number | null => {
+    const n = notes[index];
+    let tx = 0, ty = 0;
+    if (n.flowPrevIndex !== undefined) {
+      const p = notes[n.flowPrevIndex];
+      const dx = n.x - p.x, dy = n.y - p.y, len = Math.hypot(dx, dy);
+      if (len > 0) { tx += dx / len; ty += dy / len; }
+    }
+    if (n.flowNextIndex !== undefined) {
+      const x = notes[n.flowNextIndex];
+      const dx = x.x - n.x, dy = x.y - n.y, len = Math.hypot(dx, dy);
+      if (len > 0) { tx += dx / len; ty += dy / len; }
+    }
+    if (tx === 0 && ty === 0) return null;
+    return Math.atan2(ty, tx);
+  };
+
+  const applyFlowTangent = (index: number): void => {
+    const t = flowTangent(index);
+    if (t !== null) notes[index].direction = t;
+  };
+
   const linkFlowPhrases = (): void => {
     let prevFlowIndex: number | null = null;
     for (let i = 0; i < notes.length; i++) {
@@ -330,6 +356,10 @@ export function createGame(deps: GameDeps): GameHandle {
         }
       }
       prevFlowIndex = i;
+    }
+    // Links are now resolved for the whole chart; derive each anchor's tangent.
+    for (let i = 0; i < notes.length; i++) {
+      if (notes[i].kind === "flow") applyFlowTangent(i);
     }
   };
 
@@ -544,8 +574,10 @@ export function createGame(deps: GameDeps): GameHandle {
         if (prev && prev.kind === "flow") {
           note.flowPrevIndex = spec.flowPrevIndex;
           prev.flowNextIndex = index;
+          applyFlowTangent(spec.flowPrevIndex); // prev gained an outgoing chord
         }
       }
+      if (spec.kind === "flow") applyFlowTangent(index);
       return index;
     },
 

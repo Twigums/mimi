@@ -160,28 +160,36 @@ check("lyric notes ignore gesture direction but still require motion", () => {
   assert.equal(resultFor(judgeGesture(lyric, lineThroughCenter(Math.PI / 2, 40))), "tier3");
 });
 
-check("flow anchors after an unhit previous anchor are capped to tier 1", () => {
+check("flow continuity ignores the previous anchor's grade (no cascade)", () => {
+  // Last anchor of a pair: its tangent is the incoming chord (rightward). A clean
+  // rightward sweep flows perfectly, so it earns tier 3 regardless of how the
+  // previous anchor was judged — one weak anchor no longer caps the rest.
   const flow = note({ kind: "flow", flowPrevIndex: 0 });
-  const prev = { x: CENTER_X - 120, y: CENTER_Y, state: "pending" as const };
+  const prev = { x: CENTER_X - 120, y: CENTER_Y };
 
   const gesture = withLatest(lineThroughCenter(0, 40), NOTE_TIME + CUT_METRIC_WINDOW_MS);
-  assert.equal(resultFor(judgeGesture(flow, gesture, prev)), "tier1");
+  assert.equal(resultFor(judgeGesture(flow, gesture, prev)), "tier3");
 });
 
-check("flow path continuity can reject a sharp path break", () => {
-  // Previous anchor sits left of this one, so the linking path points right. A
-  // gesture that sweeps left through the anchor reverses that path, breaking
-  // continuity hard enough to miss (a milder break only caps to a lower tier).
-  const flow = note({ kind: "flow", flowPrevIndex: 0, direction: Math.PI });
-  const prev = { x: CENTER_X - 120, y: CENTER_Y, state: "hit" as const, hitResult: "tier3" as const };
-  const gesture = samples([
-    [960, CENTER_X + 40, CENTER_Y],
-    [1040, CENTER_X - 40, CENTER_Y],
-    [NOTE_TIME + CUT_METRIC_WINDOW_MS, CENTER_X - 120, CENTER_Y],
-  ]);
+check("a lone flow anchor judges motion only, ignoring direction", () => {
+  // No phrase neighbours means no ribbon tangent, so direction is free (like a lyric).
+  const lone = note({ kind: "flow" });
+  const gesture = withLatest(lineThroughCenter(Math.PI / 2, 40), NOTE_TIME + CUT_METRIC_WINDOW_MS);
+
+  assert.equal(resultFor(judgeGesture(lone, gesture)), "tier3");
+});
+
+check("a sharp flow corner caps continuity even when the tangent is followed", () => {
+  // Middle anchor whose ribbon turns ~160 degrees: the engine-set tangent bisects to
+  // 80 degrees. Following the tangent satisfies direction, but the heading is 80
+  // degrees off the incoming chord, so continuity — not direction — caps it to tier 2.
+  const eighty = 80 * Math.PI / 180;
+  const flow = note({ kind: "flow", flowPrevIndex: 0, flowNextIndex: 2, direction: eighty });
+  const prev = { x: CENTER_X - 120, y: CENTER_Y };
+  const gesture = withLatest(lineThroughCenter(eighty, 40), NOTE_TIME + CUT_METRIC_WINDOW_MS);
   const judgement = judged(judgeGesture(flow, gesture, prev));
 
-  assert.equal(judgement.result, "miss");
+  assert.equal(judgement.result, "tier2");
   assert.equal(judgement.issue, "continuity");
 });
 

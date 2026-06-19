@@ -52,16 +52,20 @@ Calculation of gesture metrics observes the cursor movement through a "judgement
 
 ## Flow Judgement
 
-Flow notes use the same timing tiers as cut notes, but their gesture metrics are deliberately more lenient than cut so a continuous motion feels forgiving. Consecutive flow anchors within 700 ms are linked into a phrase. Each anchor is scored individually, and continuity through the phrase can cap later anchors when the pointer stalls, breaks path, or jumps between anchors without a readable motion.
+Flow notes use the same timing tiers as cut notes, but their gesture metrics are deliberately more lenient than cut so a continuous motion feels forgiving. Consecutive flow anchors within 700 ms are linked into a phrase. The anchors are read as a single shaped ribbon: the path drawn between consecutive anchors is the line the player traces. Each anchor is scored individually against that shape.
+
+A flow anchor's direction is not authored; it is the **local ribbon tangent**, the bisector of the incoming chord (previous anchor to this one) and the outgoing chord (this anchor to the next). End anchors use the single chord they have. This tangent is what the anchor's arrow displays and what direction error is measured against, so a smoothly curving motion that follows the ribbon scores well instead of being penalised for not pointing straight at the previous anchor.
 
 | Gesture metric | Tier 3 | Tier 2 | Tier 1 | Miss |
 |----------------|--------|--------|--------|------|
 | Direction error | <= 40 degrees | <= 65 degrees | <= 95 degrees | > 95 degrees |
 | Contact distance | <= 65 logical px | <= 95 logical px | <= 130 logical px | > 130 logical px |
 | Travel | >= 24 logical px | >= 12 logical px | >= 4 logical px | < 4 logical px |
-| Continuity error | <= 45 degrees | <= 70 degrees | <= 100 degrees | > 100 degrees |
+| Continuity error | <= 60 degrees | <= 90 degrees | <= 120 degrees | > 120 degrees |
 
-Continuity error is the angle between the pointer's motion through an anchor and the path from the previous hit anchor. The first anchor of a phrase has no continuity constraint; an anchor following a missed or unhit anchor is capped at Tier 1.
+Direction error is the angle between the gesture's heading and the anchor's ribbon tangent. A lone flow anchor with no linked neighbours has no tangent, so its direction is unconstrained and it is judged on motion alone, like a lyric.
+
+Continuity error is the angle between the gesture's heading and the incoming chord from the previous anchor. It guards forward progress through the phrase: any heading along the ribbon — including curves and corners up to roughly a 120-degree turn — keeps full credit, while heading sideways or backward against the phrase falls off toward a miss. The first anchor of a phrase has no continuity constraint. Continuity is judged purely on the motion and no longer depends on the previous anchor's grade, so a single weak anchor does not cap the rest of the phrase.
 
 ## Lyric Judgement
 

@@ -49,7 +49,7 @@ l, 5100, 0, 360, 310
 |-------|---------|
 | `kind` | `c` cut, `s` flow anchor, or `l` lyric |
 | `time` | Note time in the header's `time_unit` |
-| `degrees` | Direction in degrees; ignored for lyric notes |
+| `degrees` | Direction in degrees; ignored for lyric notes, and ignored for flow anchors (their direction is the ribbon tangent derived from neighbouring anchors) |
 | `x` | Horizontal position in the 800 x 600 logical play area |
 | `y` | Vertical position in the 800 x 600 logical play area |
 | `char` | Optional lyric character override |
@@ -105,7 +105,7 @@ Common values:
 | `45` | down-right |
 | `-45` | up-right |
 
-The compiler converts authored degrees to the runtime radian angle used by the game engine.
+The compiler converts authored degrees to the runtime radian angle used by the game engine. Only cut notes use the authored direction. Flow anchors override it at load time with the local ribbon tangent (the bisector of the chords to the neighbouring anchors), so chart the flow path by anchor positions and let the direction follow.
 
 ## Timing
 

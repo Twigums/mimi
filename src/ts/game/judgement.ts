@@ -30,9 +30,12 @@ export const FLOW_TRAVEL_TIER3   = 24;
 export const FLOW_TRAVEL_TIER2   = 12;
 export const FLOW_TRAVEL_TIER1   = 4;
 export const FLOW_LINK_MAX_MS    = 700;
-export const FLOW_CONT_TIER3     = 45 * Math.PI / 180;
-export const FLOW_CONT_TIER2     = 70 * Math.PI / 180;
-export const FLOW_CONT_TIER1     = 100 * Math.PI / 180;
+// Continuity is lenient on purpose: any forward heading along the ribbon (including
+// smooth curves and corners up to a ~120 degrees turn) keeps full credit, while
+// heading sideways or backward against the phrase falls off toward a miss.
+export const FLOW_CONT_TIER3     = 60 * Math.PI / 180;
+export const FLOW_CONT_TIER2     = 90 * Math.PI / 180;
+export const FLOW_CONT_TIER1     = 120 * Math.PI / 180;
 
 export type NoteKind   = "cut" | "flow" | "lyric";
 export type HitResult  = "tier3" | "tier2" | "tier1" | "miss";
@@ -46,13 +49,12 @@ export interface JudgementNote {
   y: number;
   direction: number;
   flowPrevIndex?: number;
+  flowNextIndex?: number;
 }
 
 export interface PreviousFlowNote {
   x: number;
   y: number;
-  state: "pending" | "hit" | "missed";
-  hitResult?: HitResult;
 }
 
 export interface PointerSample {
@@ -207,11 +209,15 @@ function issueFor(
   return undefined;
 }
 
-function flowContinuityCap(note: JudgementNote, moveAngle: number, previousFlowNote?: PreviousFlowNote): HitResult {
-  if (note.flowPrevIndex === undefined) return "tier3";
-  if (!previousFlowNote || previousFlowNote.state !== "hit" || previousFlowNote.hitResult === "miss") return "tier1";
-  const pathAngle = Math.atan2(note.y - previousFlowNote.y, note.x - previousFlowNote.x);
-  return capUpper(Math.abs(angleDiff(moveAngle, pathAngle)), FLOW_CONT_TIER3, FLOW_CONT_TIER2, FLOW_CONT_TIER1);
+// Continuity guards forward progress through the phrase: the gesture should head
+// along the ribbon away from the previous anchor, not stall or backtrack. It is the
+// angle between the gesture heading and the incoming chord (prev -> this), judged
+// regardless of the previous anchor's own grade, so one weak anchor no longer caps
+// the rest of the phrase. The first anchor (no previous) has no continuity constraint.
+function flowContinuityCap(note: JudgementNote, heading: number, previousFlowNote?: PreviousFlowNote): HitResult {
+  if (note.flowPrevIndex === undefined || !previousFlowNote) return "tier3";
+  const incoming = Math.atan2(note.y - previousFlowNote.y, note.x - previousFlowNote.x);
+  return capUpper(Math.abs(angleDiff(heading, incoming)), FLOW_CONT_TIER3, FLOW_CONT_TIER2, FLOW_CONT_TIER1);
 }
 
 function buildCandidate(
@@ -244,15 +250,17 @@ function buildCandidate(
   let directionCap: HitResult = "tier3";
   let continuityCap: HitResult = "tier3";
 
-  if (note.kind !== "lyric") {
+  if (note.kind === "cut") {
     directionError = Math.abs(angleDiff(direction, note.direction));
-    directionCap = isFlow
-      ? capUpper(directionError, FLOW_DIRECTION_TIER3, FLOW_DIRECTION_TIER2, FLOW_DIRECTION_TIER1)
-      : capUpper(directionError, CUT_DIRECTION_TIER3, CUT_DIRECTION_TIER2, CUT_DIRECTION_TIER1);
-
-    if (isFlow) {
-      continuityCap = flowContinuityCap(note, direction, previousFlowNote);
+    directionCap = capUpper(directionError, CUT_DIRECTION_TIER3, CUT_DIRECTION_TIER2, CUT_DIRECTION_TIER1);
+  } else if (isFlow) {
+    // Direction follows the engine-computed ribbon tangent (stored in note.direction).
+    // A lone anchor with no phrase neighbours has no tangent, so direction is free.
+    if (note.flowPrevIndex !== undefined || note.flowNextIndex !== undefined) {
+      directionError = Math.abs(angleDiff(direction, note.direction));
+      directionCap = capUpper(directionError, FLOW_DIRECTION_TIER3, FLOW_DIRECTION_TIER2, FLOW_DIRECTION_TIER1);
     }
+    continuityCap = flowContinuityCap(note, direction, previousFlowNote);
   }
 
   const result = minTier(
