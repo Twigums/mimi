@@ -87,6 +87,7 @@ export interface GameHandle {
   setCharLookup(findClosestChar: (timeMs: number) => { text: string; distMs: number } | null): void;
   reset(): void;
   start(): void;
+  setPlaying(playing: boolean): void;
   tick(songMs: number): void;
   getStats(): GameStats;
   setApproachMs(ms: number): void;
@@ -506,6 +507,12 @@ export function createGame(deps: GameDeps): GameHandle {
       onPlayingChange(true);
     },
 
+    // Reflect a playback state change that did NOT originate from start()/reset()
+    // (e.g. the player pausing or stopping on its own) without wiping the score.
+    setPlaying(playing: boolean): void {
+      onPlayingChange(playing);
+    },
+
     getStats(): GameStats {
       return {
         score,
@@ -559,7 +566,11 @@ export function createGame(deps: GameDeps): GameHandle {
           if (n.state === "pending") tryHit(n, songMs, notes[i - 1]?.time);
         }
         if (skipExpiry) {
-          if (songMs > approachMs) skipExpiry = false;
+          // Clear only once the timer has actually rewound into the lead-in window.
+          // A stale, large mid-song position (the old play head right after reset(),
+          // before the async seek lands) must NOT re-enable expiry — otherwise the
+          // next tick mass-misses every freshly-pending note before the song restarts.
+          if (songMs <= approachMs) skipExpiry = false;
         } else {
           expireMisses(songMs);
         }
