@@ -40,6 +40,7 @@ export interface Note {
   state: NoteState;
   hitResult?: HitResult;
   lyricChar?: string;
+  directionPinned?: boolean;
   flowPrevIndex?: number;
   flowNextIndex?: number;
   flowTanX?: number;
@@ -322,12 +323,14 @@ export function createGame(deps: GameDeps): GameHandle {
     }
   };
 
-  // Flow anchors take their direction from the ribbon they trace. The tangent points
-  // along the bisector of the incoming (prev->this) and outgoing (this->next) unit
-  // chords; its length is half the shorter adjacent chord, a tension that keeps the
-  // cubic Hermite ribbon from overshooting where spacing is uneven. The arrow and the
-  // judged direction use the angle; `draw` uses the full vector for a smooth curve. A
-  // lone anchor (no links) or a 180-degree cusp returns null and keeps its direction.
+  // Flow anchors take their direction from the ribbon they trace. By default the
+  // tangent points along the bisector of the incoming (prev->this) and outgoing
+  // (this->next) unit chords; an anchor whose chart row authored a `degrees` value
+  // (`directionPinned`) instead pins that heading. Either way the length is the
+  // tension weight times the shorter adjacent chord, which keeps the cubic Hermite
+  // ribbon from overshooting where spacing is uneven. The arrow and the judged shape
+  // use the angle; `draw` uses the full vector. A lone anchor (no links) or a
+  // 180-degree cusp without a pin returns null and keeps its current direction.
   const flowTangent = (index: number): { x: number; y: number } | null => {
     const n = notes[index];
     let dirX = 0, dirY = 0;
@@ -342,10 +345,19 @@ export function createGame(deps: GameDeps): GameHandle {
       const dx = x.x - n.x, dy = x.y - n.y, len = Math.hypot(dx, dy);
       if (len > 0) { dirX += dx / len; dirY += dy / len; span = Math.min(span, len); }
     }
-    const dirLen = Math.hypot(dirX, dirY);
-    if (dirLen === 0 || !Number.isFinite(span)) return null;
+    if (!Number.isFinite(span)) return null; // lone anchor: no ribbon, no magnitude
+    let ux: number, uy: number;
+    if (n.directionPinned) {
+      ux = Math.cos(n.direction);
+      uy = Math.sin(n.direction);
+    } else {
+      const dirLen = Math.hypot(dirX, dirY);
+      if (dirLen === 0) return null; // 180-degree cusp with no authored heading
+      ux = dirX / dirLen;
+      uy = dirY / dirLen;
+    }
     const mag = FLOW_TANGENT_WEIGHT * span;
-    return { x: (dirX / dirLen) * mag, y: (dirY / dirLen) * mag };
+    return { x: ux * mag, y: uy * mag };
   };
 
   const applyFlowTangent = (index: number): void => {

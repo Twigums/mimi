@@ -66,6 +66,8 @@ Shape error compares the gesture and the ribbon as **heading sequences**: each i
 
 Contact currently uses the same thresholds as cut while flow contact is being tuned. Travel still requires real motion through the anchor.
 
+The ribbon between anchors is a smooth curve whose heading at each anchor is the tangent to that curve. By default the tangent is derived automatically from the neighbouring anchors, but a chart may pin an anchor's tangent by authoring a `degrees` value (see the chart format), which forces the curve's heading there while the rest stay automatic.
+
 ## Lyric Judgement
 
 Lyric notes use the same timing tiers and score weights. The player must move through the lyric interaction circle. Direction does not matter, but meaningful motion still matters; resting on the character should not earn a high result.

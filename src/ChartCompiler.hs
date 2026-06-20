@@ -33,12 +33,13 @@ readDouble name s = case reads (trim s) of
     _         -> Left $ "Invalid number for '" ++ name ++ "': " ++ s
 
 data NoteEntry = NoteEntry
-    { neKind      :: String
-    , neTimeMs    :: Double
-    , neX         :: Double
-    , neY         :: Double
-    , neDirection :: Double
-    , neLyricChar :: Maybe String
+    { neKind           :: String
+    , neTimeMs         :: Double
+    , neX              :: Double
+    , neY              :: Double
+    , neDirection      :: Double
+    , neDirectionPinned :: Bool
+    , neLyricChar      :: Maybe String
     }
 
 parseNote :: (Double -> Double) -> String -> Either String NoteEntry
@@ -49,10 +50,16 @@ parseNote toMs line =
         _                   -> Left $ "Expected 5 or 6 comma-separated fields: " ++ line
   where
     go k t d x y mChar = do
-        t'  <- readDouble "time"    t
-        deg <- readDouble "degrees" d
-        nx  <- readDouble "x"       x
-        ny  <- readDouble "y"       y
+        t'  <- readDouble "time" t
+        nx  <- readDouble "x"    x
+        ny  <- readDouble "y"    y
+        -- An empty degrees field means "no authored direction": flow anchors then
+        -- derive it from the ribbon tangent. A present value pins the direction.
+        (radians, pinned) <- case trim d of
+            ""  -> Right (0.0, False)
+            ds  -> do
+                deg <- readDouble "degrees" ds
+                Right (normalizeAngle (-(deg * pi / 180.0)), True)
         let kind = case map toLower k of
                 "c"      -> "cut"
                 "cut"    -> "cut"
@@ -66,8 +73,7 @@ parseNote toMs line =
                 "lyric"  -> "lyric"
                 _        -> map toLower k
         let timeMs  = toMs t'
-        let radians = normalizeAngle (-(deg * pi / 180.0))
-        Right $ NoteEntry kind timeMs nx ny radians mChar
+        Right $ NoteEntry kind timeMs nx ny radians pinned mChar
 
 normalizeAngle :: Double -> Double
 normalizeAngle a
@@ -88,6 +94,7 @@ renderNote n =
     ", \"x\": "            ++ showNum (neX         n) ++
     ", \"y\": "            ++ showNum (neY         n) ++
     ", \"direction\": "    ++ show    (neDirection n) ++
+    (if neDirectionPinned n then ", \"directionPinned\": true" else "") ++
     maybe "" (\c -> ", \"lyricChar\": \"" ++ c ++ "\"") (neLyricChar n) ++
     ", \"state\": \"pending\" }"
 

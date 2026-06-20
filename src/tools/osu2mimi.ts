@@ -146,10 +146,10 @@ function main(): void {
         "# kind, time_ms, degrees, x, y",
     );
 
-    // degrees is a fixed 0: flow and lyric notes ignore it (flow direction comes
-    // from the ribbon tangent at runtime).
+    // degrees is left empty (no authored direction): flow anchors derive direction
+    // from the ribbon tangent at runtime, and lyric notes ignore it.
     for (const note of notes) {
-        out.push(`${note.kind}, ${note.time}, 0, ${note.x}, ${note.y}`);
+        out.push(`${note.kind}, ${note.time}, , ${note.x}, ${note.y}`);
     }
 
     process.stdout.write(out.join("\n") + "\n");
