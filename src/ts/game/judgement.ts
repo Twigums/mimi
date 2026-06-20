@@ -46,7 +46,12 @@ export const FLOW_CONT_TIER1     = 120 * Math.PI / 180;
 export type NoteKind   = "cut" | "flow" | "lyric";
 export type HitResult  = "tier3" | "tier2" | "tier1" | "miss";
 export type HitTiming  = "early" | "late" | "on";
-export type IssueReason = "timing" | "contact" | "direction" | "travel" | "flow";
+// The four player-facing issue buckets. `gesture` captures whether the stroke
+// itself was good — a cut's travel/slash and a flow's traced shape both report
+// here (there is no separate `travel`/`flow`/`continuity` issue). `direction`
+// applies to cut only; lyric and flow have no direction issue (flow folds heading
+// into its shape, reported as `gesture`).
+export type IssueReason = "timing" | "contact" | "direction" | "gesture";
 
 export interface JudgementNote {
   kind: NoteKind;
@@ -240,20 +245,21 @@ function contactForSegment(note: JudgementNote, start: PointerSample, end: Point
 // result is the minimum of all caps, at least one cap matches it for any
 // non-Tier-3 note; a clean Tier 3 has no issue. For a miss this resolves to the
 // first metric that fell past Tier 1, identical to the previous miss-only logic.
+// Travel (cut slash / flow motion) and the flow shape cap both surface as the
+// single `gesture` issue.
 function issueFor(
   result: HitResult,
   timingCap: HitResult,
   contactCap: HitResult,
-  travelCap: HitResult,
   directionCap: HitResult,
+  travelCap: HitResult,
   flowCap: HitResult,
 ): IssueReason | undefined {
   if (result === "tier3") return undefined;
   if (timingCap === result) return "timing";
   if (contactCap === result) return "contact";
-  if (travelCap === result) return "travel";
   if (directionCap === result) return "direction";
-  if (flowCap === result) return "flow";
+  if (travelCap === result || flowCap === result) return "gesture";
   return undefined;
 }
 
@@ -323,7 +329,7 @@ function buildCandidate(
     : result === "tier2" ? TIER2_POINTS
     : result === "tier1" ? TIER1_POINTS
     : 0;
-  const issue = issueFor(result, timingScore.result, contactCap, travelCap, directionCap, flowCap);
+  const issue = issueFor(result, timingScore.result, contactCap, directionCap, travelCap, flowCap);
 
   return {
     result,

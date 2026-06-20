@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useLang } from "./hooks/useLang";
 import { computeGrade, computeAccuracy, JUDGEMENT_LABEL } from "../game/grade";
 import { shareResult } from "../song/share";
-import type { GameStats, IssueReason } from "../game/engine";
+import type { GameStats, IssueReason, NoteKind } from "../game/engine";
 
 const LABELS_EN = {
   title: "Results", score: "Score", accuracy: "Accuracy",
@@ -19,28 +19,35 @@ const ISSUE_LABELS_EN: Record<IssueReason, string> = {
   timing: "timing",
   contact: "contact",
   direction: "direction",
-  travel: "travel",
-  flow: "flow",
+  gesture: "gesture",
 };
 const ISSUE_LABELS_JP: Record<IssueReason, string> = {
   timing: "タイミング",
   contact: "接触",
   direction: "方向",
-  travel: "距離",
-  flow: "フロー",
+  gesture: "ジェスチャー",
 };
-const ISSUE_ORDER: IssueReason[] = ["timing", "contact", "direction", "travel", "flow"];
+const ISSUE_ORDER: IssueReason[] = ["timing", "contact", "direction", "gesture"];
+
+const NOTE_LABELS_EN: Record<NoteKind, string> = { cut: "cut", flow: "flow", lyric: "lyric" };
+const NOTE_LABELS_JP: Record<NoteKind, string> = { cut: "カット", flow: "フロー", lyric: "歌詞" };
+const NOTE_ORDER: NoteKind[] = ["cut", "flow", "lyric"];
 
 // Tiers that can carry an issue (Tier 3 is clean by definition).
 type IssueTier = "tier2" | "tier1" | "miss";
 const ISSUE_TIERS: IssueTier[] = ["tier2", "tier1", "miss"];
 
-// Hovering a tier filters the issue row to that tier; hovering an issue
-// re-counts the tier breakdown to that issue. Both directions stay linked.
+// Every non-Tier-3 hit lands on one cell of each breakdown dimension (tier, note
+// kind, issue). Hovering any cell scopes the other two dimensions to hits matching
+// it, and re-highlights this dimension's own counts; all three rows stay linked.
+type Dim = "tier" | "note" | "issue";
 type Focus =
-  | { kind: "tier"; tier: IssueTier }
-  | { kind: "issue"; issue: IssueReason }
+  | { dim: "tier"; tier: IssueTier }
+  | { dim: "note"; note: NoteKind }
+  | { dim: "issue"; issue: IssueReason }
   | null;
+
+interface NonPerfectHit { tier: IssueTier; note: NoteKind; issue: IssueReason; }
 
 interface Props {
   stats: GameStats;
@@ -61,6 +68,7 @@ export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, artist
 
   const labels = lang === "jp" ? LABELS_JP : LABELS_EN;
   const issueLabels = lang === "jp" ? ISSUE_LABELS_JP : ISSUE_LABELS_EN;
+  const noteLabels = lang === "jp" ? NOTE_LABELS_JP : NOTE_LABELS_EN;
   const acceptedHits = stats.hits.filter(hit => hit.result !== "miss");
   const avgOffset = acceptedHits.length === 0
     ? 0
@@ -68,29 +76,52 @@ export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, artist
   const earlyCount = acceptedHits.filter(hit => hit.timing === "early").length;
   const lateCount = acceptedHits.filter(hit => hit.timing === "late").length;
 
-  // issueByTier[tier][issue] = count; every non-Tier-3 hit carries one issue.
-  const issueByTier: Record<IssueTier, Partial<Record<IssueReason, number>>> = {
-    tier2: {}, tier1: {}, miss: {},
-  };
+  // Every non-Tier-3 hit carries an issue; flatten them so each dimension's
+  // counts are a simple predicate over the same list.
+  const npHits: NonPerfectHit[] = [];
   for (const hit of stats.hits) {
     if (hit.result === "tier3" || !hit.issue) continue;
-    const tier = hit.result as IssueTier;
-    issueByTier[tier][hit.issue] = (issueByTier[tier][hit.issue] ?? 0) + 1;
+    npHits.push({ tier: hit.result as IssueTier, note: hit.kind, issue: hit.issue });
   }
-  const issueTotals: Partial<Record<IssueReason, number>> = {};
-  for (const tier of ISSUE_TIERS) {
-    for (const issue of ISSUE_ORDER) {
-      const n = issueByTier[tier][issue];
-      if (n) issueTotals[issue] = (issueTotals[issue] ?? 0) + n;
-    }
-  }
-  const presentIssues = ISSUE_ORDER.filter(issue => (issueTotals[issue] ?? 0) > 0);
+  const matchesFocus = (h: NonPerfectHit): boolean =>
+    focus === null
+      || (focus.dim === "tier" ? h.tier === focus.tier
+        : focus.dim === "note" ? h.note === focus.note
+        : h.issue === focus.issue);
+  const countWhere = (pred: (h: NonPerfectHit) => boolean): number => npHits.filter(pred).length;
 
-  // Counts shown depend on focus: a focused tier scopes the issue row to that
-  // tier, a focused issue scopes the tier breakdown to that issue.
-  const issueCounts = focus?.kind === "tier" ? issueByTier[focus.tier] : issueTotals;
+  // The hovered dimension keeps its own (unscoped) counts; the other two scope to
+  // the focus. The full counts (used when this dimension is focused or nothing is)
+  // are just the focus-free totals.
   const tierCount = (tier: IssueTier): number =>
-    focus?.kind === "issue" ? (issueByTier[tier][focus.issue] ?? 0) : stats[tier];
+    focus !== null && focus.dim !== "tier"
+      ? countWhere(h => h.tier === tier && matchesFocus(h))
+      : stats[tier];
+  const noteCount = (note: NoteKind): number =>
+    focus !== null && focus.dim !== "note"
+      ? countWhere(h => h.note === note && matchesFocus(h))
+      : countWhere(h => h.note === note);
+  const issueCount = (issue: IssueReason): number =>
+    focus !== null && focus.dim !== "issue"
+      ? countWhere(h => h.issue === issue && matchesFocus(h))
+      : countWhere(h => h.issue === issue);
+
+  const presentNotes = NOTE_ORDER.filter(note => countWhere(h => h.note === note) > 0);
+  const presentIssues = ISSUE_ORDER.filter(issue => countWhere(h => h.issue === issue) > 0);
+
+  // A cell is active when it is the hovered cell (same dimension) or, while a
+  // different dimension is focused, it still has matching hits; everything else
+  // dims while any focus is held.
+  const cellState = (dim: Dim, isHovered: boolean, count: number): string => {
+    const active = focus?.dim === dim ? isHovered : focus !== null && count > 0;
+    return (active ? " is-active" : "") + (focus !== null && !active ? " is-dim" : "");
+  };
+
+  // The "Issues" label notes which filter currently scopes the two issue-section
+  // rows; an issue focus doesn't scope them, so it shows no indicator.
+  const filterLabel = focus === null || focus.dim === "issue" ? null
+    : focus.dim === "tier" ? JUDGEMENT_LABEL[focus.tier]
+    : noteLabels[focus.note];
 
   const handleShare = (): void => {
     shareResult({ accuracy: `${pct}%`, grade, songName, artist, lang })
@@ -119,26 +150,21 @@ export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, artist
             <span className="results-stat__value">{pct}%</span>
           </div>
           <div className="results-breakdown">
-            <span className={`results-breakdown__tier3${focus?.kind === "issue" ? " is-dim" : ""}`}>
+            <span className={`results-breakdown__tier3${focus !== null && focus.dim !== "tier" ? " is-dim" : ""}`}>
               {JUDGEMENT_LABEL.tier3}: {stats.tier3}
             </span>
             {ISSUE_TIERS.map(tier => {
-              const active = focus?.kind === "tier"
-                ? focus.tier === tier
-                : focus?.kind === "issue"
-                  ? tierCount(tier) > 0
-                  : false;
+              const count = tierCount(tier);
               const cls = `results-breakdown__${tier} results-tierbtn`
-                + (active ? " is-active" : "")
-                + (focus !== null && !active ? " is-dim" : "");
+                + cellState("tier", focus?.dim === "tier" && focus.tier === tier, count);
               return (
                 <span
                   key={tier}
                   className={cls}
-                  onPointerEnter={() => setFocus({ kind: "tier", tier })}
+                  onPointerEnter={() => setFocus({ dim: "tier", tier })}
                   onPointerLeave={() => setFocus(null)}
                 >
-                  {JUDGEMENT_LABEL[tier]}: {tierCount(tier)}
+                  {JUDGEMENT_LABEL[tier]}: {count}
                 </span>
               );
             })}
@@ -151,35 +177,52 @@ export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, artist
           <div className="results-issues">
             <span className="results-issues__label">
               {labels.issues}
-              {focus?.kind === "tier" && (
-                <span className="results-issues__filter"> · {JUDGEMENT_LABEL[focus.tier]}</span>
+              {filterLabel !== null && (
+                <span className="results-issues__filter"> · {filterLabel}</span>
               )}
             </span>
-            <div className="results-issues__list">
-              {presentIssues.length === 0 ? (
+            {presentIssues.length === 0 ? (
+              <div className="results-issues__list">
                 <span className="results-issues__empty">{labels.clean}</span>
-              ) : presentIssues.map(issue => {
-                const count = issueCounts[issue] ?? 0;
-                const active = focus?.kind === "issue"
-                  ? focus.issue === issue
-                  : focus?.kind === "tier"
-                    ? count > 0
-                    : false;
-                const cls = "results-issue"
-                  + (active ? " is-active" : "")
-                  + (focus !== null && !active ? " is-dim" : "");
-                return (
-                  <span
-                    key={issue}
-                    className={cls}
-                    onPointerEnter={() => setFocus({ kind: "issue", issue })}
-                    onPointerLeave={() => setFocus(null)}
-                  >
-                    {issueLabels[issue]} {count}
-                  </span>
-                );
-              })}
-            </div>
+              </div>
+            ) : (
+              <>
+                <div className="results-issues__list">
+                  {presentNotes.map(note => {
+                    const count = noteCount(note);
+                    const cls = "results-issue"
+                      + cellState("note", focus?.dim === "note" && focus.note === note, count);
+                    return (
+                      <span
+                        key={note}
+                        className={cls}
+                        onPointerEnter={() => setFocus({ dim: "note", note })}
+                        onPointerLeave={() => setFocus(null)}
+                      >
+                        {noteLabels[note]} {count}
+                      </span>
+                    );
+                  })}
+                </div>
+                <div className="results-issues__list">
+                  {presentIssues.map(issue => {
+                    const count = issueCount(issue);
+                    const cls = "results-issue"
+                      + cellState("issue", focus?.dim === "issue" && focus.issue === issue, count);
+                    return (
+                      <span
+                        key={issue}
+                        className={cls}
+                        onPointerEnter={() => setFocus({ dim: "issue", issue })}
+                        onPointerLeave={() => setFocus(null)}
+                      >
+                        {issueLabels[issue]} {count}
+                      </span>
+                    );
+                  })}
+                </div>
+              </>
+            )}
           </div>
         </div>
         <div className="results-actions">
