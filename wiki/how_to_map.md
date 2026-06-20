@@ -129,7 +129,16 @@ Charts may be authored in the osu! editor and converted with:
 npm run --silent convert:osu -- path/to/file.osu > src/songs/<song-id>/hard.mimi
 ```
 
-The osu play area is scaled into mimi's 800 x 600 play area. Each hit object (hitcircle or slider head; spinners and holds are skipped) imports as a flow anchor, so consecutive objects link into flowing phrases. Give an object a **clap** hitsound in the osu editor to import it as a lyric note instead. Directions are not imported — flow anchors take their direction from the ribbon tangent — so the converter is no longer a way to author cut notes; add cut rows by hand.
+The osu play area is scaled into mimi's 800 x 600 play area (spinners and holds are skipped). The note kind is chosen by the object type and its hitsound, so you author every kind directly in the osu editor:
+
+| osu object + hitsound | mimi note |
+|-----------------------|-----------|
+| hitcircle (no special hitsound) | flow anchor, `auto` direction |
+| slider (no special hitsound) | flow anchor, direction pinned to the slider's opening |
+| slider with **whistle** | cut, direction from the slider's opening |
+| any object with **clap** | lyric |
+
+Cut and pinned flow take their direction from the slider, so use a slider for those; a whistle on a bare hitcircle has no direction and is imported as auto flow with a warning. The `finish` hitsound is unused. Consecutive flow anchors link into flowing phrases automatically.
 
 ## Minimal Example
 

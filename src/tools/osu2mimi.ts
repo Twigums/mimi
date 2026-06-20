@@ -28,19 +28,45 @@ function parseSections(text: string): Map<string, string[]> {
     return sections;
 }
 
-// Flow is the default marker for imported hit objects; a clap hitsound tags a
-// lyric note instead. Direction is no longer derived — flow anchors take their
-// direction from the ribbon tangent at runtime, so a fixed 0 is emitted.
-type NoteKind = "f" | "l";
+// Hit objects map to mimi kinds explicitly via object type + hitsound:
+//   clap                  -> lyric
+//   whistle (on a slider) -> cut, direction from the slider
+//   plain slider          -> flow, pinned to the slider's direction
+//   plain hitcircle       -> flow, direction "auto" (the ribbon tangent at runtime)
+// Cut and pinned flow need a direction, which only a slider provides; a whistle on a
+// bare circle has no direction and is warned + imported as auto flow. finish is unused.
+type NoteKind = "c" | "f" | "l";
 
 interface Note {
-    time: number;
-    x:    number;
-    y:    number;
-    kind: NoteKind;
+    time:    number;
+    x:       number;
+    y:       number;
+    kind:    NoteKind;
+    degrees: number | null; // null = "auto" (no authored direction)
 }
 
-const OSU_CLAP = 1 << 3; // hitSound bit: tags the object as a lyric note
+const OSU_TYPE_SLIDER  = 1 << 1;
+const OSU_TYPE_SPINNER = 1 << 3;
+const OSU_TYPE_HOLD    = 1 << 7;
+const OSU_HIT_WHISTLE  = 1 << 1;
+const OSU_HIT_CLAP     = 1 << 3;
+
+// Direction (mimi screen-degrees) of a slider's opening, from its head to the first
+// curve point. Returns null when the slider has no usable curve data.
+function sliderDegrees(parts: string[], osuX: number, osuY: number): number | null {
+    if (parts.length < 6) return null;
+    const pipeIdx = parts[5].indexOf("|");
+    if (pipeIdx === -1) return null;
+    const [cxStr, cyStr] = parts[5].slice(pipeIdx + 1).split("|")[0].split(":");
+    const cx = parseFloat(cxStr);
+    const cy = parseFloat(cyStr);
+    const dx = cx - osuX;
+    const dy = cy - osuY;
+    if (!Number.isFinite(dx) || !Number.isFinite(dy) || (dx === 0 && dy === 0)) return null;
+    // osu y increases down; mimi authored degrees use standard math (y up), which the
+    // chart compiler flips back — so negate dy here, matching the cut convention.
+    return parseFloat((Math.atan2(-dy, dx) * (180 / Math.PI)).toFixed(1));
+}
 
 interface CliOptions {
     fileArg: string | null;
@@ -92,17 +118,37 @@ function parseHitObject(line: string): Note | null {
     const type     = parseInt(parts[3], 10);
     const hitSound = parseInt(parts[4], 10);
 
-    if (type & 8) return null;    // spinner
-    if (type & 128) return null;  // mania hold
+    if (type & OSU_TYPE_SPINNER) return null;
+    if (type & OSU_TYPE_HOLD) return null;
 
-    // Hitcircles and slider heads alike become flow anchors (consecutive anchors
-    // link into a phrase at runtime); a clap hitsound marks the object as a lyric.
-    const kind: NoteKind = (hitSound & OSU_CLAP) ? "l" : "f";
-
+    const isSlider = !!(type & OSU_TYPE_SLIDER);
     const xm = parseFloat((osuX * SCALE + OFFSET_X).toFixed(1));
     const ym = parseFloat((osuY * SCALE + OFFSET_Y).toFixed(1));
 
-    return { time, x: xm, y: ym, kind };
+    let kind: NoteKind;
+    let degrees: number | null;
+    if (hitSound & OSU_HIT_CLAP) {
+        kind = "l";
+        degrees = null;
+    } else if (hitSound & OSU_HIT_WHISTLE) {
+        const dir = isSlider ? sliderDegrees(parts, osuX, osuY) : null;
+        if (dir === null) {
+            process.stderr.write(`warning: cut (whistle) at ${time}ms needs a slider with a direction; importing as auto flow\n`);
+            kind = "f";
+            degrees = null;
+        } else {
+            kind = "c";
+            degrees = dir;
+        }
+    } else if (isSlider) {
+        kind = "f";
+        degrees = sliderDegrees(parts, osuX, osuY); // pinned to the slider, or auto if none
+    } else {
+        kind = "f";
+        degrees = null; // plain circle: auto flow
+    }
+
+    return { time, x: xm, y: ym, kind, degrees };
 }
 
 function main(): void {
@@ -111,7 +157,8 @@ function main(): void {
     if (!fileArg) {
         process.stderr.write(
             "Usage: osu2mimi [--difficulty N] [--bpm N] [--beats-per-measure N] {file.osu}\n" +
-            "Hit objects import as flow anchors; objects with a clap hitsound import as lyric notes.\n",
+            "Kind from hitsound/type: clap -> lyric; whistle on a slider -> cut; plain\n" +
+            "slider -> flow pinned to the slider direction; plain circle -> flow (auto).\n",
         );
         process.exit(1);
     }
@@ -146,10 +193,11 @@ function main(): void {
         "# kind, time_ms, degrees, x, y",
     );
 
-    // degrees is "auto" (no authored direction): flow anchors derive direction from
-    // the ribbon tangent at runtime, and lyric notes ignore it.
+    // Cut and pinned-flow rows carry their slider direction; auto flow and lyric rows
+    // emit "auto" (no authored direction).
     for (const note of notes) {
-        out.push(`${note.kind}, ${note.time}, auto, ${note.x}, ${note.y}`);
+        const deg = note.degrees === null ? "auto" : note.degrees;
+        out.push(`${note.kind}, ${note.time}, ${deg}, ${note.x}, ${note.y}`);
     }
 
     process.stdout.write(out.join("\n") + "\n");
