@@ -40,19 +40,22 @@ Rows are comma-separated.
 
 ```text
 # kind, time, degrees, x, y[, char]
-c, 4200, 0, 400, 200
-f, 4800, -45, 520, 260
-l, 5100, 0, 360, 310
+cut, 4200, 0, 400, 200
+flow, 4800, -45, 520, 260
+break
+flow, 5000, auto, 300, 300
+lyric, 5100, auto, 360, 310
 ```
 
 | Field | Meaning |
 |-------|---------|
-| `kind` | `c`/`cut`, `f`/`flow` anchor, or `l`/`lyric` |
+| `kind` | `cut`, `flow` anchor, or `lyric` (shorthands `c`/`f`/`l` also accepted) |
 | `time` | Note time in the header's `time_unit` |
 | `degrees` | Direction in degrees. Required for cut notes; ignored for lyric notes. For a flow anchor, write `auto` to derive the direction from the ribbon tangent (the normal case), or give a number to **pin** that anchor's tangent heading |
 | `x` | Horizontal position in the 800 x 600 logical play area |
 | `y` | Vertical position in the 800 x 600 logical play area |
 | `char` | Optional lyric character override |
+| `break` | A standalone line (not a note) that ends the current flow phrase; the next flow anchor starts a new phrase |
 
 The compiler emits runtime notes with `kind`, `time`, `x`, `y`, `direction` in radians, `state: "pending"`, and optional `lyricChar`.
 
@@ -61,7 +64,7 @@ The compiler emits runtime notes with `kind`, `time`, `x`, `y`, `direction` in r
 | Kind | Use when |
 |------|----------|
 | `c` Cut | A standalone directional slash |
-| `f` Flow | An anchor in a connected phrase; consecutive anchors within 700 ms are linked |
+| `f` Flow | An anchor in a connected phrase; consecutive flow anchors link until a `break` or a non-flow note ends the phrase |
 | `l` Lyric | A sung character or directionless vocal accent |
 
 Cut and flow notes do not require a mouse-button or key hold. Flow notes should be placed so the player can read a continuous path through the phrase.

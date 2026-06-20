@@ -35,21 +35,23 @@ function parseSections(text: string): Map<string, string[]> {
 //   plain hitcircle       -> flow, direction "auto" (the ribbon tangent at runtime)
 // Cut and pinned flow need a direction, which only a slider provides; a whistle on a
 // bare circle has no direction and is warned + imported as auto flow. finish is unused.
-type NoteKind = "c" | "f" | "l";
+type NoteKind = "cut" | "flow" | "lyric";
 
 interface Note {
-    time:    number;
-    x:       number;
-    y:       number;
-    kind:    NoteKind;
-    degrees: number | null; // null = "auto" (no authored direction)
+    time:     number;
+    x:        number;
+    y:        number;
+    kind:     NoteKind;
+    degrees:  number | null; // null = "auto" (no authored direction)
+    newCombo: boolean;       // osu new-combo: ends the previous flow phrase
 }
 
-const OSU_TYPE_SLIDER  = 1 << 1;
-const OSU_TYPE_SPINNER = 1 << 3;
-const OSU_TYPE_HOLD    = 1 << 7;
-const OSU_HIT_WHISTLE  = 1 << 1;
-const OSU_HIT_CLAP     = 1 << 3;
+const OSU_TYPE_SLIDER   = 1 << 1;
+const OSU_TYPE_NEWCOMBO = 1 << 2;
+const OSU_TYPE_SPINNER  = 1 << 3;
+const OSU_TYPE_HOLD     = 1 << 7;
+const OSU_HIT_WHISTLE   = 1 << 1;
+const OSU_HIT_CLAP      = 1 << 3;
 
 // Direction (mimi screen-degrees) of a slider's opening, from its head to the first
 // curve point. Returns null when the slider has no usable curve data.
@@ -122,33 +124,34 @@ function parseHitObject(line: string): Note | null {
     if (type & OSU_TYPE_HOLD) return null;
 
     const isSlider = !!(type & OSU_TYPE_SLIDER);
+    const newCombo = !!(type & OSU_TYPE_NEWCOMBO);
     const xm = parseFloat((osuX * SCALE + OFFSET_X).toFixed(1));
     const ym = parseFloat((osuY * SCALE + OFFSET_Y).toFixed(1));
 
     let kind: NoteKind;
     let degrees: number | null;
     if (hitSound & OSU_HIT_CLAP) {
-        kind = "l";
+        kind = "lyric";
         degrees = null;
     } else if (hitSound & OSU_HIT_WHISTLE) {
         const dir = isSlider ? sliderDegrees(parts, osuX, osuY) : null;
         if (dir === null) {
             process.stderr.write(`warning: cut (whistle) at ${time}ms needs a slider with a direction; importing as auto flow\n`);
-            kind = "f";
+            kind = "flow";
             degrees = null;
         } else {
-            kind = "c";
+            kind = "cut";
             degrees = dir;
         }
     } else if (isSlider) {
-        kind = "f";
+        kind = "flow";
         degrees = sliderDegrees(parts, osuX, osuY); // pinned to the slider, or auto if none
     } else {
-        kind = "f";
+        kind = "flow";
         degrees = null; // plain circle: auto flow
     }
 
-    return { time, x: xm, y: ym, kind, degrees };
+    return { time, x: xm, y: ym, kind, degrees, newCombo };
 }
 
 function main(): void {
@@ -158,7 +161,8 @@ function main(): void {
         process.stderr.write(
             "Usage: osu2mimi [--difficulty N] [--bpm N] [--beats-per-measure N] {file.osu}\n" +
             "Kind from hitsound/type: clap -> lyric; whistle on a slider -> cut; plain\n" +
-            "slider -> flow pinned to the slider direction; plain circle -> flow (auto).\n",
+            "slider -> flow pinned to the slider direction; plain circle -> flow (auto).\n" +
+            "A new-combo object emits a `break`, ending the previous flow phrase.\n",
         );
         process.exit(1);
     }
@@ -194,11 +198,12 @@ function main(): void {
     );
 
     // Cut and pinned-flow rows carry their slider direction; auto flow and lyric rows
-    // emit "auto" (no authored direction).
-    for (const note of notes) {
+    // emit "auto". A `break` before a new-combo object ends the previous flow phrase.
+    notes.forEach((note, i) => {
+        if (note.newCombo && i > 0) out.push("break");
         const deg = note.degrees === null ? "auto" : note.degrees;
         out.push(`${note.kind}, ${note.time}, ${deg}, ${note.x}, ${note.y}`);
-    }
+    });
 
     process.stdout.write(out.join("\n") + "\n");
 }
