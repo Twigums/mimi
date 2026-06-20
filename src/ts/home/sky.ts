@@ -19,6 +19,12 @@ const DIAL_CY = 3000;
 
 type NoteKind = "quarter" | "eighth" | "beamed" | "half" | "whole";
 
+interface NoteAsset {
+  viewBoxW: number;
+  viewBoxH: number;
+  shapes: SVGElement[];
+}
+
 // quarter notes make up half the sky; the rest split the remainder evenly
 const NOTE_KINDS: ReadonlyArray<{ kind: NoteKind; weight: number }> = [
   { kind: "quarter", weight: 0.5 },
@@ -27,6 +33,14 @@ const NOTE_KINDS: ReadonlyArray<{ kind: NoteKind; weight: number }> = [
   { kind: "half", weight: 0.125 },
   { kind: "whole", weight: 0.125 },
 ];
+
+const NOTE_ASSET_SRC: Record<NoteKind, string> = {
+  quarter: "/images/music_notes/quarter_note.svg",
+  eighth: "/images/music_notes/eighth_note.svg",
+  beamed: "/images/music_notes/2_eighth_notes.svg",
+  half: "/images/music_notes/half_note.svg",
+  whole: "/images/music_notes/whole_note.svg",
+};
 
 const rand = (min: number, max: number): number => min + Math.random() * (max - min);
 
@@ -46,6 +60,10 @@ function el<K extends keyof SVGElementTagNameMap>(
   const node = document.createElementNS(SVG_NS, tag);
   for (const [key, value] of Object.entries(attrs)) node.setAttribute(key, value);
   return node;
+}
+
+function parseNumberList(raw: string): number[] {
+  return raw.trim().split(/[\s,]+/).map(Number).filter(Number.isFinite);
 }
 
 // twinkling stars; rendered behind everything and faded in/out by CSS
@@ -239,53 +257,58 @@ function buildCloudShape(w: number, h: number): SVGGElement {
   return g;
 }
 
-// glyphs are drawn from primitives (styled in _home.scss) so every note kind
-// renders identically across platforms — musical Unicode glyphs often don't
-function buildNoteGlyph(kind: NoteKind): SVGGElement {
-  const g = document.createElementNS(SVG_NS, "g");
-  const head = (cx: number, cy: number, open: boolean): SVGEllipseElement =>
-    el("ellipse", {
-      class: open ? "note-open" : "note-fill",
-      cx: String(cx),
-      cy: String(cy),
-      rx: "10",
-      ry: "7",
-      transform: `rotate(-20 ${cx} ${cy})`,
-    });
-  const stem = (x: number, yTop: number, yBottom: number): SVGPathElement =>
-    el("path", { class: "note-stem", d: `M${x} ${yBottom} V${yTop}` });
+function parseNoteAsset(text: string): NoteAsset | null {
+  const root = new DOMParser().parseFromString(text, "image/svg+xml").documentElement;
+  if (root.tagName.toLowerCase() !== "svg") return null;
 
-  switch (kind) {
-    case "whole":
-      g.appendChild(head(14, 28, true));
-      break;
-    case "half":
-      g.appendChild(head(10, 48, true));
-      g.appendChild(stem(19, 4, 46));
-      break;
-    case "quarter":
-      g.appendChild(head(10, 48, false));
-      g.appendChild(stem(19, 4, 46));
-      break;
-    case "eighth":
-      g.appendChild(head(10, 48, false));
-      g.appendChild(stem(19, 4, 46));
-      // flag is a filled shape whose edges meet at the tip, tapering the end
-      g.appendChild(el("path", { class: "note-fill", d: "M19 4 C 28 8, 32 16, 29 26 C 29 18, 26 10, 19 10 Z" }));
-      break;
-    case "beamed":
-      g.appendChild(head(10, 50, false));
-      g.appendChild(head(32, 45, false));
-      g.appendChild(stem(19, 8, 48));
-      g.appendChild(stem(41, 3, 43));
-      // beam is a filled quad running flush from stem edge to stem edge,
-      // thick enough to swallow the stems' round caps underneath
-      g.appendChild(el("path", { class: "note-fill", d: "M17.5 4.8 L42.5 -0.8 L42.5 6.2 L17.5 11.8 Z" }));
-      break;
+  const [, , viewBoxW, viewBoxH] = parseNumberList(root.getAttribute("viewBox") ?? "");
+  if (!viewBoxW || !viewBoxH) return null;
+
+  const shapes = Array.from(root.children).filter((node): node is SVGElement => {
+    const tag = node.tagName.toLowerCase();
+    return tag !== "defs" && tag !== "metadata" && tag !== "title" && tag !== "desc";
+  });
+
+  return shapes.length > 0 ? { viewBoxW, viewBoxH, shapes } : null;
+}
+
+async function loadNoteAsset(kind: NoteKind): Promise<NoteAsset | null> {
+  try {
+    const res = await fetch(withPath(NOTE_ASSET_SRC[kind]));
+    if (!res.ok) return null;
+    return parseNoteAsset(await res.text());
+  } catch {
+    return null;
   }
+}
+
+async function loadNoteAssets(): Promise<Map<NoteKind, NoteAsset>> {
+  const entries = await Promise.all(
+    NOTE_KINDS.map(async ({ kind }) => [kind, await loadNoteAsset(kind)] as const),
+  );
+  const assets = new Map<NoteKind, NoteAsset>();
+  for (const [kind, asset] of entries) {
+    if (asset) assets.set(kind, asset);
+  }
+  return assets;
+}
+
+function buildNoteGlyph(asset: NoteAsset): SVGGElement {
+  const g = el("g", { class: "note-glyph" });
+
+  for (const shape of asset.shapes) {
+    g.appendChild(document.importNode(shape, true));
+  }
+
   // invisible grab area covering every glyph kind — Chrome lacks
-  // pointer-events: bounding-box, so the gaps between head/stem need this
-  g.appendChild(el("rect", { class: "note-hit", x: "-8", y: "-8", width: "64", height: "72" }));
+  // pointer-events: bounding-box, so the gaps in notes need this
+  g.appendChild(el("rect", {
+    class: "note-hit",
+    x: "0",
+    y: "0",
+    width: asset.viewBoxW.toFixed(3),
+    height: asset.viewBoxH.toFixed(3),
+  }));
   return g;
 }
 
@@ -318,9 +341,13 @@ function spawnCloud(layer: SVGGElement, initial: boolean, staticField: boolean):
   layer.appendChild(cloud);
 }
 
-function spawnNote(svg: SVGSVGElement, initial: boolean, staticField: boolean): void {
+function spawnNote(svg: SVGSVGElement, assets: Map<NoteKind, NoteAsset>, initial: boolean, staticField: boolean): void {
   if (svg.childElementCount >= MAX_ELEMENTS) return;
+  const asset = assets.get(pickNoteKind()) ?? assets.get("quarter");
+  if (!asset) return;
+
   const scale = rand(0.8, 1.9);
+  const assetScale = NOTE_BASE_H / asset.viewBoxH;
   const height = NOTE_BASE_H * scale;
   const pos = {
     x: rand(60, VIEW_W - 60),
@@ -330,11 +357,11 @@ function spawnNote(svg: SVGSVGElement, initial: boolean, staticField: boolean): 
 
   const note = document.createElementNS(SVG_NS, "g");
   note.setAttribute("class", "floating-note");
-  const glyph = buildNoteGlyph(pickNoteKind());
+  const glyph = buildNoteGlyph(asset);
   const applyPos = (): void => {
     glyph.setAttribute(
       "transform",
-      `translate(${pos.x.toFixed(1)} ${pos.y.toFixed(1)}) scale(${scale.toFixed(2)}) rotate(${tilt.toFixed(0)})`,
+      `translate(${pos.x.toFixed(1)} ${pos.y.toFixed(1)}) scale(${(scale * assetScale).toFixed(4)}) rotate(${tilt.toFixed(0)})`,
     );
   };
   applyPos();
@@ -488,10 +515,12 @@ export function initBgSky(): void {
   svg.appendChild(cloudLayer);
 
   for (let i = 0; i < INITIAL_CLOUDS; i++) spawnCloud(cloudLayer, true, staticField);
-  for (let i = 0; i < INITIAL_NOTES; i++) spawnNote(svg, true, staticField);
+  void loadNoteAssets().then(noteAssets => {
+    for (let i = 0; i < INITIAL_NOTES; i++) spawnNote(svg, noteAssets, true, staticField);
+    if (!staticField) scheduleSpawns(() => spawnNote(svg, noteAssets, false, false), NOTE_SPAWN_MS);
+  });
   if (staticField) return;
 
   scheduleSpawns(() => spawnCloud(cloudLayer, false, false), CLOUD_SPAWN_MS);
-  scheduleSpawns(() => spawnNote(svg, false, false), NOTE_SPAWN_MS);
   scheduleSpawns(() => spawnShootingStar(nightLayer), SHOOTING_STAR_SPAWN_MS);
 }

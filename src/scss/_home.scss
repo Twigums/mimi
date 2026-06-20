@@ -54,8 +54,7 @@ html.theme-dark .home-page .bg-overlay::before {
   height: 100%;
 
   // randomly generated clouds spawn at the bottom and rise; note glyphs
-  // (built from the note-* primitives) spawn at the top and fall — all
-  // generated and randomized per element by src/ts/home/sky.ts
+  // are loaded from static/images/music_notes and fall from the top
   .cloud {
     animation: cloud-rise 24s linear forwards;
   }
@@ -188,21 +187,9 @@ html.theme-dark .bg-sky .cloud-layer {
     pointer-events: all;
   }
 
-  .note-fill {
+  .note-glyph {
     fill: currentColor;
-  }
-
-  .note-open {
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 3;
-  }
-
-  .note-stem {
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 3;
-    stroke-linecap: round;
+    stroke: none;
   }
 }
 
