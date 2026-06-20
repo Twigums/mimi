@@ -3,80 +3,87 @@ time_unit: ms
 difficulty: 1
 
 # kind, time_ms, degrees, x, y
-# Beat-aligned flow test shapes: first downbeat 2309 ms, one pattern per measure
-# (4 beats). Dense shapes use sixteenths. degrees = auto so flow direction is the
-# derived ribbon tangent.
+# Beat-aligned flow test shapes: first downbeat 2309 ms, one pattern per measure.
+# Each shape is its own phrase, separated by a break. Dense shapes use sixteenths.
 
 # circle - arc (dense, 16th)
-f, 2309, auto, 540, 260
-f, 2424, auto, 507.2, 350
-f, 2540, auto, 424.3, 397.9
-f, 2655, auto, 330, 381.2
-f, 2771, auto, 268.4, 307.9
-f, 2886, auto, 268.4, 212.1
-f, 3001, auto, 330, 138.8
-f, 3117, auto, 424.3, 122.1
-f, 3232, auto, 507.2, 170
+flow, 2309, auto, 540, 260
+flow, 2424, auto, 507.2, 350
+flow, 2540, auto, 424.3, 397.9
+flow, 2655, auto, 330, 381.2
+flow, 2771, auto, 268.4, 307.9
+flow, 2886, auto, 268.4, 212.1
+flow, 3001, auto, 330, 138.8
+flow, 3117, auto, 424.3, 122.1
+flow, 3232, auto, 507.2, 170
 
+break
 # square - right-angle waypoints
-f, 4155, auto, 270, 170
-f, 4386, auto, 530, 170
-f, 4617, auto, 530, 430
-f, 4847, auto, 270, 430
-f, 5078, auto, 270, 170
+flow, 4155, auto, 270, 170
+flow, 4386, auto, 530, 170
+flow, 4617, auto, 530, 430
+flow, 4847, auto, 270, 430
+flow, 5078, auto, 270, 170
 
+break
 # pentagram - sharp reversals
-f, 6001, auto, 400, 140
-f, 6232, auto, 488.2, 411.4
-f, 6463, auto, 257.3, 243.6
-f, 6694, auto, 542.7, 243.6
-f, 6924, auto, 311.8, 411.4
+flow, 6001, auto, 400, 140
+flow, 6232, auto, 488.2, 411.4
+flow, 6463, auto, 257.3, 243.6
+flow, 6694, auto, 542.7, 243.6
+flow, 6924, auto, 311.8, 411.4
 
+break
 # sine - inflections
-f, 7847, auto, 160, 300
-f, 8078, auto, 280, 200
-f, 8309, auto, 400, 300
-f, 8540, auto, 520, 400
-f, 8771, auto, 640, 300
+flow, 7847, auto, 160, 300
+flow, 8078, auto, 280, 200
+flow, 8309, auto, 400, 300
+flow, 8540, auto, 520, 400
+flow, 8771, auto, 640, 300
 
+break
 # zigzag - sharp corners
-f, 9694, auto, 160, 180
-f, 9924, auto, 280, 420
-f, 10155, auto, 400, 180
-f, 10386, auto, 520, 420
-f, 10617, auto, 640, 180
+flow, 9694, auto, 160, 180
+flow, 9924, auto, 280, 420
+flow, 10155, auto, 400, 180
+flow, 10386, auto, 520, 420
+flow, 10617, auto, 640, 180
 
+break
 # straight diagonal - baseline
-f, 11540, auto, 200, 200
-f, 11771, auto, 320, 280
-f, 12001, auto, 440, 360
-f, 12232, auto, 560, 440
+flow, 11540, auto, 200, 200
+flow, 11771, auto, 320, 280
+flow, 12001, auto, 440, 360
+flow, 12232, auto, 560, 440
 
+break
 # spiral - tightening (dense, 16th)
-f, 13386, auto, 550, 290
-f, 13501, auto, 478.6, 402.2
-f, 13617, auto, 357.6, 406.5
-f, 13732, auto, 292.8, 318.7
-f, 13847, auto, 324.9, 227
-f, 13963, auto, 407.4, 205.3
-f, 14078, auto, 462.4, 254
-f, 14194, auto, 453.5, 314.9
-f, 14309, auto, 408, 335.3
+flow, 13386, auto, 550, 290
+flow, 13501, auto, 478.6, 402.2
+flow, 13617, auto, 357.6, 406.5
+flow, 13732, auto, 292.8, 318.7
+flow, 13847, auto, 324.9, 227
+flow, 13963, auto, 407.4, 205.3
+flow, 14078, auto, 462.4, 254
+flow, 14194, auto, 453.5, 314.9
+flow, 14309, auto, 408, 335.3
 
+break
 # figure-eight - crossover (dense, 16th)
-f, 15232, auto, 400, 300
-f, 15347, auto, 527.3, 375
-f, 15463, auto, 580, 300
-f, 15578, auto, 527.3, 225
-f, 15694, auto, 400, 300
-f, 15809, auto, 272.7, 375
-f, 15924, auto, 220, 300
-f, 16040, auto, 272.7, 225
-f, 16155, auto, 400, 300
+flow, 15232, auto, 400, 300
+flow, 15347, auto, 527.3, 375
+flow, 15463, auto, 580, 300
+flow, 15578, auto, 527.3, 225
+flow, 15694, auto, 400, 300
+flow, 15809, auto, 272.7, 375
+flow, 15924, auto, 220, 300
+flow, 16040, auto, 272.7, 225
+flow, 16155, auto, 400, 300
 
+break
 # hairpin - 180 reversal
-f, 17078, auto, 220, 200
-f, 17309, auto, 420, 205
-f, 17540, auto, 585, 300
-f, 17771, auto, 420, 395
-f, 18001, auto, 220, 400
+flow, 17078, auto, 220, 200
+flow, 17309, auto, 420, 205
+flow, 17540, auto, 585, 300
+flow, 17771, auto, 420, 395
+flow, 18001, auto, 220, 400

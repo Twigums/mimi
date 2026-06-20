@@ -28,7 +28,6 @@ export const FLOW_CONTACT_TIER1  = 130;
 export const FLOW_TRAVEL_TIER3   = 24;
 export const FLOW_TRAVEL_TIER2   = 12;
 export const FLOW_TRAVEL_TIER1   = 4;
-export const FLOW_LINK_MAX_MS    = 700;
 // Flow timing is more lenient than cut for the perfect/great windows (gliding
 // through a phrase shouldn't demand cut-level precision per anchor). Tier 1 stays at
 // the shared TIER1_MS so the engine's eligibility/expiry/draw windows are unchanged;

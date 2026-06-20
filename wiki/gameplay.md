@@ -52,7 +52,7 @@ Calculation of gesture metrics observes the cursor movement through a "judgement
 
 ## Flow Judgement
 
-Flow timing is more lenient than cut, and the gesture metrics are deliberately more forgiving too, so a continuous motion through a phrase doesn't demand cut-level precision at each anchor. Consecutive flow anchors within 700 ms are linked into a phrase. The anchors are read as a single shaped ribbon: the path drawn between consecutive anchors is the line the player traces. Each anchor is scored individually against that shape.
+Flow timing is more lenient than cut, and the gesture metrics are deliberately more forgiving too, so a continuous motion through a phrase doesn't demand cut-level precision at each anchor. Flow anchors are grouped into phrases explicitly, not by timing: consecutive flow anchors form one phrase until a `break` (or a non-flow note) ends it and the next anchor starts a new phrase. The anchors of a phrase are read as a single shaped ribbon: the path drawn between consecutive anchors is the line the player traces. Each anchor is scored individually against that shape.
 
 | Timing | Tier 3 | Tier 2 | Tier 1 |
 |--------|--------|--------|--------|

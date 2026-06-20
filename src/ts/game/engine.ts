@@ -4,7 +4,6 @@ import { arToMs, loadAr, loadHitsoundVolume, subscribeHitsoundVolume, volToFacto
 import { createCursorRenderer, type CursorRenderer } from "./cursor";
 import {
   CUT_METRIC_WINDOW_MS,
-  FLOW_LINK_MAX_MS,
   FLOW_SHAPE_BINS,
   TIER1_MS,
   type HitResult,
@@ -41,6 +40,7 @@ export interface Note {
   hitResult?: HitResult;
   lyricChar?: string;
   directionPinned?: boolean;
+  newCombo?: boolean;
   flowPrevIndex?: number;
   flowNextIndex?: number;
   flowTanX?: number;
@@ -406,6 +406,9 @@ export function createGame(deps: GameDeps): GameHandle {
   };
 
   const linkFlowPhrases = (): void => {
+    // Phrases are explicit, not auto-detected: consecutive flow anchors link into one
+    // phrase until a `newCombo` anchor (a chart `break`) starts a new one, or a
+    // non-flow note interrupts the run.
     let prevFlowIndex: number | null = null;
     for (let i = 0; i < notes.length; i++) {
       const note = notes[i];
@@ -415,12 +418,9 @@ export function createGame(deps: GameDeps): GameHandle {
         prevFlowIndex = null;
         continue;
       }
-      if (prevFlowIndex !== null) {
-        const prev = notes[prevFlowIndex];
-        if (note.time - prev.time <= FLOW_LINK_MAX_MS) {
-          note.flowPrevIndex = prevFlowIndex;
-          prev.flowNextIndex = i;
-        }
+      if (prevFlowIndex !== null && !note.newCombo) {
+        note.flowPrevIndex = prevFlowIndex;
+        notes[prevFlowIndex].flowNextIndex = i;
       }
       prevFlowIndex = i;
     }

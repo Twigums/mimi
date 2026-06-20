@@ -33,13 +33,14 @@ readDouble name s = case reads (trim s) of
     _         -> Left $ "Invalid number for '" ++ name ++ "': " ++ s
 
 data NoteEntry = NoteEntry
-    { neKind           :: String
-    , neTimeMs         :: Double
-    , neX              :: Double
-    , neY              :: Double
-    , neDirection      :: Double
+    { neKind            :: String
+    , neTimeMs          :: Double
+    , neX               :: Double
+    , neY               :: Double
+    , neDirection       :: Double
     , neDirectionPinned :: Bool
-    , neLyricChar      :: Maybe String
+    , neNewCombo        :: Bool
+    , neLyricChar       :: Maybe String
     }
 
 parseNote :: (Double -> Double) -> String -> Either String NoteEntry
@@ -70,7 +71,21 @@ parseNote toMs line =
                 "lyric" -> "lyric"
                 _       -> map toLower k
         let timeMs  = toMs t'
-        Right $ NoteEntry kind timeMs nx ny radians pinned mChar
+        -- newCombo is set later by `parseEntries` when a `break` precedes this note.
+        Right $ NoteEntry kind timeMs nx ny radians pinned False mChar
+
+-- Fold the data lines into notes, treating a `break` line as a phrase boundary: it
+-- sets newCombo on the next note so the engine starts a fresh flow phrase there.
+parseEntries :: (Double -> Double) -> [String] -> Either String [NoteEntry]
+parseEntries toMs = go False
+  where
+    go _ [] = Right []
+    go brk (l:ls)
+        | map toLower (trim l) == "break" = go True ls
+        | otherwise = do
+            n  <- parseNote toMs l
+            ns <- go False ls
+            Right (n { neNewCombo = brk } : ns)
 
 normalizeAngle :: Double -> Double
 normalizeAngle a
@@ -92,6 +107,7 @@ renderNote n =
     ", \"y\": "            ++ showNum (neY         n) ++
     ", \"direction\": "    ++ show    (neDirection n) ++
     (if neDirectionPinned n then ", \"directionPinned\": true" else "") ++
+    (if neNewCombo n then ", \"newCombo\": true" else "") ++
     maybe "" (\c -> ", \"lyricChar\": \"" ++ c ++ "\"") (neLyricChar n) ++
     ", \"state\": \"pending\" }"
 
@@ -109,7 +125,7 @@ compileChart content = do
             off <- lookupHeader "offset" hLines >>= readDouble "offset"
             Right $ \beat -> off + (beat - 1.0) * (60000.0 / bpm)
         other  -> Left $ "Unknown time_unit: " ++ other
-    notes <- mapM (parseNote toMs) noteLines
+    notes <- parseEntries toMs noteLines
     Right $ "[\n" ++ intercalate ",\n" (map renderNote notes) ++ "\n]\n"
   where
     isDataLine l = let t = trim l
