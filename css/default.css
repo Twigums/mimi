@@ -355,19 +355,9 @@ html.theme-dark .bg-sky .cloud-layer {
   fill: none;
   pointer-events: all;
 }
-.bg-sky .note-fill {
+.bg-sky .note-glyph {
   fill: currentColor;
-}
-.bg-sky .note-open {
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 3;
-}
-.bg-sky .note-stem {
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 3;
-  stroke-linecap: round;
+  stroke: none;
 }
 
 @keyframes cloud-rise {
