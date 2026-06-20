@@ -26,6 +26,15 @@ export const NOTE_STYLE: Record<string, NoteStyle> = {
   lyric:  LYRIC_STYLE,
 };
 
+// Gameplay arrow glyph (Inkscape export, path7.svg) normalized into its own viewBox.
+// Points along +x; drawArrow transforms it onto each note instead of rebuilding the
+// polygon every frame. Coordinates have the source SVG's group translate folded in.
+const ARROW_VB_W = 80.620979;
+const ARROW_VB_H = 59.231922;
+const ARROW_PATH = new Path2D(
+  "M 46.206037,0.999876 V 15.646527 H 1.000008 v 27.93886 h 45.206029 v 14.64665 l 33.41501,-28.61582 z",
+);
+
 // appearProgress: 0 = faint outline just appearing, 1 = fully filled at hit time
 // scale: canvas pixels per logical unit (canvas.width / LOGICAL_W)
 export function drawArrow(
@@ -52,44 +61,29 @@ export function drawArrow(
 
   const { base, darkBase } = style.colors;
 
-  const len     = r;         // total arrow length
-  const headLen = r * 0.4;  // arrowhead length
-  const hw      = r * 0.4;  // arrowhead half-width (flare)
-  const shw     = r * 0.17; // shaft half-width
-
-  const cosA = Math.cos(note.direction);
-  const sinA = Math.sin(note.direction);
-
-  // Rotate local (lx, ly) into canvas space around (cx, cy)
-  const tx = (lx: number, ly: number): number => cx + cosA * lx - sinA * ly;
-  const ty = (lx: number, ly: number): number => cy + sinA * lx + cosA * ly;
-
-  const x0 = -len / 2;           // tail
-  const x1 =  len / 2 - headLen; // shaft/head junction
-  const x2 =  len / 2;           // tip
-
   // Outline snaps to full opacity quickly; fill grows from center after FILL_START
   const OUTLINE_SNAP = 0.12;
   const FILL_START   = 0.62;
   const outlineAlpha = Math.min(appearProgress / OUTLINE_SNAP, 1);
   const fillProgress = Math.max(0, (appearProgress - FILL_START) / (1 - FILL_START));
 
-  // Build path once; reuse for both clip and stroke
+  // Place the SVG arrow: center its viewBox on the note, rotate to `direction`, and
+  // scale so the arrow spans one note radius (matching the old hand-built footprint).
+  // Build once; reuse for both clip and stroke.
+  const s = r / ARROW_VB_W;
+  const matrix = new DOMMatrix()
+    .translateSelf(cx, cy)
+    .rotateSelf((note.direction * 180) / Math.PI)
+    .scaleSelf(s)
+    .translateSelf(-ARROW_VB_W / 2, -ARROW_VB_H / 2);
   const path = new Path2D();
-  path.moveTo(tx(x2,    0), ty(x2,    0));
-  path.lineTo(tx(x1,  -hw), ty(x1,  -hw));
-  path.lineTo(tx(x1, -shw), ty(x1, -shw));
-  path.lineTo(tx(x0, -shw), ty(x0, -shw));
-  path.lineTo(tx(x0,  shw), ty(x0,  shw));
-  path.lineTo(tx(x1,  shw), ty(x1,  shw));
-  path.lineTo(tx(x1,   hw), ty(x1,   hw));
-  path.closePath();
+  path.addPath(ARROW_PATH, matrix);
 
   // Radial fill clipped to arrow shape (skipped in hidden mod)
   if (!hidden) {
     ctx.save();
     ctx.clip(path);
-    const fillMaxR = Math.sqrt((len / 2) ** 2 + shw ** 2);
+    const fillMaxR = (Math.hypot(ARROW_VB_W, ARROW_VB_H) / 2) * s;
     ctx.beginPath();
     ctx.arc(cx, cy, fillProgress * fillMaxR, 0, Math.PI * 2);
     ctx.fillStyle = `rgba(${base}, 1.0)`;
@@ -101,7 +95,7 @@ export function drawArrow(
   ctx.save();
   ctx.strokeStyle = `rgba(${darkBase}, ${0.9 * outlineAlpha})`;
   ctx.lineWidth = 2.5 * scale;
-  ctx.lineJoin  = "miter";
+  ctx.lineJoin  = "round";
   ctx.stroke(path);
   ctx.restore();
 }
