@@ -20,16 +20,16 @@ const ISSUE_LABELS_EN: Record<IssueReason, string> = {
   contact: "contact",
   direction: "direction",
   travel: "travel",
-  continuity: "flow",
+  flow: "flow",
 };
 const ISSUE_LABELS_JP: Record<IssueReason, string> = {
   timing: "タイミング",
   contact: "接触",
   direction: "方向",
   travel: "距離",
-  continuity: "フロー",
+  flow: "フロー",
 };
-const ISSUE_ORDER: IssueReason[] = ["timing", "contact", "direction", "travel", "continuity"];
+const ISSUE_ORDER: IssueReason[] = ["timing", "contact", "direction", "travel", "flow"];
 
 // Tiers that can carry an issue (Tier 3 is clean by definition).
 type IssueTier = "tier2" | "tier1" | "miss";

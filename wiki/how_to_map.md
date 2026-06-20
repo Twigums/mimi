@@ -49,7 +49,7 @@ l, 5100, 0, 360, 310
 |-------|---------|
 | `kind` | `c` cut, `s` flow anchor, or `l` lyric |
 | `time` | Note time in the header's `time_unit` |
-| `degrees` | Direction in degrees. Required for cut notes; ignored for lyric notes. For a flow anchor it is optional — leave it **empty** to derive the direction from the ribbon tangent (the normal case), or give a value to **pin** that anchor's tangent heading |
+| `degrees` | Direction in degrees. Required for cut notes; ignored for lyric notes. For a flow anchor, write `auto` to derive the direction from the ribbon tangent (the normal case), or give a number to **pin** that anchor's tangent heading |
 | `x` | Horizontal position in the 800 x 600 logical play area |
 | `y` | Vertical position in the 800 x 600 logical play area |
 | `char` | Optional lyric character override |
@@ -105,7 +105,7 @@ Common values:
 | `45` | down-right |
 | `-45` | up-right |
 
-The compiler converts authored degrees to the runtime radian angle used by the game engine. Cut notes always use the authored direction. A flow anchor with an empty degrees field derives its direction from the local ribbon tangent (the bisector of the chords to the neighbouring anchors), so chart the flow path by anchor positions and let the direction follow; supplying a value instead pins that anchor's tangent, which is useful for forcing the curve's heading at a chosen waypoint while the rest stay automatic.
+The compiler converts authored degrees to the runtime radian angle used by the game engine. Cut notes always use the authored direction. A flow anchor with `auto` degrees derives its direction from the local ribbon tangent (the bisector of the chords to the neighbouring anchors), so chart the flow path by anchor positions and let the direction follow; supplying a number instead pins that anchor's tangent, which is useful for forcing the curve's heading at a chosen waypoint while the rest stay automatic.
 
 ## Timing
 
@@ -143,7 +143,8 @@ ar: 10
 # kind, time, degrees, x, y
 c, 4200, 0, 400, 200
 c, 4800, -45, 560, 320
-s, 5100, , 300, 400
-s, 5300, , 300, 500
-l, 5600, 0, 450, 300
+s, 5100, auto, 300, 400
+s, 5300, auto, 300, 500
+s, 5500, 90, 300, 560
+l, 5600, auto, 450, 300
 ```

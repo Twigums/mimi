@@ -53,11 +53,12 @@ parseNote toMs line =
         t'  <- readDouble "time" t
         nx  <- readDouble "x"    x
         ny  <- readDouble "y"    y
-        -- An empty degrees field means "no authored direction": flow anchors then
-        -- derive it from the ribbon tangent. A present value pins the direction.
-        (radians, pinned) <- case trim d of
-            ""  -> Right (0.0, False)
-            ds  -> do
+        -- "auto" (or an empty field) means "no authored direction": flow anchors then
+        -- derive it from the ribbon tangent. A numeric value pins the direction.
+        (radians, pinned) <- case map toLower (trim d) of
+            ""     -> Right (0.0, False)
+            "auto" -> Right (0.0, False)
+            ds     -> do
                 deg <- readDouble "degrees" ds
                 Right (normalizeAngle (-(deg * pi / 180.0)), True)
         let kind = case map toLower k of

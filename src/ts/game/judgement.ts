@@ -41,7 +41,7 @@ export const FLOW_CONT_TIER1     = 120 * Math.PI / 180;
 export type NoteKind   = "cut" | "flow" | "lyric";
 export type HitResult  = "tier3" | "tier2" | "tier1" | "miss";
 export type HitTiming  = "early" | "late" | "on";
-export type IssueReason = "timing" | "contact" | "direction" | "travel" | "continuity";
+export type IssueReason = "timing" | "contact" | "direction" | "travel" | "flow";
 
 export interface JudgementNote {
   kind: NoteKind;
@@ -125,7 +125,7 @@ interface Candidate extends Judgement {
   contactCap: HitResult;
   directionError: number;
   directionCap: HitResult;
-  continuityCap: HitResult;
+  flowCap: HitResult;
   durationMs: number;
   timingCap: HitResult;
   travelCap: HitResult;
@@ -228,14 +228,14 @@ function issueFor(
   contactCap: HitResult,
   travelCap: HitResult,
   directionCap: HitResult,
-  continuityCap: HitResult,
+  flowCap: HitResult,
 ): IssueReason | undefined {
   if (result === "tier3") return undefined;
   if (timingCap === result) return "timing";
   if (contactCap === result) return "contact";
   if (travelCap === result) return "travel";
   if (directionCap === result) return "direction";
-  if (continuityCap === result) return "continuity";
+  if (flowCap === result) return "flow";
   return undefined;
 }
 
@@ -285,26 +285,26 @@ function buildCandidate(
     : capLower(travel, CUT_TRAVEL_TIER3, CUT_TRAVEL_TIER2, CUT_TRAVEL_TIER1);
   let directionError = 0;
   let directionCap: HitResult = "tier3";
-  let continuityCap: HitResult = "tier3";
+  let flowCap: HitResult = "tier3";
 
   if (note.kind === "cut") {
     directionError = Math.abs(angleDiff(direction, note.direction));
     directionCap = capUpper(directionError, CUT_DIRECTION_TIER3, CUT_DIRECTION_TIER2, CUT_DIRECTION_TIER1);
   } else if (isFlow) {
     // Flow has no separate direction cap: how the gesture follows the ribbon (heading
-    // and bend) is the shape metric, reported in the "continuity" / flow slot.
-    continuityCap = flowShapeCap(note, samples, startIndex, endIndex);
+    // and bend) is the shape metric, reported in the "flow" / flow slot.
+    flowCap = flowShapeCap(note, samples, startIndex, endIndex);
   }
 
   const result = minTier(
     minTier(timingScore.result, contactCap),
-    minTier(minTier(travelCap, directionCap), continuityCap),
+    minTier(minTier(travelCap, directionCap), flowCap),
   );
   const points = result === "tier3" ? TIER3_POINTS
     : result === "tier2" ? TIER2_POINTS
     : result === "tier1" ? TIER1_POINTS
     : 0;
-  const issue = issueFor(result, timingScore.result, contactCap, travelCap, directionCap, continuityCap);
+  const issue = issueFor(result, timingScore.result, contactCap, travelCap, directionCap, flowCap);
 
   return {
     result,
@@ -321,7 +321,7 @@ function buildCandidate(
     contactCap,
     directionError,
     directionCap,
-    continuityCap,
+    flowCap,
     durationMs,
     timingCap: timingScore.result,
     travelCap,
@@ -334,7 +334,7 @@ function candidateSortKey(candidate: Candidate): number[] {
     tierRank(candidate.timingCap),
     tierRank(candidate.contactCap),
     tierRank(candidate.directionCap),
-    tierRank(candidate.continuityCap),
+    tierRank(candidate.flowCap),
     tierRank(candidate.travelCap),
     -Math.abs(candidate.offsetMs),
     -candidate.gesture.contactDistance,

@@ -170,13 +170,13 @@ check("a flow gesture tracing the ribbon shape earns tier 3", () => {
 
 check("a flow gesture off the ribbon shape is capped by the flow metric", () => {
   // Ribbon heads right; the gesture sweeps perpendicular (90 degrees off every bin),
-  // so the shape cap — reported in the continuity/flow slot — holds it to tier 2.
+  // so the shape cap — reported in the flow issue slot — holds it to tier 2.
   const flow = note({ kind: "flow", flowShape: [0, 0, 0, 0] });
   const gesture = withLatest(lineThroughCenter(Math.PI / 2, 40), NOTE_TIME + CUT_METRIC_WINDOW_MS);
   const judgement = judged(judgeGesture(flow, gesture));
 
   assert.equal(judgement.result, "tier2");
-  assert.equal(judgement.issue, "continuity");
+  assert.equal(judgement.issue, "flow");
 });
 
 check("a lone flow anchor (no shape) judges motion only", () => {
