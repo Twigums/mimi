@@ -54,18 +54,17 @@ Calculation of gesture metrics observes the cursor movement through a "judgement
 
 Flow notes use the same timing tiers as cut notes, but their gesture metrics are deliberately more lenient than cut so a continuous motion feels forgiving. Consecutive flow anchors within 700 ms are linked into a phrase. The anchors are read as a single shaped ribbon: the path drawn between consecutive anchors is the line the player traces. Each anchor is scored individually against that shape.
 
-A flow anchor's direction is not authored; it is the **local ribbon tangent**, the bisector of the incoming chord (previous anchor to this one) and the outgoing chord (this anchor to the next). End anchors use the single chord they have. This tangent is what the anchor's arrow displays and what direction error is measured against, so a smoothly curving motion that follows the ribbon scores well instead of being penalised for not pointing straight at the previous anchor.
+Unlike a cut, a flow anchor has no single authored direction. The ribbon between consecutive anchors is a smooth curve, and the anchor is judged by how well the gesture **traces the local shape** of that curve rather than by hitting one angle. This is what makes flow feel different from cut: a continuous motion that follows the ribbon's bend scores well, while flicking across each anchor in an unrelated direction does not.
 
 | Gesture metric | Tier 3 | Tier 2 | Tier 1 | Miss |
 |----------------|--------|--------|--------|------|
-| Direction error | <= 40 degrees | <= 65 degrees | <= 95 degrees | > 95 degrees |
-| Contact distance | <= 65 logical px | <= 95 logical px | <= 130 logical px | > 130 logical px |
+| Contact distance | <= 45 logical px | <= 75 logical px | <= 110 logical px | > 110 logical px |
 | Travel | >= 24 logical px | >= 12 logical px | >= 4 logical px | < 4 logical px |
-| Continuity error | <= 60 degrees | <= 90 degrees | <= 120 degrees | > 120 degrees |
+| Shape error | <= 60 degrees | <= 90 degrees | <= 120 degrees | > 120 degrees |
 
-Direction error is the angle between the gesture's heading and the anchor's ribbon tangent. A lone flow anchor with no linked neighbours has no tangent, so its direction is unconstrained and it is judged on motion alone, like a lyric.
+Shape error compares the gesture and the ribbon as **heading sequences**: each is resampled along its length into a fixed number of segments, and the error is the average angle between the matching segments. Because it uses only headings, it measures the *shape* of the motion (its direction and how it bends) and is independent of position — staying near the anchor is the separate contact metric. A lone flow anchor with no linked neighbours has no ribbon shape, so it is judged on motion alone, like a lyric. The shape error depends only on the player's own motion, never on how a neighbouring anchor was judged, so one weak anchor does not cap the rest of the phrase.
 
-Continuity error is the angle between the gesture's heading and the incoming chord from the previous anchor. It guards forward progress through the phrase: any heading along the ribbon — including curves and corners up to roughly a 120-degree turn — keeps full credit, while heading sideways or backward against the phrase falls off toward a miss. The first anchor of a phrase has no continuity constraint. Continuity is judged purely on the motion and no longer depends on the previous anchor's grade, so a single weak anchor does not cap the rest of the phrase.
+Contact currently uses the same thresholds as cut while flow contact is being tuned. Travel still requires real motion through the anchor.
 
 ## Lyric Judgement
 

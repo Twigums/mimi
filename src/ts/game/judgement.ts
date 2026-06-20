@@ -19,10 +19,9 @@ export const CUT_TRAVEL_TIER3    = 40;
 export const CUT_TRAVEL_TIER2    = 24;
 export const CUT_TRAVEL_TIER1    = 8;
 // Flow gesture caps are deliberately looser than cut: flow rewards a continuous
-// motion, so direction/contact/travel forgive more than a precise slash.
-export const FLOW_DIRECTION_TIER3 = 40 * Math.PI / 180;
-export const FLOW_DIRECTION_TIER2 = 65 * Math.PI / 180;
-export const FLOW_DIRECTION_TIER1 = 95 * Math.PI / 180;
+// traced motion. Contact uses the cut thresholds for now; FLOW_CONTACT_* are kept
+// defined for future tuning. Flow has no separate direction cap — direction is
+// folded into the shape metric below.
 export const FLOW_CONTACT_TIER3  = 65;
 export const FLOW_CONTACT_TIER2  = 95;
 export const FLOW_CONTACT_TIER1  = 130;
@@ -30,9 +29,11 @@ export const FLOW_TRAVEL_TIER3   = 24;
 export const FLOW_TRAVEL_TIER2   = 12;
 export const FLOW_TRAVEL_TIER1   = 4;
 export const FLOW_LINK_MAX_MS    = 700;
-// Continuity is lenient on purpose: any forward heading along the ribbon (including
-// smooth curves and corners up to a ~120 degrees turn) keeps full credit, while
-// heading sideways or backward against the phrase falls off toward a miss.
+// Flow's single shape metric: the RMS angle between the gesture's heading sequence
+// and the ribbon's local heading sequence (FLOW_SHAPE_BINS bins each). Lenient on
+// purpose — smooth curves and corners keep full credit, and only motion that does not
+// trace the shape (sideways, backward, kinked) falls off toward a miss.
+export const FLOW_SHAPE_BINS     = 4;
 export const FLOW_CONT_TIER3     = 60 * Math.PI / 180;
 export const FLOW_CONT_TIER2     = 90 * Math.PI / 180;
 export const FLOW_CONT_TIER1     = 120 * Math.PI / 180;
@@ -48,13 +49,9 @@ export interface JudgementNote {
   x: number;
   y: number;
   direction: number;
-  flowPrevIndex?: number;
-  flowNextIndex?: number;
-}
-
-export interface PreviousFlowNote {
-  x: number;
-  y: number;
+  // Flow only: the ribbon's local heading sequence (FLOW_SHAPE_BINS entries) the
+  // gesture is matched against. Absent for a lone anchor (judged on motion only).
+  flowShape?: number[];
 }
 
 export interface PointerSample {
@@ -128,6 +125,7 @@ interface Candidate extends Judgement {
   contactCap: HitResult;
   directionError: number;
   directionCap: HitResult;
+  continuityCap: HitResult;
   durationMs: number;
   timingCap: HitResult;
   travelCap: HitResult;
@@ -166,6 +164,38 @@ function clipSamples(pointerSamples: PointerSample[], windowStart: number, windo
     pushDistinct(clipped, end === curr.songMs ? curr : interpolateSample(prev, curr, end));
   }
   return clipped;
+}
+
+// Arc-length-uniform resample of a polyline into `bins` segment headings (radians).
+// Each heading reflects the path's shape over its bin, so no single raw sample is
+// load-bearing. Returns null if the path has no length.
+export function resampleHeadings(points: { x: number; y: number }[], bins: number): number[] | null {
+  const n = points.length;
+  if (n < 2 || bins < 1) return null;
+  const cum = [0];
+  for (let i = 1; i < n; i++) {
+    cum.push(cum[i - 1] + Math.hypot(points[i].x - points[i - 1].x, points[i].y - points[i - 1].y));
+  }
+  const total = cum[n - 1];
+  if (total <= 1e-6) return null;
+
+  const knots: { x: number; y: number }[] = [];
+  let seg = 0;
+  for (let k = 0; k <= bins; k++) {
+    const dist = (total * k) / bins;
+    while (seg < n - 2 && cum[seg + 1] < dist) seg++;
+    const segLen = cum[seg + 1] - cum[seg];
+    const t = segLen <= 0 ? 0 : (dist - cum[seg]) / segLen;
+    knots.push({
+      x: points[seg].x + (points[seg + 1].x - points[seg].x) * t,
+      y: points[seg].y + (points[seg + 1].y - points[seg].y) * t,
+    });
+  }
+  const headings: number[] = [];
+  for (let k = 0; k < bins; k++) {
+    headings.push(Math.atan2(knots[k + 1].y - knots[k].y, knots[k + 1].x - knots[k].x));
+  }
+  return headings;
 }
 
 function contactForSegment(note: JudgementNote, start: PointerSample, end: PointerSample): {
@@ -209,15 +239,23 @@ function issueFor(
   return undefined;
 }
 
-// Continuity guards forward progress through the phrase: the gesture should head
-// along the ribbon away from the previous anchor, not stall or backtrack. It is the
-// angle between the gesture heading and the incoming chord (prev -> this), judged
-// regardless of the previous anchor's own grade, so one weak anchor no longer caps
-// the rest of the phrase. The first anchor (no previous) has no continuity constraint.
-function flowContinuityCap(note: JudgementNote, heading: number, previousFlowNote?: PreviousFlowNote): HitResult {
-  if (note.flowPrevIndex === undefined || !previousFlowNote) return "tier3";
-  const incoming = Math.atan2(note.y - previousFlowNote.y, note.x - previousFlowNote.x);
-  return capUpper(Math.abs(angleDiff(heading, incoming)), FLOW_CONT_TIER3, FLOW_CONT_TIER2, FLOW_CONT_TIER1);
+// The flow shape cap: how well the gesture traces the ribbon's local shape. Both the
+// gesture and the ribbon are reduced to a heading sequence (resampled by arc length),
+// and the cap is the RMS per-bin heading error — position-invariant, so it measures
+// shape, not distance. A lone anchor has no ribbon shape and is left free (motion is
+// still required by travel/contact). The previous anchor's grade is irrelevant, so a
+// single weak anchor no longer caps the rest of the phrase.
+function flowShapeCap(note: JudgementNote, samples: PointerSample[], startIndex: number, endIndex: number): HitResult {
+  const target = note.flowShape;
+  if (!target || target.length === 0) return "tier3";
+  const gesture = resampleHeadings(samples.slice(startIndex, endIndex + 1), target.length);
+  if (!gesture) return "tier3"; // no motion; travel cap handles it
+  let sumSq = 0;
+  for (let k = 0; k < target.length; k++) {
+    const err = angleDiff(gesture[k], target[k]);
+    sumSq += err * err;
+  }
+  return capUpper(Math.sqrt(sumSq / target.length), FLOW_CONT_TIER3, FLOW_CONT_TIER2, FLOW_CONT_TIER1);
 }
 
 function buildCandidate(
@@ -227,7 +265,6 @@ function buildCandidate(
   endIndex: number,
   contactDistance: number,
   impactSongMs: number,
-  previousFlowNote?: PreviousFlowNote,
 ): Candidate {
   const start = samples[startIndex];
   const end = samples[endIndex];
@@ -254,13 +291,9 @@ function buildCandidate(
     directionError = Math.abs(angleDiff(direction, note.direction));
     directionCap = capUpper(directionError, CUT_DIRECTION_TIER3, CUT_DIRECTION_TIER2, CUT_DIRECTION_TIER1);
   } else if (isFlow) {
-    // Direction follows the engine-computed ribbon tangent (stored in note.direction).
-    // A lone anchor with no phrase neighbours has no tangent, so direction is free.
-    if (note.flowPrevIndex !== undefined || note.flowNextIndex !== undefined) {
-      directionError = Math.abs(angleDiff(direction, note.direction));
-      directionCap = capUpper(directionError, FLOW_DIRECTION_TIER3, FLOW_DIRECTION_TIER2, FLOW_DIRECTION_TIER1);
-    }
-    continuityCap = flowContinuityCap(note, direction, previousFlowNote);
+    // Flow has no separate direction cap: how the gesture follows the ribbon (heading
+    // and bend) is the shape metric, reported in the "continuity" / flow slot.
+    continuityCap = flowShapeCap(note, samples, startIndex, endIndex);
   }
 
   const result = minTier(
@@ -288,6 +321,7 @@ function buildCandidate(
     contactCap,
     directionError,
     directionCap,
+    continuityCap,
     durationMs,
     timingCap: timingScore.result,
     travelCap,
@@ -300,6 +334,7 @@ function candidateSortKey(candidate: Candidate): number[] {
     tierRank(candidate.timingCap),
     tierRank(candidate.contactCap),
     tierRank(candidate.directionCap),
+    tierRank(candidate.continuityCap),
     tierRank(candidate.travelCap),
     -Math.abs(candidate.offsetMs),
     -candidate.gesture.contactDistance,
@@ -321,7 +356,6 @@ function isBetterCandidate(candidate: Candidate, best: Candidate | null): boolea
 function selectBestCandidate(
   note: JudgementNote,
   pointerSamples: PointerSample[],
-  previousFlowNote?: PreviousFlowNote,
 ): Candidate | null {
   if (pointerSamples.length < 2) return null;
   const latestSongMs = pointerSamples[pointerSamples.length - 1].songMs;
@@ -349,7 +383,6 @@ function selectBestCandidate(
         endIndex,
         contactDistance,
         impactSongMs,
-        previousFlowNote,
       );
       if (isBetterCandidate(candidate, best)) best = candidate;
     }
@@ -393,13 +426,12 @@ function gestureSettled(
 export function judgeGesture(
   note: JudgementNote,
   pointerSamples: PointerSample[],
-  previousFlowNote?: PreviousFlowNote,
   prevNoteTime?: number,
 ): JudgementAttempt {
   const latest = pointerSamples[pointerSamples.length - 1];
   if (latest === undefined) return { status: "noGesture" };
 
-  const best = selectBestCandidate(note, pointerSamples, previousFlowNote);
+  const best = selectBestCandidate(note, pointerSamples);
   if (!best) return { status: "noGesture" };
   if (gestureSettled(best, note, latest, prevNoteTime)) return { status: "judged", judgement: best };
   if (canStillImprove(best, latest.songMs, note.time)) return { status: "pending", best };

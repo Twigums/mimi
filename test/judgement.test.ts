@@ -160,37 +160,41 @@ check("lyric notes ignore gesture direction but still require motion", () => {
   assert.equal(resultFor(judgeGesture(lyric, lineThroughCenter(Math.PI / 2, 40))), "tier3");
 });
 
-check("flow continuity ignores the previous anchor's grade (no cascade)", () => {
-  // Last anchor of a pair: its tangent is the incoming chord (rightward). A clean
-  // rightward sweep flows perfectly, so it earns tier 3 regardless of how the
-  // previous anchor was judged — one weak anchor no longer caps the rest.
-  const flow = note({ kind: "flow", flowPrevIndex: 0 });
-  const prev = { x: CENTER_X - 120, y: CENTER_Y };
-
+check("a flow gesture tracing the ribbon shape earns tier 3", () => {
+  // Ribbon heads straight right (all bins 0); a clean rightward sweep matches it.
+  const flow = note({ kind: "flow", flowShape: [0, 0, 0, 0] });
   const gesture = withLatest(lineThroughCenter(0, 40), NOTE_TIME + CUT_METRIC_WINDOW_MS);
-  assert.equal(resultFor(judgeGesture(flow, gesture, prev)), "tier3");
+
+  assert.equal(resultFor(judgeGesture(flow, gesture)), "tier3");
 });
 
-check("a lone flow anchor judges motion only, ignoring direction", () => {
-  // No phrase neighbours means no ribbon tangent, so direction is free (like a lyric).
+check("a flow gesture off the ribbon shape is capped by the flow metric", () => {
+  // Ribbon heads right; the gesture sweeps perpendicular (90 degrees off every bin),
+  // so the shape cap — reported in the continuity/flow slot — holds it to tier 2.
+  const flow = note({ kind: "flow", flowShape: [0, 0, 0, 0] });
+  const gesture = withLatest(lineThroughCenter(Math.PI / 2, 40), NOTE_TIME + CUT_METRIC_WINDOW_MS);
+  const judgement = judged(judgeGesture(flow, gesture));
+
+  assert.equal(judgement.result, "tier2");
+  assert.equal(judgement.issue, "continuity");
+});
+
+check("a lone flow anchor (no shape) judges motion only", () => {
+  // No phrase neighbours means no ribbon shape, so heading is free (like a lyric).
   const lone = note({ kind: "flow" });
   const gesture = withLatest(lineThroughCenter(Math.PI / 2, 40), NOTE_TIME + CUT_METRIC_WINDOW_MS);
 
   assert.equal(resultFor(judgeGesture(lone, gesture)), "tier3");
 });
 
-check("a sharp flow corner caps continuity even when the tangent is followed", () => {
-  // Middle anchor whose ribbon turns ~160 degrees: the engine-set tangent bisects to
-  // 80 degrees. Following the tangent satisfies direction, but the heading is 80
-  // degrees off the incoming chord, so continuity — not direction — caps it to tier 2.
-  const eighty = 80 * Math.PI / 180;
-  const flow = note({ kind: "flow", flowPrevIndex: 0, flowNextIndex: 2, direction: eighty });
-  const prev = { x: CENTER_X - 120, y: CENTER_Y };
-  const gesture = withLatest(lineThroughCenter(eighty, 40), NOTE_TIME + CUT_METRIC_WINDOW_MS);
-  const judgement = judged(judgeGesture(flow, gesture, prev));
+check("flow shape match accounts for the ribbon's bend, not just one heading", () => {
+  // Ribbon bends hard across its bins (right -> down-left). A straight rightward sweep
+  // matches only the first bin, so the whole-shape cap still holds it below tier 3 —
+  // proving the metric reads the bend, not a single heading.
+  const curved = note({ kind: "flow", flowShape: [0, Math.PI / 4, Math.PI / 2, (3 * Math.PI) / 4] });
+  const straight = withLatest(lineThroughCenter(0, 40), NOTE_TIME + CUT_METRIC_WINDOW_MS);
 
-  assert.equal(judgement.result, "tier2");
-  assert.equal(judgement.issue, "continuity");
+  assert.equal(judged(judgeGesture(curved, straight)).result, "tier2");
 });
 
 check("best sub-gesture is selected when another motion shares the metric window", () => {
@@ -234,7 +238,7 @@ check("density guard defers an early commit during a stacked previous note", () 
   assert.equal(judgeGesture(note(), gesture).status, "judged");
   // A previous note at 950 ms pushes the earliest commit past the gesture's exit,
   // so the same gesture stays pending rather than mis-committing to this note.
-  assert.equal(judgeGesture(note(), gesture, undefined, NOTE_TIME - 50).status, "pending");
+  assert.equal(judgeGesture(note(), gesture, NOTE_TIME - 50).status, "pending");
 });
 
 for (const testCase of cases) {
