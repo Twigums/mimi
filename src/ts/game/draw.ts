@@ -1,5 +1,6 @@
 import type { Note } from "./engine";
 import type { TrailShape } from "../core/settings";
+import { withPath } from "../core/sitePath";
 
 export const NOTE_RADIUS  = 52;
 export const LYRIC_RADIUS = 34;
@@ -26,14 +27,128 @@ export const NOTE_STYLE: Record<string, NoteStyle> = {
   lyric:  LYRIC_STYLE,
 };
 
-// Gameplay arrow glyph (Inkscape export, path7.svg) normalized into its own viewBox.
-// Points along +x; drawArrow transforms it onto each note instead of rebuilding the
-// polygon every frame. Coordinates have the source SVG's group translate folded in.
-const ARROW_VB_W = 80.620979;
-const ARROW_VB_H = 59.231922;
-const ARROW_PATH = new Path2D(
-  "M 46.206037,0.999876 V 15.646527 H 1.000008 v 27.93886 h 45.206029 v 14.64665 l 33.41501,-28.61582 z",
-);
+interface ArrowGlyph {
+  viewBoxW: number;
+  viewBoxH: number;
+  path: Path2D;
+}
+
+const ARROW_SRC = "/images/arrow.svg";
+
+let arrowGlyph: ArrowGlyph | null = null;
+let arrowGlyphLoad: Promise<void> | null = null;
+let arrowGlyphWarningShown = false;
+
+function parseNumbers(raw: string): number[] {
+  return raw
+    .trim()
+    .split(/[\s,]+/)
+    .filter(Boolean)
+    .map(Number)
+    .filter(Number.isFinite);
+}
+
+function matrixFromTransform(transform: string): DOMMatrix {
+  const matrix = new DOMMatrix();
+  const commands = transform.matchAll(/([a-zA-Z]+)\(([^)]*)\)/g);
+
+  for (const [, rawName, rawArgs] of commands) {
+    const name = rawName.toLowerCase();
+    const args = parseNumbers(rawArgs);
+
+    switch (name) {
+      case "matrix":
+        if (args.length >= 6) matrix.multiplySelf(new DOMMatrix(args.slice(0, 6)));
+        break;
+      case "translate":
+        if (args.length >= 1) matrix.translateSelf(args[0], args[1] ?? 0);
+        break;
+      case "scale":
+        if (args.length >= 1) matrix.scaleSelf(args[0], args[1] ?? args[0]);
+        break;
+      case "rotate":
+        if (args.length >= 3) {
+          matrix.translateSelf(args[1], args[2]).rotateSelf(args[0]).translateSelf(-args[1], -args[2]);
+        } else if (args.length >= 1) {
+          matrix.rotateSelf(args[0]);
+        }
+        break;
+      case "skewx":
+        if (args.length >= 1) {
+          const skew = new DOMMatrix();
+          skew.c = Math.tan((args[0] * Math.PI) / 180);
+          matrix.multiplySelf(skew);
+        }
+        break;
+      case "skewy":
+        if (args.length >= 1) {
+          const skew = new DOMMatrix();
+          skew.b = Math.tan((args[0] * Math.PI) / 180);
+          matrix.multiplySelf(skew);
+        }
+        break;
+    }
+  }
+
+  return matrix;
+}
+
+function elementTransformMatrix(pathEl: SVGPathElement, svg: SVGSVGElement): DOMMatrix {
+  const transforms: string[] = [];
+  let el: Element | null = pathEl;
+
+  while (el) {
+    const transform = el.getAttribute("transform");
+    if (transform) transforms.push(transform);
+    if (el === svg) break;
+    el = el.parentElement;
+  }
+
+  const matrix = new DOMMatrix();
+  for (const transform of transforms.reverse()) {
+    matrix.multiplySelf(matrixFromTransform(transform));
+  }
+  return matrix;
+}
+
+function parseArrowSvg(text: string): ArrowGlyph | null {
+  const doc = new DOMParser().parseFromString(text, "image/svg+xml");
+  const svg = doc.documentElement as unknown as SVGSVGElement;
+  if (svg.tagName.toLowerCase() !== "svg") return null;
+
+  const [minX = 0, minY = 0, viewBoxW, viewBoxH] = parseNumbers(svg.getAttribute("viewBox") ?? "");
+  if (!viewBoxW || !viewBoxH) return null;
+
+  const pathEl = svg.querySelector<SVGPathElement>("path#path7, path");
+  const pathData = pathEl?.getAttribute("d");
+  if (!pathEl || !pathData) return null;
+
+  const path = new Path2D();
+  const matrix = new DOMMatrix()
+    .translateSelf(-minX, -minY)
+    .multiplySelf(elementTransformMatrix(pathEl, svg));
+  path.addPath(new Path2D(pathData), matrix);
+
+  return { viewBoxW, viewBoxH, path };
+}
+
+function ensureArrowGlyph(): void {
+  if (arrowGlyph || arrowGlyphLoad) return;
+  if (typeof document === "undefined" || typeof fetch === "undefined" || typeof Path2D === "undefined") return;
+
+  arrowGlyphLoad = fetch(withPath(ARROW_SRC))
+    .then(res => res.ok ? res.text() : Promise.reject(new Error(`HTTP ${res.status}`)))
+    .then(text => {
+      const glyph = parseArrowSvg(text);
+      if (!glyph) throw new Error("invalid arrow SVG");
+      arrowGlyph = glyph;
+    })
+    .catch(err => {
+      console.error("[mimi] arrow SVG load failed:", err);
+    });
+}
+
+ensureArrowGlyph();
 
 // appearProgress: 0 = faint outline just appearing, 1 = fully filled at hit time
 // scale: canvas pixels per logical unit (canvas.width / LOGICAL_W)
@@ -67,23 +182,32 @@ export function drawArrow(
   const outlineAlpha = Math.min(appearProgress / OUTLINE_SNAP, 1);
   const fillProgress = Math.max(0, (appearProgress - FILL_START) / (1 - FILL_START));
 
+  ensureArrowGlyph();
+  if (!arrowGlyph) {
+    if (!arrowGlyphWarningShown) {
+      arrowGlyphWarningShown = true;
+      console.warn("[mimi] arrow glyph is not ready; skipping arrow draw until the SVG loads");
+    }
+    return;
+  }
+
   // Place the SVG arrow: center its viewBox on the note, rotate to `direction`, and
   // scale so the arrow spans one note radius (matching the old hand-built footprint).
   // Build once; reuse for both clip and stroke.
-  const s = r / ARROW_VB_W;
+  const s = r / arrowGlyph.viewBoxW;
   const matrix = new DOMMatrix()
     .translateSelf(cx, cy)
     .rotateSelf((note.direction * 180) / Math.PI)
     .scaleSelf(s)
-    .translateSelf(-ARROW_VB_W / 2, -ARROW_VB_H / 2);
+    .translateSelf(-arrowGlyph.viewBoxW / 2, -arrowGlyph.viewBoxH / 2);
   const path = new Path2D();
-  path.addPath(ARROW_PATH, matrix);
+  path.addPath(arrowGlyph.path, matrix);
 
   // Radial fill clipped to arrow shape (skipped in hidden mod)
   if (!hidden) {
     ctx.save();
     ctx.clip(path);
-    const fillMaxR = (Math.hypot(ARROW_VB_W, ARROW_VB_H) / 2) * s;
+    const fillMaxR = (Math.hypot(arrowGlyph.viewBoxW, arrowGlyph.viewBoxH) / 2) * s;
     ctx.beginPath();
     ctx.arc(cx, cy, fillProgress * fillMaxR, 0, Math.PI * 2);
     ctx.fillStyle = `rgba(${base}, 1.0)`;
