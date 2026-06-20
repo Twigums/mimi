@@ -200,7 +200,8 @@ function main(): void {
     // Cut and pinned-flow rows carry their slider direction; auto flow and lyric rows
     // emit "auto". A `break` before a new-combo object ends the previous flow phrase.
     notes.forEach((note, i) => {
-        if (note.newCombo && i > 0) out.push("break");
+        const mayNeedBreak = i > 0 && note.kind === "flow" && notes[i - 1].kind === "flow";
+        if (note.newCombo && mayNeedBreak) out.push("break");
         const deg = note.degrees === null ? "auto" : note.degrees;
         out.push(`${note.kind}, ${note.time}, ${deg}, ${note.x}, ${note.y}`);
     });
