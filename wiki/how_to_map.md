@@ -40,19 +40,22 @@ Rows are comma-separated.
 
 ```text
 # kind, time, degrees, x, y[, char]
-c, 4200, 0, 400, 200
-s, 4800, -45, 520, 260
-l, 5100, 0, 360, 310
+cut, 4200, 0, 400, 200
+flow, 4800, -45, 520, 260
+break
+flow, 5000, auto, 300, 300
+lyric, 5100, auto, 360, 310
 ```
 
 | Field | Meaning |
 |-------|---------|
-| `kind` | `c` cut, `s` flow anchor, or `l` lyric |
+| `kind` | `cut`, `flow` anchor, or `lyric` (shorthands `c`/`f`/`l` also accepted) |
 | `time` | Note time in the header's `time_unit` |
-| `degrees` | Direction in degrees; ignored for lyric notes |
+| `degrees` | Direction in degrees. Required for cut notes; ignored for lyric notes. For a flow anchor, write `auto` to derive the direction from the ribbon tangent (the normal case), or give a number to **pin** that anchor's tangent heading |
 | `x` | Horizontal position in the 800 x 600 logical play area |
 | `y` | Vertical position in the 800 x 600 logical play area |
 | `char` | Optional lyric character override |
+| `break` | A standalone line (not a note) that ends the current flow phrase; the next flow anchor starts a new phrase |
 
 The compiler emits runtime notes with `kind`, `time`, `x`, `y`, `direction` in radians, `state: "pending"`, and optional `lyricChar`.
 
@@ -61,7 +64,7 @@ The compiler emits runtime notes with `kind`, `time`, `x`, `y`, `direction` in r
 | Kind | Use when |
 |------|----------|
 | `c` Cut | A standalone directional slash |
-| `s` Flow | An anchor in a connected phrase; consecutive anchors within 700 ms are linked |
+| `f` Flow | An anchor in a connected phrase; consecutive flow anchors link until a `break` or a non-flow note ends the phrase |
 | `l` Lyric | A sung character or directionless vocal accent |
 
 Cut and flow notes do not require a mouse-button or key hold. Flow notes should be placed so the player can read a continuous path through the phrase.
@@ -105,7 +108,7 @@ Common values:
 | `45` | down-right |
 | `-45` | up-right |
 
-The compiler converts authored degrees to the runtime radian angle used by the game engine.
+The compiler converts authored degrees to the runtime radian angle used by the game engine. Cut notes always use the authored direction. A flow anchor with `auto` degrees derives its direction from the local ribbon tangent (the bisector of the chords to the neighbouring anchors), so chart the flow path by anchor positions and let the direction follow; supplying a number instead pins that anchor's tangent, which is useful for forcing the curve's heading at a chosen waypoint while the rest stay automatic.
 
 ## Timing
 
@@ -123,13 +126,22 @@ Cut notes use these timing tiers:
 
 ## osu! Conversion
 
-Charts may be authored in the osu! editor using linear sliders and converted with:
+Charts may be authored in the osu! editor and converted with:
 
 ```bash
 npm run --silent convert:osu -- path/to/file.osu > src/songs/<song-id>/hard.mimi
 ```
 
-The osu play area is scaled into mimi's 800 x 600 play area. Linear sliders become cut notes with direction taken from slider start to endpoint. Add lyric rows manually when a note should display a sung character or vocal accent.
+The osu play area is scaled into mimi's 800 x 600 play area (spinners and holds are skipped). The note kind is chosen by the object type and its hitsound, so you author every kind directly in the osu editor:
+
+| osu object + hitsound | mimi note |
+|-----------------------|-----------|
+| hitcircle (no special hitsound) | flow anchor, `auto` direction |
+| slider (no special hitsound) | flow anchor, direction pinned to the slider's opening |
+| slider with **whistle** | cut, direction from the slider's opening |
+| any object with **clap** | lyric |
+
+Cut and pinned flow take their direction from the slider, so use a slider for those; a whistle on a bare hitcircle has no direction and is imported as auto flow with a warning. The `finish` hitsound is unused. Consecutive flow anchors link into flowing phrases automatically.
 
 ## Minimal Example
 
@@ -143,7 +155,8 @@ ar: 10
 # kind, time, degrees, x, y
 c, 4200, 0, 400, 200
 c, 4800, -45, 560, 320
-s, 5100, 90, 300, 400
-s, 5300, 90, 300, 500
-l, 5600, 0, 450, 300
+f, 5100, auto, 300, 400
+f, 5300, auto, 300, 500
+f, 5500, 90, 300, 560
+l, 5600, auto, 450, 300
 ```

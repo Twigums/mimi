@@ -33,12 +33,14 @@ readDouble name s = case reads (trim s) of
     _         -> Left $ "Invalid number for '" ++ name ++ "': " ++ s
 
 data NoteEntry = NoteEntry
-    { neKind      :: String
-    , neTimeMs    :: Double
-    , neX         :: Double
-    , neY         :: Double
-    , neDirection :: Double
-    , neLyricChar :: Maybe String
+    { neKind            :: String
+    , neTimeMs          :: Double
+    , neX               :: Double
+    , neY               :: Double
+    , neDirection       :: Double
+    , neDirectionPinned :: Bool
+    , neNewCombo        :: Bool
+    , neLyricChar       :: Maybe String
     }
 
 parseNote :: (Double -> Double) -> String -> Either String NoteEntry
@@ -49,25 +51,41 @@ parseNote toMs line =
         _                   -> Left $ "Expected 5 or 6 comma-separated fields: " ++ line
   where
     go k t d x y mChar = do
-        t'  <- readDouble "time"    t
-        deg <- readDouble "degrees" d
-        nx  <- readDouble "x"       x
-        ny  <- readDouble "y"       y
+        t'  <- readDouble "time" t
+        nx  <- readDouble "x"    x
+        ny  <- readDouble "y"    y
+        -- "auto" (or an empty field) means "no authored direction": flow anchors then
+        -- derive it from the ribbon tangent. A numeric value pins the direction.
+        (radians, pinned) <- case map toLower (trim d) of
+            ""     -> Right (0.0, False)
+            "auto" -> Right (0.0, False)
+            ds     -> do
+                deg <- readDouble "degrees" ds
+                Right (normalizeAngle (-(deg * pi / 180.0)), True)
         let kind = case map toLower k of
-                "c"      -> "cut"
-                "cut"    -> "cut"
-                "click"  -> "cut"
-                "f"      -> "cut"
-                "flick"  -> "cut"
-                "s"      -> "flow"
-                "flow"   -> "flow"
-                "stream" -> "flow"
-                "l"      -> "lyric"
-                "lyric"  -> "lyric"
-                _        -> map toLower k
+                "c"     -> "cut"
+                "cut"   -> "cut"
+                "f"     -> "flow"
+                "flow"  -> "flow"
+                "l"     -> "lyric"
+                "lyric" -> "lyric"
+                _       -> map toLower k
         let timeMs  = toMs t'
-        let radians = normalizeAngle (-(deg * pi / 180.0))
-        Right $ NoteEntry kind timeMs nx ny radians mChar
+        -- newCombo is set later by `parseEntries` when a `break` precedes this note.
+        Right $ NoteEntry kind timeMs nx ny radians pinned False mChar
+
+-- Fold the data lines into notes, treating a `break` line as a phrase boundary: it
+-- sets newCombo on the next note so the engine starts a fresh flow phrase there.
+parseEntries :: (Double -> Double) -> [String] -> Either String [NoteEntry]
+parseEntries toMs = go False
+  where
+    go _ [] = Right []
+    go brk (l:ls)
+        | map toLower (trim l) == "break" = go True ls
+        | otherwise = do
+            n  <- parseNote toMs l
+            ns <- go False ls
+            Right (n { neNewCombo = brk } : ns)
 
 normalizeAngle :: Double -> Double
 normalizeAngle a
@@ -88,6 +106,8 @@ renderNote n =
     ", \"x\": "            ++ showNum (neX         n) ++
     ", \"y\": "            ++ showNum (neY         n) ++
     ", \"direction\": "    ++ show    (neDirection n) ++
+    (if neDirectionPinned n then ", \"directionPinned\": true" else "") ++
+    (if neNewCombo n then ", \"newCombo\": true" else "") ++
     maybe "" (\c -> ", \"lyricChar\": \"" ++ c ++ "\"") (neLyricChar n) ++
     ", \"state\": \"pending\" }"
 
@@ -105,7 +125,7 @@ compileChart content = do
             off <- lookupHeader "offset" hLines >>= readDouble "offset"
             Right $ \beat -> off + (beat - 1.0) * (60000.0 / bpm)
         other  -> Left $ "Unknown time_unit: " ++ other
-    notes <- mapM (parseNote toMs) noteLines
+    notes <- parseEntries toMs noteLines
     Right $ "[\n" ++ intercalate ",\n" (map renderNote notes) ++ "\n]\n"
   where
     isDataLine l = let t = trim l

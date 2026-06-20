@@ -4,7 +4,7 @@ import { arToMs, loadAr, loadHitsoundVolume, subscribeHitsoundVolume, volToFacto
 import { createCursorRenderer, type CursorRenderer } from "./cursor";
 import {
   CUT_METRIC_WINDOW_MS,
-  FLOW_LINK_MAX_MS,
+  FLOW_SHAPE_BINS,
   TIER1_MS,
   type HitResult,
   type HitTiming,
@@ -12,6 +12,7 @@ import {
   type NoteKind,
   type PointerSample,
   judgeGesture,
+  resampleHeadings,
   timingFor,
 } from "./judgement";
 export { MAX_POINTS, TIER1_POINTS, TIER2_POINTS, TIER3_POINTS } from "./judgement";
@@ -20,6 +21,11 @@ export const LOGICAL_W = 800;
 export const LOGICAL_H = 600;
 
 const LYRIC_CHAR_MAX_DIST_MS = 80;
+
+// How far the ribbon bows through each flow anchor, as a fraction of the shorter
+// adjacent chord. Higher = rounder curves (less kinking at the waypoint) at the cost
+// of some overshoot risk on very uneven spacing.
+const FLOW_TANGENT_WEIGHT = 0.9;
 
 type NoteState         = "pending" | "hit" | "missed";
 export type { HitResult, HitTiming, IssueReason, NoteKind } from "./judgement";
@@ -33,8 +39,13 @@ export interface Note {
   state: NoteState;
   hitResult?: HitResult;
   lyricChar?: string;
+  directionPinned?: boolean;
+  newCombo?: boolean;
   flowPrevIndex?: number;
   flowNextIndex?: number;
+  flowTanX?: number;
+  flowTanY?: number;
+  flowShape?: number[];
 }
 
 interface RawNote extends Omit<Note, "kind" | "state"> {
@@ -113,14 +124,10 @@ function normalizeNoteKind(kind: unknown): NoteKind | null {
   if (typeof kind !== "string") return null;
   switch (kind.toLowerCase()) {
     case "cut":
-    case "click":
-    case "flick":
-    case "f":
     case "c":
       return "cut";
     case "flow":
-    case "stream":
-    case "s":
+    case "f":
       return "flow";
     case "lyric":
     case "l":
@@ -313,7 +320,96 @@ export function createGame(deps: GameDeps): GameHandle {
     }
   };
 
+  // Flow anchors take their direction from the ribbon they trace. By default the
+  // tangent points along the bisector of the incoming (prev->this) and outgoing
+  // (this->next) unit chords; an anchor whose chart row authored a `degrees` value
+  // (`directionPinned`) instead pins that heading. Either way the length is the
+  // tension weight times the shorter adjacent chord, which keeps the cubic Hermite
+  // ribbon from overshooting where spacing is uneven. The arrow and the judged shape
+  // use the angle; `draw` uses the full vector. A lone anchor (no links) or a
+  // 180-degree cusp without a pin returns null and keeps its current direction.
+  const flowTangent = (index: number): { x: number; y: number } | null => {
+    const n = notes[index];
+    let dirX = 0, dirY = 0;
+    let span = Infinity;
+    if (n.flowPrevIndex !== undefined) {
+      const p = notes[n.flowPrevIndex];
+      const dx = n.x - p.x, dy = n.y - p.y, len = Math.hypot(dx, dy);
+      if (len > 0) { dirX += dx / len; dirY += dy / len; span = Math.min(span, len); }
+    }
+    if (n.flowNextIndex !== undefined) {
+      const x = notes[n.flowNextIndex];
+      const dx = x.x - n.x, dy = x.y - n.y, len = Math.hypot(dx, dy);
+      if (len > 0) { dirX += dx / len; dirY += dy / len; span = Math.min(span, len); }
+    }
+    if (!Number.isFinite(span)) return null; // lone anchor: no ribbon, no magnitude
+    let ux: number, uy: number;
+    if (n.directionPinned) {
+      ux = Math.cos(n.direction);
+      uy = Math.sin(n.direction);
+    } else {
+      const dirLen = Math.hypot(dirX, dirY);
+      if (dirLen === 0) return null; // 180-degree cusp with no authored heading
+      ux = dirX / dirLen;
+      uy = dirY / dirLen;
+    }
+    const mag = FLOW_TANGENT_WEIGHT * span;
+    return { x: ux * mag, y: uy * mag };
+  };
+
+  const applyFlowTangent = (index: number): void => {
+    const t = flowTangent(index);
+    if (!t) return;
+    const n = notes[index];
+    n.flowTanX = t.x;
+    n.flowTanY = t.y;
+    n.direction = Math.atan2(t.y, t.x);
+  };
+
+  // The local ribbon shape an anchor is judged against: sample the cubic Hermite over
+  // the half-segments on either side of the anchor (so the window is centred on it),
+  // then reduce to FLOW_SHAPE_BINS arc-length headings. A lone anchor has no shape.
+  const SHAPE_HALF_STEPS = 5;
+  const hermite = (
+    ax: number, ay: number, tax: number, tay: number,
+    bx: number, by: number, tbx: number, tby: number, s: number,
+  ): { x: number; y: number } => {
+    const s2 = s * s, s3 = s2 * s;
+    const h00 = 2 * s3 - 3 * s2 + 1, h10 = s3 - 2 * s2 + s, h01 = -2 * s3 + 3 * s2, h11 = s3 - s2;
+    return {
+      x: h00 * ax + h10 * tax + h01 * bx + h11 * tbx,
+      y: h00 * ay + h10 * tay + h01 * by + h11 * tby,
+    };
+  };
+
+  const applyFlowShape = (index: number): void => {
+    const n = notes[index];
+    if (n.kind !== "flow") return;
+    const pts: { x: number; y: number }[] = [];
+    if (n.flowPrevIndex !== undefined) {
+      const p = notes[n.flowPrevIndex];
+      const tax = p.flowTanX ?? n.x - p.x, tay = p.flowTanY ?? n.y - p.y;
+      const tbx = n.flowTanX ?? n.x - p.x, tby = n.flowTanY ?? n.y - p.y;
+      for (let i = 0; i < SHAPE_HALF_STEPS; i++) {
+        pts.push(hermite(p.x, p.y, tax, tay, n.x, n.y, tbx, tby, 0.5 + (0.5 * i) / SHAPE_HALF_STEPS));
+      }
+    }
+    pts.push({ x: n.x, y: n.y });
+    if (n.flowNextIndex !== undefined) {
+      const x = notes[n.flowNextIndex];
+      const tax = n.flowTanX ?? x.x - n.x, tay = n.flowTanY ?? x.y - n.y;
+      const tbx = x.flowTanX ?? x.x - n.x, tby = x.flowTanY ?? x.y - n.y;
+      for (let i = 1; i <= SHAPE_HALF_STEPS; i++) {
+        pts.push(hermite(n.x, n.y, tax, tay, x.x, x.y, tbx, tby, (0.5 * i) / SHAPE_HALF_STEPS));
+      }
+    }
+    n.flowShape = pts.length >= 2 ? resampleHeadings(pts, FLOW_SHAPE_BINS) ?? undefined : undefined;
+  };
+
   const linkFlowPhrases = (): void => {
+    // Phrases are explicit, not auto-detected: consecutive flow anchors link into one
+    // phrase until a `newCombo` anchor (a chart `break`) starts a new one, or a
+    // non-flow note interrupts the run.
     let prevFlowIndex: number | null = null;
     for (let i = 0; i < notes.length; i++) {
       const note = notes[i];
@@ -323,14 +419,19 @@ export function createGame(deps: GameDeps): GameHandle {
         prevFlowIndex = null;
         continue;
       }
-      if (prevFlowIndex !== null) {
-        const prev = notes[prevFlowIndex];
-        if (note.time - prev.time <= FLOW_LINK_MAX_MS) {
-          note.flowPrevIndex = prevFlowIndex;
-          prev.flowNextIndex = i;
-        }
+      if (prevFlowIndex !== null && !note.newCombo) {
+        note.flowPrevIndex = prevFlowIndex;
+        notes[prevFlowIndex].flowNextIndex = i;
       }
       prevFlowIndex = i;
+    }
+    // Links are now resolved for the whole chart; derive each anchor's tangent, then
+    // its local shape (which depends on the neighbours' tangents).
+    for (let i = 0; i < notes.length; i++) {
+      if (notes[i].kind === "flow") applyFlowTangent(i);
+    }
+    for (let i = 0; i < notes.length; i++) {
+      if (notes[i].kind === "flow") applyFlowShape(i);
     }
   };
 
@@ -355,8 +456,7 @@ export function createGame(deps: GameDeps): GameHandle {
   const tryHit = (note: Note, songMs: number, prevNoteTime?: number): void => {
     if (note.state !== "pending") return;
 
-    const prevFlow = note.flowPrevIndex === undefined ? undefined : notes[note.flowPrevIndex];
-    const attempt = judgeGesture(note, pointerSamples, prevFlow, prevNoteTime);
+    const attempt = judgeGesture(note, pointerSamples, prevNoteTime);
     if (attempt.status !== "judged") return;
 
     const { result, points, offsetMs, timing, issue } = attempt.judgement;
@@ -551,6 +651,19 @@ export function createGame(deps: GameDeps): GameHandle {
         if (prev && prev.kind === "flow") {
           note.flowPrevIndex = spec.flowPrevIndex;
           prev.flowNextIndex = index;
+          applyFlowTangent(spec.flowPrevIndex); // prev gained an outgoing chord
+        }
+      }
+      if (spec.kind === "flow") applyFlowTangent(index);
+      // Re-derive shapes for the new anchor and the neighbours whose tangents moved
+      // (the predecessor gained an outgoing chord; its own predecessor's outgoing
+      // segment now ends on a re-tangented anchor).
+      if (spec.kind === "flow") {
+        applyFlowShape(index);
+        if (note.flowPrevIndex !== undefined) {
+          applyFlowShape(note.flowPrevIndex);
+          const pp = notes[note.flowPrevIndex].flowPrevIndex;
+          if (pp !== undefined) applyFlowShape(pp);
         }
       }
       return index;
