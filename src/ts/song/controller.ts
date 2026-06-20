@@ -127,7 +127,9 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPre
   setProgress(8);
 
   let musicOffsetMs = loadMusicOffset();
-  const unsubMusicOffset = subscribeMusicOffset(v => { musicOffsetMs = v; });
+  // Lives for the page lifetime (like subscribeVolume below); never torn down,
+  // so live music-offset changes keep applying across retries.
+  subscribeMusicOffset(v => { musicOffsetMs = v; });
   const gapSkipLeadInMs = arToMs(loadAr()) + JUDGEMENT_WINDOW_MS + GAP_SKIP_SAFETY_MS;
 
   let player: TextAlivePlayer | null = null;
@@ -384,7 +386,6 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPre
 
   return {
     stop(): void {
-      unsubMusicOffset();
       if (!playerReady || !player) return;
       dismissResult();
       resetPlayback();
