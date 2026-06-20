@@ -29,6 +29,12 @@ export const FLOW_TRAVEL_TIER3   = 24;
 export const FLOW_TRAVEL_TIER2   = 12;
 export const FLOW_TRAVEL_TIER1   = 4;
 export const FLOW_LINK_MAX_MS    = 700;
+// Flow timing is more lenient than cut for the perfect/great windows (gliding
+// through a phrase shouldn't demand cut-level precision per anchor). Tier 1 stays at
+// the shared TIER1_MS so the engine's eligibility/expiry/draw windows are unchanged;
+// the other gesture metrics can be tightened later if flow ends up too easy.
+export const FLOW_TIER3_MS       = 70;
+export const FLOW_TIER2_MS       = 120;
 // Flow's single shape metric: the RMS angle between the gesture's heading sequence
 // and the ribbon's local heading sequence (FLOW_SHAPE_BINS bins each). Lenient on
 // purpose — smooth curves and corners keep full credit, and only motion that does not
@@ -88,12 +94,25 @@ export function timingFor(deltaMs: number): HitTiming {
   return "on";
 }
 
-export function scoreFor(deltaMs: number): { result: HitResult; points: number } {
+export function scoreFor(
+  deltaMs: number,
+  t3 = TIER3_MS,
+  t2 = TIER2_MS,
+  t1 = TIER1_MS,
+): { result: HitResult; points: number } {
   const d = Math.abs(deltaMs);
-  if (d <= TIER3_MS) return { result: "tier3", points: TIER3_POINTS };
-  if (d <= TIER2_MS) return { result: "tier2", points: TIER2_POINTS };
-  if (d <= TIER1_MS) return { result: "tier1", points: TIER1_POINTS };
+  if (d <= t3) return { result: "tier3", points: TIER3_POINTS };
+  if (d <= t2) return { result: "tier2", points: TIER2_POINTS };
+  if (d <= t1) return { result: "tier1", points: TIER1_POINTS };
   return { result: "miss", points: 0 };
+}
+
+// Per-kind timing windows. Flow widens tier3/tier2; tier1 stays shared so the engine
+// windows keyed to TIER1_MS hold for every kind.
+function timingTiers(kind: NoteKind): { t3: number; t2: number; t1: number } {
+  return kind === "flow"
+    ? { t3: FLOW_TIER3_MS, t2: FLOW_TIER2_MS, t1: TIER1_MS }
+    : { t3: TIER3_MS, t2: TIER2_MS, t1: TIER1_MS };
 }
 
 export function tierRank(result: HitResult): number {
@@ -276,7 +295,8 @@ function buildCandidate(
   const offsetMs = impactSongMs - note.time;
 
   const isFlow = note.kind === "flow";
-  const timingScore = scoreFor(offsetMs);
+  const tt = timingTiers(note.kind);
+  const timingScore = scoreFor(offsetMs, tt.t3, tt.t2, tt.t1);
   // Contact uses the cut thresholds for both kinds until there's evidence to tune
   // flow separately; FLOW_CONTACT_* are kept defined for that future tuning.
   const contactCap = capUpper(contactDistance, CUT_CONTACT_TIER3, CUT_CONTACT_TIER2, CUT_CONTACT_TIER1);
@@ -395,11 +415,17 @@ export function getGesturePhrase(note: JudgementNote, pointerSamples: PointerSam
   return selectBestCandidate(note, pointerSamples)?.gesture ?? null;
 }
 
-function canStillImprove(candidate: Candidate, latestSongMs: number, noteTime: number): boolean {
+function canStillImprove(
+  candidate: Candidate,
+  latestSongMs: number,
+  noteTime: number,
+  t3: number,
+  t2: number,
+): boolean {
   if (latestSongMs < noteTime) return true;
   if (candidate.result === "tier3") return false;
-  if (candidate.result === "tier2") return latestSongMs < noteTime + TIER3_MS;
-  if (candidate.result === "tier1") return latestSongMs < noteTime + TIER2_MS;
+  if (candidate.result === "tier2") return latestSongMs < noteTime + t3;
+  if (candidate.result === "tier1") return latestSongMs < noteTime + t2;
   return latestSongMs < noteTime + CUT_METRIC_WINDOW_MS;
 }
 
@@ -434,6 +460,7 @@ export function judgeGesture(
   const best = selectBestCandidate(note, pointerSamples);
   if (!best) return { status: "noGesture" };
   if (gestureSettled(best, note, latest, prevNoteTime)) return { status: "judged", judgement: best };
-  if (canStillImprove(best, latest.songMs, note.time)) return { status: "pending", best };
+  const tt = timingTiers(note.kind);
+  if (canStillImprove(best, latest.songMs, note.time, tt.t3, tt.t2)) return { status: "pending", best };
   return { status: "judged", judgement: best };
 }

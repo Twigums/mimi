@@ -52,7 +52,14 @@ Calculation of gesture metrics observes the cursor movement through a "judgement
 
 ## Flow Judgement
 
-Flow notes use the same timing tiers as cut notes, but their gesture metrics are deliberately more lenient than cut so a continuous motion feels forgiving. Consecutive flow anchors within 700 ms are linked into a phrase. The anchors are read as a single shaped ribbon: the path drawn between consecutive anchors is the line the player traces. Each anchor is scored individually against that shape.
+Flow timing is more lenient than cut, and the gesture metrics are deliberately more forgiving too, so a continuous motion through a phrase doesn't demand cut-level precision at each anchor. Consecutive flow anchors within 700 ms are linked into a phrase. The anchors are read as a single shaped ribbon: the path drawn between consecutive anchors is the line the player traces. Each anchor is scored individually against that shape.
+
+| Timing | Tier 3 | Tier 2 | Tier 1 |
+|--------|--------|--------|--------|
+| Cut | +/- 40 ms | +/- 80 ms | +/- 160 ms |
+| Flow | +/- 70 ms | +/- 120 ms | +/- 160 ms |
+
+Score weights and the Miss boundary match the cut table; only the perfect/great windows widen for flow (Tier 1 stays at +/- 160 ms).
 
 Unlike a cut, a flow anchor has no single authored direction. The ribbon between consecutive anchors is a smooth curve, and the anchor is judged by how well the gesture **traces the local shape** of that curve rather than by hitting one angle. This is what makes flow feel different from cut: a continuous motion that follows the ribbon's bend scores well, while flicking across each anchor in an unrelated direction does not.
 

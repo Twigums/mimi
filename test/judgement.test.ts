@@ -179,6 +179,15 @@ check("a flow gesture off the ribbon shape is capped by the flow metric", () => 
   assert.equal(judgement.issue, "flow");
 });
 
+check("flow timing is more lenient than cut", () => {
+  // Same gesture crossing the note ~60 ms late: tier 2 for a cut (past its 40 ms
+  // perfect window) but tier 3 for flow's wider 70 ms window.
+  const gesture = withLatest(lineThroughCenter(0, 40, 1020, 1100), NOTE_TIME + CUT_METRIC_WINDOW_MS);
+
+  assert.equal(resultFor(judgeGesture(note({ kind: "cut" }), gesture)), "tier2");
+  assert.equal(resultFor(judgeGesture(note({ kind: "flow", flowShape: [0, 0, 0, 0] }), gesture)), "tier3");
+});
+
 check("a lone flow anchor (no shape) judges motion only", () => {
   // No phrase neighbours means no ribbon shape, so heading is free (like a lyric).
   const lone = note({ kind: "flow" });
