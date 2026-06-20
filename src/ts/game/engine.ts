@@ -123,14 +123,10 @@ function normalizeNoteKind(kind: unknown): NoteKind | null {
   if (typeof kind !== "string") return null;
   switch (kind.toLowerCase()) {
     case "cut":
-    case "click":
-    case "flick":
-    case "f":
     case "c":
       return "cut";
     case "flow":
-    case "stream":
-    case "s":
+    case "f":
       return "flow";
     case "lyric":
     case "l":

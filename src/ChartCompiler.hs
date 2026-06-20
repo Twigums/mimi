@@ -62,17 +62,13 @@ parseNote toMs line =
                 deg <- readDouble "degrees" ds
                 Right (normalizeAngle (-(deg * pi / 180.0)), True)
         let kind = case map toLower k of
-                "c"      -> "cut"
-                "cut"    -> "cut"
-                "click"  -> "cut"
-                "f"      -> "cut"
-                "flick"  -> "cut"
-                "s"      -> "flow"
-                "flow"   -> "flow"
-                "stream" -> "flow"
-                "l"      -> "lyric"
-                "lyric"  -> "lyric"
-                _        -> map toLower k
+                "c"     -> "cut"
+                "cut"   -> "cut"
+                "f"     -> "flow"
+                "flow"  -> "flow"
+                "l"     -> "lyric"
+                "lyric" -> "lyric"
+                _       -> map toLower k
         let timeMs  = toMs t'
         Right $ NoteEntry kind timeMs nx ny radians pinned mChar
 

@@ -31,7 +31,7 @@ function parseSections(text: string): Map<string, string[]> {
 // Flow is the default marker for imported hit objects; a clap hitsound tags a
 // lyric note instead. Direction is no longer derived — flow anchors take their
 // direction from the ribbon tangent at runtime, so a fixed 0 is emitted.
-type NoteKind = "s" | "l";
+type NoteKind = "f" | "l";
 
 interface Note {
     time: number;
@@ -97,7 +97,7 @@ function parseHitObject(line: string): Note | null {
 
     // Hitcircles and slider heads alike become flow anchors (consecutive anchors
     // link into a phrase at runtime); a clap hitsound marks the object as a lyric.
-    const kind: NoteKind = (hitSound & OSU_CLAP) ? "l" : "s";
+    const kind: NoteKind = (hitSound & OSU_CLAP) ? "l" : "f";
 
     const xm = parseFloat((osuX * SCALE + OFFSET_X).toFixed(1));
     const ym = parseFloat((osuY * SCALE + OFFSET_Y).toFixed(1));

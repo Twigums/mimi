@@ -93,7 +93,7 @@ stack build --system-ghc
   - `TestPlay.tsx` — single shared interactive testplay surface built on the real `createGame` engine (replaces the old `TutorialCanvas`/`ApproachPreview`/`CursorPreview`); `forwardRef` exposes `spawnNote(kind)` via `TestPlayHandle`. Runs its own rAF clock driving `game.tick(clock)` (no song timeline) and reuses the engine's real `judgeGesture`, note/cursor/fireworks rendering, and React judgement toasts (`JUDGEMENT_LABEL`). Notes appear via `game.spawnNote` at `clock + approachMs`. `loop` prop auto-spawns a rotating cut/flow/lyric loop (settings menu); without it notes appear only on the imperative handle (tutorial). Passes the snare hitsound URL (`withPath("/audio/snare.mp3")`) so hits play the real sound at the live hitsound volume. Passes a smaller `logicalW`/`logicalH` (default 400×300) to the engine so the surface is a zoomed-in window of the play-field; `arOverride` fixes AR (tutorial pins 1), otherwise AR follows the live setting via `setApproachMs`; Hidden / hitsound / cursor settings live-update through the engine's own subscriptions. `variant` (`"tutorial"` | `"panel"`) picks the `.testplay-wrap--*` sizing; the canvas (`.testplay-canvas`, 4:3) is wrapped with a `GameFrame`
   - `hooks/useLang.ts` — hook: current language from `localStorage`, re-reads on toggle click
   - `hooks/useSettings.ts` — consolidated setting hooks: `useApproachRate`, `useVolume`, `useHitsoundVolume` (numeric, shared `useNumericSetting` helper); `useHiddenMod` (boolean); `useCursorSize`, `useCursorR`, `useCursorG`, `useCursorB`, `useTrailFadeSpeed`, `useMusicOffset` (numeric); `useTrailShape`, `useTrailDecay` (string, shared `useStringSetting` helper)
-- `src/tools/osu2mimi.ts` — CLI converter from `.osu` format to `.mimi`: each non-spinner/non-hold hit object (hitcircle or slider head) becomes a flow anchor (`s`) by default, or a lyric note (`l`) if it carries a clap hitsound (`OSU_CLAP`); directions are not authored (flow takes the runtime ribbon tangent), so every row emits an `auto` `degrees` field
+- `src/tools/osu2mimi.ts` — CLI converter from `.osu` format to `.mimi`: each non-spinner/non-hold hit object (hitcircle or slider head) becomes a flow anchor (`f`) by default, or a lyric note (`l`) if it carries a clap hitsound (`OSU_CLAP`); directions are not authored (flow takes the runtime ribbon tangent), so every row emits an `auto` `degrees` field
 - `static/` — Copied verbatim to output (images, audio, `robots.txt`, etc.)
 
 ### Output
@@ -111,8 +111,8 @@ beats_per_measure: 4
 
 # kind, time_ms, degrees, x, y[, char]
 c, 2388, -30.6, 396.9,  92.2
-s, 3080,  auto, 381.3, 425.0
-s, 3300,    90, 360.0, 480.0
+f, 3080,  auto, 381.3, 425.0
+f, 3300,    90, 360.0, 480.0
 l, 5000,  auto, 300.0, 250.0
 l, 5500,  auto, 400.0, 300.0, か
 ```
@@ -121,7 +121,7 @@ l, 5500,  auto, 400.0, 300.0, か
 - `time_unit`: always `ms`
 - `difficulty`: integer level shown on the difficulty selection button
 - `beats_per_measure`: optional, informational only
-- `kind`: `c` (cut, red directional slash), `s` (flow anchor, blue connected phrase), or `l` (lyric, white circle, char from TextAlive within ±80 ms); legacy `f`/`flick` and `stream` aliases are normalized by the compilers
+- `kind`: `c`/`cut` (red directional slash), `f`/`flow` (blue connected phrase anchor), or `l`/`lyric` (white circle, char from TextAlive within ±80 ms)
 - `char` (lyric notes only, optional): overrides the TextAlive character lookup; baked into the compiled JSON as `"lyricChar"`
 - `time_ms`: milliseconds from song start when the note should be hit
 - `degrees`: direction in screen coordinates (0 = right, 90 = down, -90 = up); converted to runtime radians on compile. Cut notes always use it; lyric notes ignore it. For a flow anchor it is optional — `auto` (or an empty field, e.g. `s, t, auto, x, y`) derives direction from the ribbon tangent (compiler sets no `directionPinned`), while a numeric value **pins** that anchor's tangent (compiler emits `"directionPinned": true`)

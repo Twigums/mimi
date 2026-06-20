@@ -41,13 +41,13 @@ Rows are comma-separated.
 ```text
 # kind, time, degrees, x, y[, char]
 c, 4200, 0, 400, 200
-s, 4800, -45, 520, 260
+f, 4800, -45, 520, 260
 l, 5100, 0, 360, 310
 ```
 
 | Field | Meaning |
 |-------|---------|
-| `kind` | `c` cut, `s` flow anchor, or `l` lyric |
+| `kind` | `c`/`cut`, `f`/`flow` anchor, or `l`/`lyric` |
 | `time` | Note time in the header's `time_unit` |
 | `degrees` | Direction in degrees. Required for cut notes; ignored for lyric notes. For a flow anchor, write `auto` to derive the direction from the ribbon tangent (the normal case), or give a number to **pin** that anchor's tangent heading |
 | `x` | Horizontal position in the 800 x 600 logical play area |
@@ -61,7 +61,7 @@ The compiler emits runtime notes with `kind`, `time`, `x`, `y`, `direction` in r
 | Kind | Use when |
 |------|----------|
 | `c` Cut | A standalone directional slash |
-| `s` Flow | An anchor in a connected phrase; consecutive anchors within 700 ms are linked |
+| `f` Flow | An anchor in a connected phrase; consecutive anchors within 700 ms are linked |
 | `l` Lyric | A sung character or directionless vocal accent |
 
 Cut and flow notes do not require a mouse-button or key hold. Flow notes should be placed so the player can read a continuous path through the phrase.
@@ -143,8 +143,8 @@ ar: 10
 # kind, time, degrees, x, y
 c, 4200, 0, 400, 200
 c, 4800, -45, 560, 320
-s, 5100, auto, 300, 400
-s, 5300, auto, 300, 500
-s, 5500, 90, 300, 560
+f, 5100, auto, 300, 400
+f, 5300, auto, 300, 500
+f, 5500, 90, 300, 560
 l, 5600, auto, 450, 300
 ```
