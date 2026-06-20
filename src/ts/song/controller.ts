@@ -127,7 +127,9 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPre
   setProgress(8);
 
   let musicOffsetMs = loadMusicOffset();
-  const unsubMusicOffset = subscribeMusicOffset(v => { musicOffsetMs = v; });
+  // Lives for the page lifetime (like subscribeVolume below); never torn down,
+  // so live music-offset changes keep applying across retries.
+  subscribeMusicOffset(v => { musicOffsetMs = v; });
   const gapSkipLeadInMs = arToMs(loadAr()) + JUDGEMENT_WINDOW_MS + GAP_SKIP_SAFETY_MS;
 
   let player: TextAlivePlayer | null = null;
@@ -248,8 +250,11 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPre
           finishTimeout = setTimeout(triggerFinish, remaining);
         }
       },
-      onPause() { isPlaying = false; },
-      onStop()  { isPlaying = false; finished = false; setBreakSkipTarget(null); },
+      // Propagate self-initiated pause/stop (e.g. an autoplay-blocked or stalled
+      // play) to the UI's playing state, otherwise the Start prompt stays hidden
+      // and the player is left with no way to (re)start playback.
+      onPause() { isPlaying = false; game.setPlaying(false); },
+      onStop()  { isPlaying = false; finished = false; setBreakSkipTarget(null); game.setPlaying(false); },
     });
   } else {
     setTimeout(dismissLoading, 15000);
@@ -381,7 +386,6 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPre
 
   return {
     stop(): void {
-      unsubMusicOffset();
       if (!playerReady || !player) return;
       dismissResult();
       resetPlayback();
