@@ -117,7 +117,7 @@ html.theme-dark .results-overlay {
   border-radius: var(--radius-card);
   box-shadow: var(--rp-shadow), var(--rp-highlight);
   box-sizing: border-box;
-  width: 600px;
+  width: 680px;
   max-width: 100%;
   color: var(--rp-ink);
 }
@@ -150,7 +150,7 @@ html.theme-dark .results-overlay {
 }
 
 .results-accuracy {
-  font-size: 1.8rem;
+  font-size: 2.1rem;
   font-weight: bold;
   font-family: var(--font-display);
   font-variant-numeric: tabular-nums;
@@ -160,7 +160,7 @@ html.theme-dark .results-overlay {
 
 // Distance to the next grade up — a quiet reason to retry.
 .results-next {
-  font-size: 0.72rem;
+  font-size: 0.8rem;
   letter-spacing: 0.05em;
   color: var(--rp-ink-dim);
   font-variant-numeric: tabular-nums;
@@ -187,9 +187,9 @@ html.theme-dark .results-overlay {
 .results-headline {
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: 0.5rem;
   width: 100%;
-  margin-top: 0.3rem;
+  margin-top: 1rem;
 }
 
 @media (max-width: 560px) {
@@ -213,9 +213,9 @@ html.theme-dark .results-overlay {
 
 .results-title {
   margin: 0;
-  font-size: 0.8rem;
+  font-size: 1.15rem;
   font-family: var(--font-display);
-  letter-spacing: 0.2em;
+  letter-spacing: 0.26em;
   text-transform: uppercase;
   color: var(--rp-ink-dim);
 }
@@ -231,33 +231,39 @@ html.theme-dark .results-overlay {
   text-align: center;
 
   &__name {
-    font-size: 1.05rem;
+    font-size: 1.25rem;
     font-family: var(--font-display);
     font-weight: bold;
     color: var(--rp-ink);
   }
 
   &__artist {
-    font-size: 0.75rem;
+    font-size: 0.82rem;
     color: var(--rp-ink-dim);
   }
 }
 
 .results-grade {
   position: relative;
-  font-size: 5.4rem;
+  font-size: 6rem;
   font-family: var(--font-display);
   font-weight: bold;
   line-height: 1;
   letter-spacing: -0.02em;
 
-  // Soft radial halo behind the letter in its own grade colour.
+  // Soft radial halo behind the letter in its own grade colour. A centred square
+  // (aspect-ratio 1) that fades fully to transparent inside its own bounds, so it
+  // reads as a round glow with no hard edge cropped by the letter's box.
   &::before {
     content: "";
     position: absolute;
-    inset: -40% -30%;
-    background: radial-gradient(circle, currentColor, transparent 68%);
-    opacity: 0.16;
+    top: 50%;
+    left: 50%;
+    width: 170%;
+    aspect-ratio: 1;
+    transform: translate(-50%, -50%);
+    background: radial-gradient(circle, currentColor, transparent 60%);
+    opacity: 0.18;
     z-index: -1;
     pointer-events: none;
   }
@@ -283,14 +289,14 @@ html.theme-dark .results-overlay {
   gap: 2rem;
 
   &__label {
-    font-size: 0.78rem;
+    font-size: 0.84rem;
     letter-spacing: 0.1em;
     text-transform: uppercase;
     color: var(--rp-ink-dim);
   }
 
   &__value {
-    font-size: 1.1rem;
+    font-size: 1.3rem;
     font-weight: bold;
     font-variant-numeric: tabular-nums;
     color: var(--rp-ink);
@@ -302,7 +308,7 @@ html.theme-dark .results-overlay {
   flex-wrap: wrap;
   justify-content: space-between;
   gap: 0.5rem 1rem;
-  font-size: 0.88rem;
+  font-size: 0.96rem;
   font-variant-numeric: tabular-nums;
   // Full-width so the row keeps a constant width as hover swaps the counts;
   // items only re-flow within it instead of resizing the block.
@@ -319,60 +325,131 @@ html.theme-dark .results-overlay {
 // Tier counts double as filters for the issue breakdown.
 .results-tierbtn { cursor: default; }
 
-.results-breakdown .is-active,
-.results-issue.is-active {
+.results-breakdown .is-active {
   opacity: 1;
   text-shadow: 0 0 10px currentColor;
 }
 
-.results-breakdown .is-dim,
-.results-issue.is-dim {
+.results-breakdown .is-dim {
   opacity: 0.3;
+}
+
+// Shared small-caps section heading for the chart-data and issues blocks.
+.results-section__label,
+.results-issues__label {
+  font-size: 0.74rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--rp-ink-dim);
+}
+
+// Chart composition: difficulty / bpm meta plus the chart's note totals. The
+// note chips double as cross-filters that scope the issues row and histogram.
+.results-chart {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  width: 100%;
+
+  &__meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.3rem 1.2rem;
+    font-size: 0.82rem;
+    color: var(--rp-ink-soft);
+    font-variant-numeric: tabular-nums;
+
+    b {
+      color: var(--rp-ink);
+      font-weight: bold;
+      margin-left: 0.2rem;
+    }
+  }
 }
 
 .results-issues {
   display: flex;
   flex-direction: column;
   align-items: flex-start;
-  gap: 0.3rem;
+  gap: 0.4rem;
   width: 100%;
-  font-size: 0.82rem;
-  font-variant-numeric: tabular-nums;
 
-  &__label {
-    font-size: 0.72rem;
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--rp-ink-dim);
-  }
+  &__label { display: block; }
 
-  &__filter { color: var(--rp-ink); }
-
-  &__hint {
-    font-style: italic;
+  // Trails the label with whatever currently scopes the rows; italic + faint
+  // while it is only the idle "hover to filter" prompt.
+  &__filter {
     text-transform: none;
     letter-spacing: 0;
-    color: var(--rp-ink-faint);
-  }
+    color: var(--rp-ink);
 
-  &__list {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: flex-start;
-    gap: 0.5rem 0.9rem;
-    width: 100%;
-    color: var(--rp-ink-soft);
+    &.is-hint {
+      font-style: italic;
+      color: var(--rp-ink-faint);
+    }
   }
-
-  &__empty { color: var(--rp-ink-faint); }
 }
 
+// Note + issue chips share a fixed grid so counts never reflow the layout as a
+// hover swaps their widths; each row keeps constant cell positions.
+.results-notes,
+.results-issues__list {
+  display: grid;
+  width: 100%;
+  gap: 0.4rem;
+}
+.results-notes { grid-template-columns: repeat(3, 1fr); }
+.results-issues__list { grid-template-columns: repeat(2, 1fr); }
+
+.results-note,
 .results-issue {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem;
+  min-width: 0;
+  padding: 0.2rem 0.6rem;
+  border-radius: var(--radius-pill);
+  font-size: 0.82rem;
+  font-variant-numeric: tabular-nums;
   cursor: default;
-  transition: opacity 0.15s ease, color 0.15s ease, text-shadow 0.15s ease;
+  // Accent-tinted surface so each chip reads as its own line rather than blending
+  // into a run of text; --accent is set per kind / per issue below.
+  background: color-mix(in srgb, var(--accent, var(--rp-ink)) 8%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent, var(--rp-ink)) 22%, transparent);
+  transition: opacity 0.15s ease, background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
 
-  &.is-active { color: var(--rp-ink); }
+  &__kind {
+    color: var(--accent, var(--rp-ink-soft));
+    text-overflow: ellipsis;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+
+  &__count {
+    color: var(--rp-ink);
+    font-weight: bold;
+  }
+
+  &.is-active {
+    opacity: 1;
+    border-color: color-mix(in srgb, var(--accent, var(--rp-ink)) 60%, transparent);
+    box-shadow: 0 0 10px color-mix(in srgb, var(--accent, var(--rp-ink)) 32%, transparent);
+  }
+
+  &.is-dim { opacity: 0.32; }
 }
+
+// Note-kind accents mirror the in-game palette (cut red, flow teal, lyric pale).
+.results-note--cut   { --accent: var(--rp-miss); }
+.results-note--flow  { --accent: var(--rp-good); }
+.results-note--lyric { --accent: var(--rp-ink-soft); }
+
+// Issue-reason accents — four distinct hues so the binding constraints separate.
+.results-issue--timing    { --accent: var(--rp-good); }
+.results-issue--contact   { --accent: var(--rp-purple); }
+.results-issue--direction { --accent: var(--rp-late); }
+.results-issue--gesture   { --accent: var(--rp-grade-sss); }
 
 .results-hist {
   display: flex;

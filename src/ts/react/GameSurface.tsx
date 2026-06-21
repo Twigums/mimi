@@ -77,6 +77,12 @@ export function GameSurface({ onReady, returnHref, onTryAgain }: Props) {
   const [ar] = useApproachRate();
   const frameSize = useElementSize(gameAreaRef);
 
+  // Chart metadata for the results screen: difficulty from the URL (?d=), tempo
+  // from the song-page dataset (injected by site.hs).
+  const difficulty = new URL(window.location.href).searchParams.get("d") ?? "expert";
+  const bpmRaw = document.body.dataset.songBpm;
+  const bpm = bpmRaw ? Number(bpmRaw) : null;
+
   useEffect(() => {
     if (playing) {
       fadeTimerRef.current = setTimeout(() => setInfoFaded(true), 2000);
@@ -239,6 +245,8 @@ export function GameSurface({ onReady, returnHref, onTryAgain }: Props) {
             onTryAgain={handleTryAgain}
             songName={displayName}
             artist={displayAuthor}
+            difficulty={difficulty}
+            bpm={bpm}
           />
         )}
       </div>
