@@ -5,8 +5,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.72);
-  backdrop-filter: blur(6px);
+  // No backdrop-filter here: it would promote the overlay to its own composited
+  // layer, which an ancestor's fractional translate(-50%,-50%) (.game-area) then
+  // resamples — softening the panel text. The veil alone hides the frozen field.
+  background: rgba(0, 0, 0, 0.8);
   animation: results-fade-in 0.3s ease forwards;
 }
 
@@ -29,6 +31,13 @@
   max-width: 100%;
 }
 
+.results-head {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+}
+
 .results-title {
   margin: 0;
   font-size: 0.8rem;
@@ -36,6 +45,29 @@
   letter-spacing: 0.2em;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.55);
+}
+
+// The song just played, folded into the panel (a results screen conventionally
+// shows it) so the background .game-song-info can be hidden — nothing sharp then
+// peeks through the veil.
+.results-songhead {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
+  text-align: center;
+
+  &__name {
+    font-size: 1.05rem;
+    font-family: var(--font-display);
+    font-weight: bold;
+    color: #fff;
+  }
+
+  &__artist {
+    font-size: 0.75rem;
+    color: rgba(255, 255, 255, 0.6);
+  }
 }
 
 .results-grade {

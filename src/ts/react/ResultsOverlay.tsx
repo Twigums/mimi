@@ -138,7 +138,13 @@ export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, artist
   return (
     <div className="results-overlay">
       <div className="results-panel">
-        <h2 className="results-title">{labels.title}</h2>
+        <div className="results-head">
+          <h2 className="results-title">{labels.title}</h2>
+          <div className="results-songhead">
+            <span className="results-songhead__name">{songName}</span>
+            {artist && <span className="results-songhead__artist">{artist}</span>}
+          </div>
+        </div>
         <div className={`results-grade results-grade--${grade.toLowerCase()}`}>{grade}</div>
         <div className="results-stats">
           <div className="results-stat">
