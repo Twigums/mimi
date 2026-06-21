@@ -4,9 +4,11 @@
 // colours are tuned for dark, so day uses deeper, legible variants.
 .results-overlay {
   --rp-veil: rgba(206, 226, 236, 0.85);
+  // Soft blue vertical gradient with a teal top-glow, mirroring the depth of the
+  // night fill below.
   --rp-fill:
-    radial-gradient(130% 90% at 50% 0%, rgba(57, 197, 187, 0.12), transparent 62%),
-    linear-gradient(180deg, #ffffff, #e7f0f7);
+    radial-gradient(130% 90% at 50% 0%, rgba(57, 197, 187, 0.16), transparent 60%),
+    linear-gradient(180deg, #eef6fc, #c8dcef);
   --rp-shadow: 0 24px 60px rgba(28, 78, 87, 0.28);
   --rp-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.6);
   --rp-line: rgba(28, 78, 87, 0.16);
@@ -372,21 +374,6 @@ html.theme-dark .results-overlay {
   &.is-active { color: var(--rp-ink); }
 }
 
-.results-detail {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem 1.4rem;
-  width: 100%;
-  font-size: 0.8rem;
-  color: var(--rp-ink-soft);
-  font-variant-numeric: tabular-nums;
-
-  span {
-    min-width: 0;
-    white-space: nowrap;
-  }
-}
-
 .results-hist {
   display: flex;
   flex-direction: column;
@@ -411,6 +398,9 @@ html.theme-dark .results-overlay {
     color: var(--rp-ink-soft);
     font-variant-numeric: tabular-nums;
   }
+
+  // The precise average offset, dimmer than the verdict it trails.
+  &__avg { color: var(--rp-ink-dim); }
 
   &__chart {
     width: 100%;

@@ -2,11 +2,11 @@ import { useEffect, useState } from "react";
 import { useLang } from "./hooks/useLang";
 import { computeGrade, computeAccuracy, JUDGEMENT_LABEL } from "../game/grade";
 import { shareResult } from "../song/share";
-import type { GameStats, IssueReason, NoteKind } from "../game/engine";
+import type { GameStats, HitTiming, IssueReason, NoteKind } from "../game/engine";
 
 const LABELS_EN = {
   title: "Results", score: "Score", accuracy: "Accuracy",
-  maxCombo: "Max combo", avgOffset: "Avg offset", earlyLate: "Early / Late", issues: "Issues",
+  maxCombo: "Max combo", avgOffset: "Avg offset", issues: "Issues",
   timing: "Timing", early: "early", late: "late",
   tendEarly: "Tends early", tendLate: "Tends late", onTime: "On time",
   to: "to", topGrade: "Top grade!", fullCombo: "Full Combo", allPerfect: "All Perfect",
@@ -15,7 +15,7 @@ const LABELS_EN = {
 };
 const LABELS_JP = {
   title: "リザルト", score: "スコア", accuracy: "精度",
-  maxCombo: "最大コンボ", avgOffset: "平均ズレ", earlyLate: "早 / 遅", issues: "課題",
+  maxCombo: "最大コンボ", avgOffset: "平均ズレ", issues: "課題",
   timing: "タイミング", early: "早", late: "遅",
   tendEarly: "早め", tendLate: "遅め", onTime: "ジャスト",
   to: "まで", topGrade: "最高評価！", fullCombo: "フルコンボ", allPerfect: "オールパーフェクト",
@@ -65,15 +65,19 @@ function TimingHistogram({ offsets, labels }: { offsets: number[]; labels: typeo
   const W = HIST_BINS;
   const H = 30;
   const meanX = ((mean + range) / (range * 2)) * W;
-  // One-line coaching takeaway from the mean offset.
+  // One-line coaching takeaway (tendency word) trailed by the precise average
+  // offset (the avg-offset stat lives here now rather than in a separate row).
   const verdict = Math.abs(mean) < 8
     ? labels.onTime
-    : `${mean < 0 ? labels.tendEarly : labels.tendLate} ${Math.abs(mean).toFixed(0)}ms`;
+    : mean < 0 ? labels.tendEarly : labels.tendLate;
   return (
     <div className="results-hist">
       <div className="results-hist__head">
         <span className="results-hist__label">{labels.timing}</span>
-        <span className="results-hist__verdict">{verdict}</span>
+        <span className="results-hist__verdict">
+          {verdict}
+          <span className="results-hist__avg"> · {labels.avgOffset} {mean >= 0 ? "+" : ""}{mean.toFixed(1)}ms</span>
+        </span>
       </div>
       <svg className="results-hist__chart" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden="true">
         {counts.map((c, i) => {
@@ -121,6 +125,10 @@ const NOTE_LABELS_EN: Record<NoteKind, string> = { cut: "cut", flow: "flow", lyr
 const NOTE_LABELS_JP: Record<NoteKind, string> = { cut: "カット", flow: "フロー", lyric: "歌詞" };
 const NOTE_ORDER: NoteKind[] = ["cut", "flow", "lyric"];
 
+// Early/late (timing direction) is a fourth cross-filter dimension. It is not a
+// complete partition — an exactly-on-beat non-perfect hit matches neither cell.
+const TIMING_ORDER: ("early" | "late")[] = ["early", "late"];
+
 // Accuracy thresholds for the "next grade" hint, ascending so the first entry
 // above the current accuracy is the next tier up. Mirrors computeGrade.
 const GRADE_STEPS: { grade: string; min: number }[] = [
@@ -133,16 +141,18 @@ type IssueTier = "tier2" | "tier1" | "miss";
 const ISSUE_TIERS: IssueTier[] = ["tier2", "tier1", "miss"];
 
 // Every non-Tier-3 hit lands on one cell of each breakdown dimension (tier, note
-// kind, issue). Hovering any cell scopes the other two dimensions to hits matching
-// it, and re-highlights this dimension's own counts; all three rows stay linked.
-type Dim = "tier" | "note" | "issue";
+// kind, issue, early/late timing). Hovering any cell scopes the other dimensions
+// to hits matching it, and re-highlights this dimension's own counts; all rows
+// stay linked.
+type Dim = "tier" | "note" | "issue" | "timing";
 type Focus =
   | { dim: "tier"; tier: IssueTier }
   | { dim: "note"; note: NoteKind }
   | { dim: "issue"; issue: IssueReason }
+  | { dim: "timing"; timing: HitTiming }
   | null;
 
-interface NonPerfectHit { tier: IssueTier; note: NoteKind; issue: IssueReason; }
+interface NonPerfectHit { tier: IssueTier; note: NoteKind; issue: IssueReason; timing: HitTiming; }
 
 interface Props {
   stats: GameStats;
@@ -187,24 +197,20 @@ export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, artist
   const issueLabels = lang === "jp" ? ISSUE_LABELS_JP : ISSUE_LABELS_EN;
   const noteLabels = lang === "jp" ? NOTE_LABELS_JP : NOTE_LABELS_EN;
   const acceptedHits = stats.hits.filter(hit => hit.result !== "miss");
-  const avgOffset = acceptedHits.length === 0
-    ? 0
-    : acceptedHits.reduce((sum, hit) => sum + hit.offsetMs, 0) / acceptedHits.length;
-  const earlyCount = acceptedHits.filter(hit => hit.timing === "early").length;
-  const lateCount = acceptedHits.filter(hit => hit.timing === "late").length;
 
   // Every non-Tier-3 hit carries an issue; flatten them so each dimension's
   // counts are a simple predicate over the same list.
   const npHits: NonPerfectHit[] = [];
   for (const hit of stats.hits) {
     if (hit.result === "tier3" || !hit.issue) continue;
-    npHits.push({ tier: hit.result as IssueTier, note: hit.kind, issue: hit.issue });
+    npHits.push({ tier: hit.result as IssueTier, note: hit.kind, issue: hit.issue, timing: hit.timing });
   }
   const matchesFocus = (h: NonPerfectHit): boolean =>
     focus === null
       || (focus.dim === "tier" ? h.tier === focus.tier
         : focus.dim === "note" ? h.note === focus.note
-        : h.issue === focus.issue);
+        : focus.dim === "issue" ? h.issue === focus.issue
+        : h.timing === focus.timing);
   const countWhere = (pred: (h: NonPerfectHit) => boolean): number => npHits.filter(pred).length;
 
   // The hovered dimension keeps its own (unscoped) counts; the other two scope to
@@ -222,9 +228,14 @@ export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, artist
     focus !== null && focus.dim !== "issue"
       ? countWhere(h => h.issue === issue && matchesFocus(h))
       : countWhere(h => h.issue === issue);
+  const timingCount = (timing: HitTiming): number =>
+    focus !== null && focus.dim !== "timing"
+      ? countWhere(h => h.timing === timing && matchesFocus(h))
+      : countWhere(h => h.timing === timing);
 
   const presentNotes = NOTE_ORDER.filter(note => countWhere(h => h.note === note) > 0);
   const presentIssues = ISSUE_ORDER.filter(issue => countWhere(h => h.issue === issue) > 0);
+  const presentTimings = TIMING_ORDER.filter(timing => countWhere(h => h.timing === timing) > 0);
 
   // A cell is active when it is the hovered cell (same dimension) or, while a
   // different dimension is focused, it still has matching hits; everything else
@@ -234,11 +245,12 @@ export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, artist
     return (active ? " is-active" : "") + (focus !== null && !active ? " is-dim" : "");
   };
 
-  // The "Issues" label notes which filter currently scopes the two issue-section
-  // rows; an issue focus doesn't scope them, so it shows no indicator.
-  const filterLabel = focus === null || focus.dim === "issue" ? null
-    : focus.dim === "tier" ? JUDGEMENT_LABEL[focus.tier]
-    : noteLabels[focus.note];
+  // The "Issues" label notes which filter currently scopes the issue-section
+  // rows. A focus from within those rows (note, issue, timing) reads on its own
+  // cell, so only a tier focus (from the separate breakdown row) is annotated.
+  const filterLabel = focus !== null && focus.dim === "tier"
+    ? JUDGEMENT_LABEL[focus.tier]
+    : null;
 
   const handleShare = (): void => {
     shareResult({ accuracy: `${pct}%`, grade, songName, artist, lang })
@@ -355,12 +367,25 @@ export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, artist
                     );
                   })}
                 </div>
+                <div className="results-issues__list">
+                  {presentTimings.map(timing => {
+                    const count = timingCount(timing);
+                    const cls = "results-issue"
+                      + cellState("timing", focus?.dim === "timing" && focus.timing === timing, count);
+                    return (
+                      <span
+                        key={timing}
+                        className={cls}
+                        onPointerEnter={() => setFocus({ dim: "timing", timing })}
+                        onPointerLeave={() => setFocus(null)}
+                      >
+                        {labels[timing]} {count}
+                      </span>
+                    );
+                  })}
+                </div>
               </>
             )}
-          </div>
-          <div className="results-detail">
-            <span>{labels.avgOffset}: {avgOffset >= 0 ? "+" : ""}{avgOffset.toFixed(1)}ms</span>
-            <span>{labels.earlyLate}: {earlyCount} / {lateCount}</span>
           </div>
         </div>
         </div>
