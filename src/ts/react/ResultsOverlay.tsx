@@ -145,16 +145,22 @@ export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, artist
             {artist && <span className="results-songhead__artist">{artist}</span>}
           </div>
         </div>
-        <div className={`results-grade results-grade--${grade.toLowerCase()}`}>{grade}</div>
-        <div className="results-stats">
-          <div className="results-stat">
-            <span className="results-stat__label">{labels.score}</span>
-            <span className="results-stat__value">{stats.score}</span>
+        <div className="results-body">
+        <div className="results-left">
+          <div className={`results-grade results-grade--${grade.toLowerCase()}`}>{grade}</div>
+          <div className="results-accuracy">{pct}%</div>
+          <div className="results-headline">
+            <div className="results-stat">
+              <span className="results-stat__label">{labels.score}</span>
+              <span className="results-stat__value">{stats.score}</span>
+            </div>
+            <div className="results-stat">
+              <span className="results-stat__label">{labels.maxCombo}</span>
+              <span className="results-stat__value">{stats.maxCombo}x</span>
+            </div>
           </div>
-          <div className="results-stat">
-            <span className="results-stat__label">{labels.accuracy}</span>
-            <span className="results-stat__value">{pct}%</span>
-          </div>
+        </div>
+        <div className="results-right">
           <div className="results-breakdown">
             <span className={`results-breakdown__tier3${focus !== null && focus.dim !== "tier" ? " is-dim" : ""}`}>
               {JUDGEMENT_LABEL.tier3}: {stats.tier3}
@@ -174,11 +180,6 @@ export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, artist
                 </span>
               );
             })}
-          </div>
-          <div className="results-detail">
-            <span>{labels.maxCombo}: {stats.maxCombo}x</span>
-            <span>{labels.avgOffset}: {avgOffset >= 0 ? "+" : ""}{avgOffset.toFixed(1)}ms</span>
-            <span>{labels.earlyLate}: {earlyCount} / {lateCount}</span>
           </div>
           <div className="results-issues">
             <span className="results-issues__label">
@@ -230,6 +231,11 @@ export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, artist
               </>
             )}
           </div>
+          <div className="results-detail">
+            <span>{labels.avgOffset}: {avgOffset >= 0 ? "+" : ""}{avgOffset.toFixed(1)}ms</span>
+            <span>{labels.earlyLate}: {earlyCount} / {lateCount}</span>
+          </div>
+        </div>
         </div>
         <div className="results-actions">
           <button

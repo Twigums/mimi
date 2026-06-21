@@ -21,14 +21,59 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 1.2rem;
-  padding: 2.4rem 3rem;
+  gap: 1.4rem;
+  padding: 2rem 2.6rem;
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: var(--radius-card);
   box-sizing: border-box;
-  width: 425px;
+  width: 600px;
   max-width: 100%;
+}
+
+// Two columns: a grade/headline hero on the left, the analytic breakdowns on the
+// right. Collapses to a single column on narrow viewports.
+.results-body {
+  display: grid;
+  grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
+  gap: 1.6rem 2.2rem;
+  align-items: start;
+  width: 100%;
+}
+
+.results-left {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.results-right {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  min-width: 0;
+}
+
+.results-accuracy {
+  font-size: 1.8rem;
+  font-weight: bold;
+  font-family: var(--font-display);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  color: #fff;
+}
+
+.results-headline {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  width: 100%;
+  margin-top: 0.3rem;
+}
+
+@media (max-width: 560px) {
+  .results-body { grid-template-columns: minmax(0, 1fr); }
 }
 
 .results-head {
@@ -86,29 +131,22 @@
   &--f   { color: var(--color-miss); }
 }
 
-.results-stats {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.5rem;
-  width: 100%;
-}
-
 .results-stat {
   display: flex;
   justify-content: space-between;
+  align-items: baseline;
   width: 100%;
   gap: 2rem;
 
   &__label {
-    font-size: 0.75rem;
+    font-size: 0.78rem;
     letter-spacing: 0.1em;
     text-transform: uppercase;
     color: rgba(255, 255, 255, 0.5);
   }
 
   &__value {
-    font-size: 1rem;
+    font-size: 1.1rem;
     font-weight: bold;
     font-variant-numeric: tabular-nums;
     // Panel always sits on the dark overlay, so pin the dark-mode ink rather
@@ -120,13 +158,12 @@
 .results-breakdown {
   display: flex;
   flex-wrap: wrap;
-  justify-content: center;
-  gap: 1.2rem;
-  margin-top: 0.25rem;
-  font-size: 0.8rem;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+  font-size: 0.88rem;
   font-variant-numeric: tabular-nums;
   // Full-width so the row keeps a constant width as hover swaps the counts;
-  // items only re-center within it instead of resizing the block.
+  // items only re-flow within it instead of resizing the block.
   width: 100%;
 
   span { transition: opacity 0.15s ease, text-shadow 0.15s ease; }
@@ -154,15 +191,14 @@
 .results-issues {
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.3rem;
   width: 100%;
-  margin-top: 0.1rem;
-  font-size: 0.74rem;
+  font-size: 0.82rem;
   font-variant-numeric: tabular-nums;
 
   &__label {
-    font-size: 0.7rem;
+    font-size: 0.72rem;
     letter-spacing: 0.1em;
     text-transform: uppercase;
     color: rgba(255, 255, 255, 0.5);
@@ -173,7 +209,7 @@
   &__list {
     display: flex;
     flex-wrap: wrap;
-    justify-content: center;
+    justify-content: flex-start;
     gap: 0.5rem 0.9rem;
     width: 100%;
     color: rgba(255, 255, 255, 0.68);
@@ -190,12 +226,11 @@
 }
 
 .results-detail {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.35rem 1rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1.4rem;
   width: 100%;
-  margin-top: 0.25rem;
-  font-size: 0.74rem;
+  font-size: 0.8rem;
   color: rgba(255, 255, 255, 0.68);
   font-variant-numeric: tabular-nums;
 
