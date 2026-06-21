@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Important Context
 
-The user has defined important context for the final application within `/wiki`. All information in `/wiki` must strictly be prioritized during implementation. If you are in a state of confusion or uncertainty, you must check and refer to the files for facts (entry point at `/wiki/main.md`). When referencing any aspect of any file in `/wiki`, you must directly quote the stated fact. Do not alter any quote. Do not perform any changes to any files in `/wiki`. Note that the concepts and points mentioned in the files in `/wiki` may or may not be already implemented.
+The user has defined important context for the final application within `/wiki`. All information in `/wiki` must strictly be prioritized during implementation. If you are in a state of confusion or uncertainty, you must check and refer to the files for facts (entry point at `/wiki/main.md`). When referencing any aspect of any file in `/wiki`, you must directly quote the stated fact. Do not alter any quote. Do not perform any changes to any files in `/wiki` unless you are explicitly asked to edit gameplay semantics, in which case update the affected `/wiki` files to reflect the new semantics. Note that the concepts and points mentioned in the files in `/wiki` may or may not be already implemented.
 
 In any file you add changes to. Ensure that your changes optimize for code clarity and code efficiency. This means no useless code and no redefinitions. After all changes, make sure that `CLAUDE.md` and `/wiki` has the required changes to reflect the state of the repository.
 
