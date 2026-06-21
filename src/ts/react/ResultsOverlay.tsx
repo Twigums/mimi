@@ -7,13 +7,66 @@ import type { GameStats, IssueReason, NoteKind } from "../game/engine";
 const LABELS_EN = {
   title: "Results", score: "Score", accuracy: "Accuracy",
   maxCombo: "Max combo", avgOffset: "Avg offset", earlyLate: "Early / Late", issues: "Issues",
+  timing: "Timing", early: "early", late: "late",
   clean: "clean", share: "Share", copied: "Copied!", failed: "Failed", tryAgain: "Try Again", back: "Back",
 };
 const LABELS_JP = {
   title: "リザルト", score: "スコア", accuracy: "精度",
   maxCombo: "最大コンボ", avgOffset: "平均ズレ", earlyLate: "早 / 遅", issues: "課題",
+  timing: "タイミング", early: "早", late: "遅",
   clean: "クリーン", share: "シェア", copied: "コピー済み！", failed: "失敗", tryAgain: "やり直す", back: "戻る",
 };
+
+// Distribution of hit offsets (ms; negative = early, positive = late) as a small
+// SVG strip centred on 0, early/late shaded, with a marker at the mean. Surfaces
+// per-hit offsetMs we already capture — the single most useful rhythm-game stat.
+const HIST_BINS = 21;
+
+function TimingHistogram({ offsets, labels }: { offsets: number[]; labels: typeof LABELS_EN }) {
+  if (offsets.length === 0) return null;
+  const maxAbs = offsets.reduce((m, o) => Math.max(m, Math.abs(o)), 0);
+  const range = Math.min(200, Math.max(60, Math.ceil(maxAbs / 10) * 10));
+  const binW = (range * 2) / HIST_BINS;
+  const counts = new Array<number>(HIST_BINS).fill(0);
+  for (const o of offsets) {
+    const idx = Math.min(HIST_BINS - 1, Math.max(0, Math.floor((o + range) / binW)));
+    counts[idx]++;
+  }
+  const maxCount = Math.max(...counts);
+  const mean = offsets.reduce((s, o) => s + o, 0) / offsets.length;
+  const W = HIST_BINS;
+  const H = 30;
+  const meanX = ((mean + range) / (range * 2)) * W;
+  return (
+    <div className="results-hist">
+      <span className="results-hist__label">{labels.timing}</span>
+      <svg className="results-hist__chart" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden="true">
+        {counts.map((c, i) => {
+          const h = maxCount === 0 ? 0 : (c / maxCount) * (H - 2);
+          const centre = i - (HIST_BINS - 1) / 2;
+          const cls = centre < 0 ? "early" : centre > 0 ? "late" : "on";
+          return (
+            <rect
+              key={i}
+              className={`results-hist__bar results-hist__bar--${cls}`}
+              x={i + 0.12}
+              y={H - h}
+              width={0.76}
+              height={h}
+            />
+          );
+        })}
+        <line className="results-hist__center" x1={W / 2} y1={0} x2={W / 2} y2={H} vectorEffect="non-scaling-stroke" />
+        <line className="results-hist__mean" x1={meanX} y1={0} x2={meanX} y2={H} vectorEffect="non-scaling-stroke" />
+      </svg>
+      <div className="results-hist__axis">
+        <span>{labels.early} −{range}ms</span>
+        <span>0</span>
+        <span>+{range}ms {labels.late}</span>
+      </div>
+    </div>
+  );
+}
 
 const ISSUE_LABELS_EN: Record<IssueReason, string> = {
   timing: "timing",
@@ -237,6 +290,7 @@ export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, artist
           </div>
         </div>
         </div>
+        <TimingHistogram offsets={acceptedHits.map(hit => hit.offsetMs)} labels={labels} />
         <div className="results-actions">
           <button
             className={`results-btn results-btn--share results-btn--share-${shareStatus}`}
