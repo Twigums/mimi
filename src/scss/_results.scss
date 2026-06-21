@@ -230,6 +230,13 @@
 
   &__filter { color: rgba(255, 255, 255, 0.85); }
 
+  &__hint {
+    font-style: italic;
+    text-transform: none;
+    letter-spacing: 0;
+    color: rgba(255, 255, 255, 0.35);
+  }
+
   &__list {
     display: flex;
     flex-wrap: wrap;

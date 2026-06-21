@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLang } from "./hooks/useLang";
 import { computeGrade, computeAccuracy, JUDGEMENT_LABEL } from "../game/grade";
 import { shareResult } from "../song/share";
@@ -10,6 +10,7 @@ const LABELS_EN = {
   timing: "Timing", early: "early", late: "late",
   tendEarly: "Tends early", tendLate: "Tends late", onTime: "On time",
   to: "to", topGrade: "Top grade!", fullCombo: "Full Combo", allPerfect: "All Perfect",
+  hoverFilter: "hover to filter",
   clean: "clean", share: "Share", copied: "Copied!", failed: "Failed", tryAgain: "Try Again", back: "Back",
 };
 const LABELS_JP = {
@@ -18,6 +19,7 @@ const LABELS_JP = {
   timing: "タイミング", early: "早", late: "遅",
   tendEarly: "早め", tendLate: "遅め", onTime: "ジャスト",
   to: "まで", topGrade: "最高評価！", fullCombo: "フルコンボ", allPerfect: "オールパーフェクト",
+  hoverFilter: "ホバーで絞り込み",
   clean: "クリーン", share: "シェア", copied: "コピー済み！", failed: "失敗", tryAgain: "やり直す", back: "戻る",
 };
 
@@ -132,6 +134,16 @@ export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, artist
   const lang = useLang();
   const [shareStatus, setShareStatus] = useState<"idle" | "copied" | "failed">("idle");
   const [focus, setFocus] = useState<Focus>(null);
+
+  // Enter retries, Escape returns — the buttons are right there, just wire keys.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === "Enter") { e.preventDefault(); onTryAgain(); }
+      else if (e.key === "Escape") { e.preventDefault(); window.location.href = returnHref; }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onTryAgain, returnHref]);
 
   const grade = computeGrade(stats);
   const accuracy = computeAccuracy(stats);
@@ -273,8 +285,10 @@ export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, artist
           <div className="results-issues">
             <span className="results-issues__label">
               {labels.issues}
-              {filterLabel !== null && (
+              {filterLabel !== null ? (
                 <span className="results-issues__filter"> · {filterLabel}</span>
+              ) : focus === null && presentIssues.length > 0 && (
+                <span className="results-issues__hint"> · {labels.hoverFilter}</span>
               )}
             </span>
             {presentIssues.length === 0 ? (
