@@ -64,6 +64,30 @@
   color: #fff;
 }
 
+// Distance to the next grade up — a quiet reason to retry.
+.results-next {
+  font-size: 0.72rem;
+  letter-spacing: 0.05em;
+  color: rgba(255, 255, 255, 0.55);
+  font-variant-numeric: tabular-nums;
+}
+
+.results-badge {
+  padding: 0.2rem 0.7rem;
+  font-size: 0.7rem;
+  font-family: var(--font-display);
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  border-radius: var(--radius-pill);
+  border: 1px solid currentColor;
+
+  &--fullCombo { color: var(--color-good); }
+  &--allPerfect {
+    color: var(--color-perfect);
+    text-shadow: 0 0 12px rgba(255, 217, 74, 0.6);
+  }
+}
+
 .results-headline {
   display: flex;
   flex-direction: column;
@@ -246,11 +270,23 @@
   gap: 0.3rem;
   width: 100%;
 
+  &__head {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+  }
+
   &__label {
     font-size: 0.72rem;
     letter-spacing: 0.1em;
     text-transform: uppercase;
     color: rgba(255, 255, 255, 0.5);
+  }
+
+  &__verdict {
+    font-size: 0.74rem;
+    color: rgba(255, 255, 255, 0.78);
+    font-variant-numeric: tabular-nums;
   }
 
   &__chart {

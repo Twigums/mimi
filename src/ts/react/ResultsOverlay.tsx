@@ -8,12 +8,16 @@ const LABELS_EN = {
   title: "Results", score: "Score", accuracy: "Accuracy",
   maxCombo: "Max combo", avgOffset: "Avg offset", earlyLate: "Early / Late", issues: "Issues",
   timing: "Timing", early: "early", late: "late",
+  tendEarly: "Tends early", tendLate: "Tends late", onTime: "On time",
+  to: "to", topGrade: "Top grade!", fullCombo: "Full Combo", allPerfect: "All Perfect",
   clean: "clean", share: "Share", copied: "Copied!", failed: "Failed", tryAgain: "Try Again", back: "Back",
 };
 const LABELS_JP = {
   title: "リザルト", score: "スコア", accuracy: "精度",
   maxCombo: "最大コンボ", avgOffset: "平均ズレ", earlyLate: "早 / 遅", issues: "課題",
   timing: "タイミング", early: "早", late: "遅",
+  tendEarly: "早め", tendLate: "遅め", onTime: "ジャスト",
+  to: "まで", topGrade: "最高評価！", fullCombo: "フルコンボ", allPerfect: "オールパーフェクト",
   clean: "クリーン", share: "シェア", copied: "コピー済み！", failed: "失敗", tryAgain: "やり直す", back: "戻る",
 };
 
@@ -37,9 +41,16 @@ function TimingHistogram({ offsets, labels }: { offsets: number[]; labels: typeo
   const W = HIST_BINS;
   const H = 30;
   const meanX = ((mean + range) / (range * 2)) * W;
+  // One-line coaching takeaway from the mean offset.
+  const verdict = Math.abs(mean) < 8
+    ? labels.onTime
+    : `${mean < 0 ? labels.tendEarly : labels.tendLate} ${Math.abs(mean).toFixed(0)}ms`;
   return (
     <div className="results-hist">
-      <span className="results-hist__label">{labels.timing}</span>
+      <div className="results-hist__head">
+        <span className="results-hist__label">{labels.timing}</span>
+        <span className="results-hist__verdict">{verdict}</span>
+      </div>
       <svg className="results-hist__chart" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden="true">
         {counts.map((c, i) => {
           const h = maxCount === 0 ? 0 : (c / maxCount) * (H - 2);
@@ -86,6 +97,13 @@ const NOTE_LABELS_EN: Record<NoteKind, string> = { cut: "cut", flow: "flow", lyr
 const NOTE_LABELS_JP: Record<NoteKind, string> = { cut: "カット", flow: "フロー", lyric: "歌詞" };
 const NOTE_ORDER: NoteKind[] = ["cut", "flow", "lyric"];
 
+// Accuracy thresholds for the "next grade" hint, ascending so the first entry
+// above the current accuracy is the next tier up. Mirrors computeGrade.
+const GRADE_STEPS: { grade: string; min: number }[] = [
+  { grade: "C", min: 0.5 }, { grade: "B", min: 0.7 }, { grade: "A", min: 0.85 },
+  { grade: "S", min: 0.95 }, { grade: "SS", min: 0.99 }, { grade: "SSS", min: 1.0 },
+];
+
 // Tiers that can carry an issue (Tier 3 is clean by definition).
 type IssueTier = "tier2" | "tier1" | "miss";
 const ISSUE_TIERS: IssueTier[] = ["tier2", "tier1", "miss"];
@@ -118,6 +136,16 @@ export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, artist
   const grade = computeGrade(stats);
   const accuracy = computeAccuracy(stats);
   const pct = (accuracy * 100).toFixed(2);
+
+  // Distance to the next grade up — a concrete reason to retry. Mirrors the
+  // accuracy thresholds in computeGrade; undefined once already at the top.
+  const nextStep = GRADE_STEPS.find(s => s.min > accuracy);
+  // Achievement badge: an all-PERFECT run, else a no-miss full combo.
+  const badgeKey: "allPerfect" | "fullCombo" | null =
+    stats.total === 0 ? null
+    : stats.tier3 === stats.total ? "allPerfect"
+    : stats.miss === 0 ? "fullCombo"
+    : null;
 
   const labels = lang === "jp" ? LABELS_JP : LABELS_EN;
   const issueLabels = lang === "jp" ? ISSUE_LABELS_JP : ISSUE_LABELS_EN;
@@ -202,6 +230,14 @@ export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, artist
         <div className="results-left">
           <div className={`results-grade results-grade--${grade.toLowerCase()}`}>{grade}</div>
           <div className="results-accuracy">{pct}%</div>
+          <div className="results-next">
+            {nextStep
+              ? `${((nextStep.min - accuracy) * 100).toFixed(2)}% ${labels.to} ${nextStep.grade}`
+              : labels.topGrade}
+          </div>
+          {badgeKey && (
+            <div className={`results-badge results-badge--${badgeKey}`}>{labels[badgeKey]}</div>
+          )}
           <div className="results-headline">
             <div className="results-stat">
               <span className="results-stat__label">{labels.score}</span>
