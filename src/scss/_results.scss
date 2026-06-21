@@ -18,14 +18,24 @@
 }
 
 .results-panel {
+  // Panel-scoped line token, mirroring .options-panel's --panel-* convention.
+  // The panel always sits on the dark veil, so it stays a deep night surface
+  // regardless of theme.
+  --rp-line: rgba(255, 255, 255, 0.14);
+
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 1.4rem;
   padding: 2rem 2.6rem;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.18);
+  // Deep blue-teal glass echoing --bg-gradient-song, with a teal top-glow and a
+  // hairline inner highlight so it reads as a lit surface, not a flat overlay.
+  background:
+    radial-gradient(130% 90% at 50% 0%, rgba(57, 197, 187, 0.14), transparent 62%),
+    linear-gradient(180deg, rgba(24, 42, 64, 0.94), rgba(12, 22, 38, 0.96));
+  border: 1px solid var(--rp-line);
   border-radius: var(--radius-card);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.08);
   box-sizing: border-box;
   width: 600px;
   max-width: 100%;
@@ -36,7 +46,8 @@
 .results-body {
   display: grid;
   grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
-  gap: 1.6rem 2.2rem;
+  column-gap: 0;
+  row-gap: 1.6rem;
   align-items: start;
   width: 100%;
 }
@@ -53,6 +64,8 @@
   flex-direction: column;
   gap: 0.9rem;
   min-width: 0;
+  padding-left: 2.2rem;
+  border-left: 1px solid var(--rp-line);
 }
 
 .results-accuracy {
@@ -73,13 +86,15 @@
 }
 
 .results-badge {
-  padding: 0.2rem 0.7rem;
+  padding: 0.22rem 0.8rem;
   font-size: 0.7rem;
   font-family: var(--font-display);
   letter-spacing: 0.12em;
   text-transform: uppercase;
   border-radius: var(--radius-pill);
   border: 1px solid currentColor;
+  background: color-mix(in srgb, currentColor 14%, transparent);
+  box-shadow: 0 0 14px color-mix(in srgb, currentColor 35%, transparent);
 
   &--fullCombo { color: var(--color-good); }
   &--allPerfect {
@@ -97,7 +112,15 @@
 }
 
 @media (max-width: 560px) {
-  .results-body { grid-template-columns: minmax(0, 1fr); }
+  .results-body {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 1.2rem;
+  }
+  // Divider only reads with two columns side by side.
+  .results-right {
+    padding-left: 0;
+    border-left: none;
+  }
 }
 
 .results-head {
@@ -140,11 +163,23 @@
 }
 
 .results-grade {
-  font-size: 5rem;
+  position: relative;
+  font-size: 5.4rem;
   font-family: var(--font-display);
   font-weight: bold;
   line-height: 1;
   letter-spacing: -0.02em;
+
+  // Soft radial halo behind the letter in its own grade colour.
+  &::before {
+    content: "";
+    position: absolute;
+    inset: -40% -30%;
+    background: radial-gradient(circle, currentColor, transparent 68%);
+    opacity: 0.16;
+    z-index: -1;
+    pointer-events: none;
+  }
 
   &--sss { color: var(--color-grade-sss); text-shadow: 0 0 24px rgba(255, 215, 0, 0.7); }
   &--ss  { color: var(--color-perfect); text-shadow: 0 0 18px rgba(255, 217, 74, 0.6); }
@@ -300,6 +335,7 @@
     width: 100%;
     height: 46px;
     display: block;
+    border-bottom: 1px solid var(--rp-line);
   }
 
   // Early (left of 0) reads cool, late (right) warm; the exact-0 bin stays the
