@@ -23,6 +23,28 @@ const LABELS_JP = {
   clean: "クリーン", share: "シェア", copied: "コピー済み！", failed: "失敗", tryAgain: "やり直す", back: "戻る",
 };
 
+// Ease a number from 0 to target over the mount (easeOutCubic); respects
+// prefers-reduced-motion by snapping straight to the target.
+function useCountUp(target: number, durationMs = 800): number {
+  const [val, setVal] = useState(0);
+  useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      setVal(target);
+      return;
+    }
+    let raf = 0;
+    const start = performance.now();
+    const tick = (now: number): void => {
+      const t = Math.min(1, (now - start) / durationMs);
+      setVal(target * (1 - Math.pow(1 - t, 3)));
+      if (t < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [target, durationMs]);
+  return val;
+}
+
 // Distribution of hit offsets (ms; negative = early, positive = late) as a small
 // SVG strip centred on 0, early/late shaded, with a marker at the mean. Surfaces
 // per-hit offsetMs we already capture — the single most useful rhythm-game stat.
@@ -148,6 +170,8 @@ export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, artist
   const grade = computeGrade(stats);
   const accuracy = computeAccuracy(stats);
   const pct = (accuracy * 100).toFixed(2);
+  const scoreView = useCountUp(stats.score);
+  const accView = useCountUp(accuracy * 100);
 
   // Distance to the next grade up — a concrete reason to retry. Mirrors the
   // accuracy thresholds in computeGrade; undefined once already at the top.
@@ -241,7 +265,7 @@ export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, artist
         <div className="results-body">
         <div className="results-left">
           <div className={`results-grade results-grade--${grade.toLowerCase()}`}>{grade}</div>
-          <div className="results-accuracy">{pct}%</div>
+          <div className="results-accuracy">{accView.toFixed(2)}%</div>
           <div className="results-next">
             {nextStep
               ? `${((nextStep.min - accuracy) * 100).toFixed(2)}% ${labels.to} ${nextStep.grade}`
@@ -253,7 +277,7 @@ export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, artist
           <div className="results-headline">
             <div className="results-stat">
               <span className="results-stat__label">{labels.score}</span>
-              <span className="results-stat__value">{stats.score}</span>
+              <span className="results-stat__value">{Math.round(scoreView)}</span>
             </div>
             <div className="results-stat">
               <span className="results-stat__label">{labels.maxCombo}</span>
