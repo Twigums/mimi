@@ -364,9 +364,20 @@ rules sitePath = do
         compile $ do
             ident  <- getUnderlying
             let songId = takeBaseName (toFilePath ident)
-                songCtx =
+            -- Song tempo, read from the first available difficulty's .mimi header
+            -- (mirrors buildManifest); surfaced on the results screen.
+            bpm <- unsafeCompiler $ do
+                let songDir = "src/songs" </> songId
+                avail <- filterM (\d -> doesFileExist $ songDir </> d ++ ".mimi") difficultyIds
+                case avail of
+                  []          -> return ""
+                  (firstDiff:_) -> do
+                    content <- readFile (songDir </> firstDiff ++ ".mimi")
+                    return $ maybe "" id (parseMimiBpm content)
+            let songCtx =
                   constField "textalive-token" textaliveToken <>
                   constField "song-chart-dir" (sitePath ++ "/songs/" ++ songId ++ "/") <>
+                  constField "song-bpm" bpm <>
                   baseCtx
             pandocCompiler
                 >>= loadAndApplyTemplate (makeIdentifier templateDir "song.html") songCtx
