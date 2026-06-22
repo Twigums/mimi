@@ -3,6 +3,10 @@
 // Home layout
 $layout-max-width: 400px;
 
+// Results overlay panel
+$results-panel-width: 680px;
+$results-miku-size:   108px;
+
 // Color picker canvas dimensions (must match SV_W/SV_H/HUE_H in ColorPicker.tsx)
 $color-picker-sv-w:  256;
 $color-picker-sv-h:  160;
@@ -63,7 +67,7 @@ $diff-colors: (
   --surface-hud: rgba(255, 255, 255, 0.92);
   --surface-hud-line: rgba(57, 197, 187, 0.45);
 
-  // hit judgment colors
+  // hit judgment colors (bright, tuned for dark backgrounds)
   --color-perfect: #ffd94a;
   --color-good: #8cf0ff;
   --color-miss: #ff6b6b;
@@ -72,6 +76,26 @@ $diff-colors: (
   --color-grade-sss: #ffd700;
   --color-grade-s: #c8b4ff;
   --color-grade-b: #7ddc78;
+
+  // day-adapted judgment/grade/accent colors — deeper variants for legibility on
+  // light surfaces (results panel day fill, etc.)
+  --color-perfect-day:   #d99500;
+  --color-good-day:      #1f93a6;
+  --color-miss-day:      #e0473d;
+  --color-late-day:      #d9743a;
+  --color-grade-sss-day: #cf9e00;
+  --color-grade-s-day:   #7d5fd6;
+  --color-grade-b-day:   #2f9e2a;
+  --color-teal-day:      #2a9db0;
+  --color-purple-day:    #7d5fd6;
+
+  // results overlay — panel surface (day: soft blue-white)
+  --results-fill-glow:   rgba(57, 197, 187, 0.16);
+  --results-fill-top:    #eef6fc;
+  --results-fill-bottom: #c8dcef;
+  --results-shadow:      0 24px 60px rgba(28, 78, 87, 0.28);
+  --results-highlight:   inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  --results-line:        rgba(28, 78, 87, 0.16);
 
   // page backgrounds — day/night pairs exist separately so the overlays can
   // crossfade between them (gradients themselves can't transition); the
@@ -138,4 +162,16 @@ html.theme-dark {
 
   --bg-gradient-home: var(--bg-night-home);
   --bg-gradient-song: var(--bg-night-song);
+
+  // night palette entries not present in :root
+  --color-late:         #ff9d6b;
+  --color-purple-night: #c8b4ff;
+
+  // results overlay — panel surface (night: deep purple from game-frame palette)
+  --results-fill-glow:   rgba(132, 102, 222, 0.22);
+  --results-fill-top:    rgba(48, 34, 92, 0.97);
+  --results-fill-bottom: rgba(22, 14, 50, 0.99);
+  --results-shadow:      0 24px 60px rgba(15, 8, 40, 0.6);
+  --results-highlight:   inset 0 1px 0 rgba(180, 150, 255, 0.1);
+  --results-line:        rgba(132, 102, 222, 0.22);
 }

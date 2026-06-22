@@ -7,26 +7,26 @@
   // Soft blue vertical gradient with a teal top-glow, mirroring the depth of the
   // night fill below.
   --rp-fill:
-    radial-gradient(130% 90% at 50% 0%, rgba(57, 197, 187, 0.16), transparent 60%),
-    linear-gradient(180deg, #eef6fc, #c8dcef);
-  --rp-shadow: 0 24px 60px rgba(28, 78, 87, 0.28);
-  --rp-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.6);
-  --rp-line: rgba(28, 78, 87, 0.16);
+    radial-gradient(130% 90% at 50% 0%, var(--results-fill-glow), transparent 60%),
+    linear-gradient(180deg, var(--results-fill-top), var(--results-fill-bottom));
+  --rp-shadow: var(--results-shadow);
+  --rp-highlight: var(--results-highlight);
+  --rp-line: var(--results-line);
 
-  --rp-ink: #1c4e57;
+  --rp-ink: var(--ink);
   --rp-ink-soft: rgba(28, 78, 87, 0.66);
   --rp-ink-dim: rgba(28, 78, 87, 0.5);
   --rp-ink-faint: rgba(28, 78, 87, 0.34);
 
-  --rp-perfect: #d99500;
-  --rp-good: #1f93a6;
-  --rp-miss: #e0473d;
-  --rp-late: #d9743a;
-  --rp-grade-sss: #cf9e00;
-  --rp-grade-s: #7d5fd6;
-  --rp-grade-b: #2f9e2a;
-  --rp-teal: #2a9db0;
-  --rp-purple: #7d5fd6;
+  --rp-perfect:   var(--color-perfect-day);
+  --rp-good:      var(--color-good-day);
+  --rp-miss:      var(--color-miss-day);
+  --rp-late:      var(--color-late-day);
+  --rp-grade-sss: var(--color-grade-sss-day);
+  --rp-grade-s:   var(--color-grade-s-day);
+  --rp-grade-b:   var(--color-grade-b-day);
+  --rp-teal:      var(--color-teal-day);
+  --rp-purple:    var(--color-purple-day);
 
   position: absolute;
   inset: 0;
@@ -44,26 +44,26 @@
 html.theme-dark .results-overlay {
   --rp-veil: rgba(0, 0, 0, 0.8);
   --rp-fill:
-    radial-gradient(130% 90% at 50% 0%, rgba(57, 197, 187, 0.14), transparent 62%),
-    linear-gradient(180deg, rgba(24, 42, 64, 0.94), rgba(12, 22, 38, 0.96));
-  --rp-shadow: 0 24px 60px rgba(0, 0, 0, 0.5);
-  --rp-highlight: inset 0 1px 0 rgba(255, 255, 255, 0.08);
-  --rp-line: rgba(255, 255, 255, 0.14);
+    radial-gradient(130% 90% at 50% 0%, var(--results-fill-glow), transparent 62%),
+    linear-gradient(180deg, var(--results-fill-top), var(--results-fill-bottom));
+  --rp-shadow: var(--results-shadow);
+  --rp-highlight: var(--results-highlight);
+  --rp-line: var(--results-line);
 
   --rp-ink: #fff;
   --rp-ink-soft: rgba(255, 255, 255, 0.7);
   --rp-ink-dim: rgba(255, 255, 255, 0.52);
   --rp-ink-faint: rgba(255, 255, 255, 0.35);
 
-  --rp-perfect: var(--color-perfect);
-  --rp-good: var(--color-good);
-  --rp-miss: var(--color-miss);
-  --rp-late: #ff9d6b;
+  --rp-perfect:   var(--color-perfect);
+  --rp-good:      var(--color-good);
+  --rp-miss:      var(--color-miss);
+  --rp-late:      var(--color-late);
   --rp-grade-sss: var(--color-grade-sss);
-  --rp-grade-s: var(--color-grade-s);
-  --rp-grade-b: var(--color-grade-b);
-  --rp-teal: #39c5bb;
-  --rp-purple: #c8b4ff;
+  --rp-grade-s:   var(--color-grade-s);
+  --rp-grade-b:   var(--color-grade-b);
+  --rp-teal:      var(--miku-teal);
+  --rp-purple:    var(--color-purple-night);
 }
 
 @keyframes results-fade-in {
@@ -135,7 +135,7 @@ html.theme-dark .results-overlay {
   border-radius: var(--radius-card);
   box-shadow: var(--rp-shadow), var(--rp-highlight);
   box-sizing: border-box;
-  width: 680px;
+  width: $results-panel-width;
   max-width: 100%;
   color: var(--rp-ink);
 }
@@ -215,8 +215,8 @@ html.theme-dark .results-overlay {
   position: absolute;
   top: 0.8rem;
   left: 0.8rem;
-  width: 108px;
-  height: 108px;
+  width: $results-miku-size;
+  height: $results-miku-size;
   object-fit: contain;
   pointer-events: none;
 }
