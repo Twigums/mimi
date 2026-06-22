@@ -78,10 +78,17 @@ export function GameSurface({ onReady, returnHref, onTryAgain }: Props) {
   const frameSize = useElementSize(gameAreaRef);
 
   // Chart metadata for the results screen: difficulty from the URL (?d=), tempo
-  // from the song-page dataset (injected by site.hs).
+  // and per-difficulty level map from the song-page dataset (injected by site.hs;
+  // the active difficulty's level is looked up since one page serves all of them).
   const difficulty = new URL(window.location.href).searchParams.get("d") ?? "expert";
   const bpmRaw = document.body.dataset.songBpm;
   const bpm = bpmRaw ? Number(bpmRaw) : null;
+  const level = (() => {
+    try {
+      const levels = JSON.parse(document.body.dataset.songLevels ?? "{}") as Record<string, number>;
+      return levels[difficulty] ?? null;
+    } catch { return null; }
+  })();
 
   useEffect(() => {
     if (playing) {
@@ -246,6 +253,7 @@ export function GameSurface({ onReady, returnHref, onTryAgain }: Props) {
             songName={displayName}
             artist={displayAuthor}
             difficulty={difficulty}
+            level={level}
             bpm={bpm}
           />
         )}

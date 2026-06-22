@@ -364,20 +364,27 @@ rules sitePath = do
         compile $ do
             ident  <- getUnderlying
             let songId = takeBaseName (toFilePath ident)
-            -- Song tempo, read from the first available difficulty's .mimi header
-            -- (mirrors buildManifest); surfaced on the results screen.
-            bpm <- unsafeCompiler $ do
+            -- Chart metadata for the results screen, read from the .mimi headers:
+            -- song tempo (song-level, from the first available difficulty, like
+            -- buildManifest) and a per-difficulty level map (the active difficulty
+            -- is chosen at runtime via ?d=, so all levels ship and JS picks one).
+            (bpm, levels) <- unsafeCompiler $ do
                 let songDir = "src/songs" </> songId
-                avail <- filterM (\d -> doesFileExist $ songDir </> d ++ ".mimi") difficultyIds
-                case avail of
-                  []          -> return ""
-                  (firstDiff:_) -> do
-                    content <- readFile (songDir </> firstDiff ++ ".mimi")
-                    return $ maybe "" id (parseMimiBpm content)
+                avail    <- filterM (\d -> doesFileExist $ songDir </> d ++ ".mimi") difficultyIds
+                contents <- forM avail $ \d -> (,) d <$> readFile (songDir </> d ++ ".mimi")
+                let bpmStr = case contents of
+                               []         -> ""
+                               ((_, c):_) -> maybe "" id (parseMimiBpm c)
+                    levelsJson = "{" ++ intercalate ","
+                                   [ "\"" ++ d ++ "\":" ++ show (parseMimiDifficulty c)
+                                   | (d, c) <- contents ]
+                                 ++ "}"
+                return (bpmStr, levelsJson)
             let songCtx =
                   constField "textalive-token" textaliveToken <>
                   constField "song-chart-dir" (sitePath ++ "/songs/" ++ songId ++ "/") <>
                   constField "song-bpm" bpm <>
+                  constField "song-levels" (escapeForAttr levels) <>
                   baseCtx
             pandocCompiler
                 >>= loadAndApplyTemplate (makeIdentifier templateDir "song.html") songCtx

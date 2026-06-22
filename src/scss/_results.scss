@@ -365,6 +365,19 @@ html.theme-dark .results-overlay {
       margin-left: 0.2rem;
     }
   }
+
+  // The difficulty reads as a small display badge ("HARD lv. 4"): the name in the
+  // display face, the level trailing in a dimmer weight.
+  &__diff b {
+    margin-left: 0;
+    font-family: var(--font-display);
+    letter-spacing: 0.06em;
+  }
+
+  &__level {
+    color: var(--rp-ink-dim);
+    font-weight: normal;
+  }
 }
 
 .results-issues {

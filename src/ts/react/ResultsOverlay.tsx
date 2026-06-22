@@ -8,7 +8,7 @@ import type { GameStats, IssueReason, NoteKind } from "../game/engine";
 const LABELS_EN = {
   title: "Results", score: "Score", accuracy: "Accuracy",
   maxCombo: "Max combo", avgOffset: "Avg offset", issues: "Issues",
-  chart: "Chart", difficulty: "Difficulty", bpm: "BPM",
+  chart: "Chart", level: "lv.", bpm: "BPM",
   timing: "Timing", early: "early", late: "late",
   tendEarly: "Tends early", tendLate: "Tends late",
   to: "to", topGrade: "Top grade!", fullCombo: "Full Combo", allPerfect: "All Perfect",
@@ -18,7 +18,7 @@ const LABELS_EN = {
 const LABELS_JP = {
   title: "リザルト", score: "スコア", accuracy: "精度",
   maxCombo: "最大コンボ", avgOffset: "平均ズレ", issues: "課題",
-  chart: "譜面", difficulty: "難易度", bpm: "BPM",
+  chart: "譜面", level: "Lv.", bpm: "BPM",
   timing: "タイミング", early: "早", late: "遅",
   tendEarly: "早め", tendLate: "遅め",
   to: "まで", topGrade: "最高評価！", fullCombo: "フルコンボ", allPerfect: "オールパーフェクト",
@@ -163,10 +163,11 @@ interface Props {
   songName: string;
   artist: string;
   difficulty: string;
+  level: number | null;
   bpm: number | null;
 }
 
-export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, artist, difficulty, bpm }: Props) {
+export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, artist, difficulty, level, bpm }: Props) {
   const lang = useLang();
   const [shareStatus, setShareStatus] = useState<"idle" | "copied" | "failed">("idle");
   const [focus, setFocus] = useState<Focus>(null);
@@ -200,7 +201,7 @@ export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, artist
   const labels = lang === "jp" ? LABELS_JP : LABELS_EN;
   const issueLabels = lang === "jp" ? ISSUE_LABELS_JP : ISSUE_LABELS_EN;
   const noteLabels = lang === "jp" ? NOTE_LABELS_JP : NOTE_LABELS_EN;
-  const difficultyName = difficulty ? difficulty.charAt(0).toUpperCase() + difficulty.slice(1) : "";
+  const difficultyName = difficulty ? difficulty.toUpperCase() : "";
   const acceptedHits = stats.hits.filter(hit => hit.result !== "miss");
 
   // Every non-Tier-3 hit carries an issue; flatten them so each dimension's
@@ -336,8 +337,9 @@ export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, artist
             <span className="results-section__label">{labels.chart}</span>
             <div className="results-chart__meta">
               {difficultyName && (
-                <span className="results-chart__stat">
-                  {labels.difficulty} <b>{difficultyName}</b>
+                <span className="results-chart__stat results-chart__diff">
+                  <b>{difficultyName}</b>
+                  {level != null && <span className="results-chart__level"> {labels.level} {level}</span>}
                 </span>
               )}
               {bpm != null && (
