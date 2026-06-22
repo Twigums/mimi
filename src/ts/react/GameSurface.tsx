@@ -77,6 +77,19 @@ export function GameSurface({ onReady, returnHref, onTryAgain }: Props) {
   const [ar] = useApproachRate();
   const frameSize = useElementSize(gameAreaRef);
 
+  // Chart metadata for the results screen: difficulty from the URL (?d=), tempo
+  // and per-difficulty level map from the song-page dataset (injected by site.hs;
+  // the active difficulty's level is looked up since one page serves all of them).
+  const difficulty = new URL(window.location.href).searchParams.get("d") ?? "expert";
+  const bpmRaw = document.body.dataset.songBpm;
+  const bpm = bpmRaw ? Number(bpmRaw) : null;
+  const level = (() => {
+    try {
+      const levels = JSON.parse(document.body.dataset.songLevels ?? "{}") as Record<string, number>;
+      return levels[difficulty] ?? null;
+    } catch { return null; }
+  })();
+
   useEffect(() => {
     if (playing) {
       fadeTimerRef.current = setTimeout(() => setInfoFaded(true), 2000);
@@ -203,7 +216,7 @@ export function GameSurface({ onReady, returnHref, onTryAgain }: Props) {
           </button>
         )}
 
-        <div className={`game-song-info${infoFaded ? " faded" : ""}`}>
+        <div className={`game-song-info${infoFaded || result ? " faded" : ""}`}>
           <span className="game-song-name">{displayName}</span>
           <span className="game-song-author">{displayAuthor}</span>
           {songInfo.mapper && <span className="game-song-mapper">{songInfo.mapper}</span>}
@@ -239,6 +252,9 @@ export function GameSurface({ onReady, returnHref, onTryAgain }: Props) {
             onTryAgain={handleTryAgain}
             songName={displayName}
             artist={displayAuthor}
+            difficulty={difficulty}
+            level={level}
+            bpm={bpm}
           />
         )}
       </div>

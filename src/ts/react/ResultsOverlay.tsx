@@ -1,46 +1,161 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLang } from "./hooks/useLang";
 import { computeGrade, computeAccuracy, JUDGEMENT_LABEL } from "../game/grade";
+import { TIER1_MS } from "../game/judgement";
 import { shareResult } from "../song/share";
-import type { GameStats, IssueReason } from "../game/engine";
+import type { GameStats, IssueReason, NoteKind } from "../game/engine";
 
 const LABELS_EN = {
   title: "Results", score: "Score", accuracy: "Accuracy",
-  maxCombo: "Max combo", avgOffset: "Avg offset", earlyLate: "Early / Late", issues: "Issues",
-  clean: "clean", share: "Share", copied: "Copied!", failed: "Failed", tryAgain: "Try Again", back: "Back",
+  maxCombo: "Max combo", avgOffset: "Avg offset", issues: "Issues",
+  chart: "Chart", level: "lv.", bpm: "BPM",
+  timing: "Timing", early: "early", late: "late",
+  tendEarly: "Tends early", tendLate: "Tends late",
+  to: "to", topGrade: "Top grade!", fullCombo: "Full Combo", allPerfect: "All Perfect",
+  hoverFilter: "hover to filter",
+  share: "Share", copied: "Copied!", failed: "Failed", tryAgain: "Try Again", back: "Back",
 };
 const LABELS_JP = {
   title: "リザルト", score: "スコア", accuracy: "精度",
-  maxCombo: "最大コンボ", avgOffset: "平均ズレ", earlyLate: "早 / 遅", issues: "課題",
-  clean: "クリーン", share: "シェア", copied: "コピー済み！", failed: "失敗", tryAgain: "やり直す", back: "戻る",
+  maxCombo: "最大コンボ", avgOffset: "平均ズレ", issues: "課題",
+  chart: "譜面", level: "Lv.", bpm: "BPM",
+  timing: "タイミング", early: "早", late: "遅",
+  tendEarly: "早め", tendLate: "遅め",
+  to: "まで", topGrade: "最高評価！", fullCombo: "フルコンボ", allPerfect: "オールパーフェクト",
+  hoverFilter: "ホバーで絞り込み",
+  share: "シェア", copied: "コピー済み！", failed: "失敗", tryAgain: "やり直す", back: "戻る",
 };
+
+// Ease a number from 0 to target over the mount (easeOutCubic); respects
+// prefers-reduced-motion by snapping straight to the target.
+function useCountUp(target: number, durationMs = 800): number {
+  const [val, setVal] = useState(0);
+  useEffect(() => {
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) {
+      setVal(target);
+      return;
+    }
+    let raf = 0;
+    const start = performance.now();
+    const tick = (now: number): void => {
+      const t = Math.min(1, (now - start) / durationMs);
+      setVal(target * (1 - Math.pow(1 - t, 3)));
+      if (t < 1) raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, [target, durationMs]);
+  return val;
+}
+
+// Distribution of hit offsets (ms; negative = early, positive = late) as a small
+// SVG strip centred on 0, early/late shaded, with a marker at the mean. Surfaces
+// per-hit offsetMs we already capture — the single most useful rhythm-game stat.
+// Bounds are pinned to the GOOD timing window so the scale is constant across
+// runs. The strip always covers the whole run — hover filtering scopes the
+// breakdown rows, not the timing distribution.
+const HIST_BINS = 21;
+const HIST_RANGE = TIER1_MS;
+
+function TimingHistogram({ offsets, labels }: { offsets: number[]; labels: typeof LABELS_EN }) {
+  const range = HIST_RANGE;
+  const binW = (range * 2) / HIST_BINS;
+  const counts = new Array<number>(HIST_BINS).fill(0);
+  for (const o of offsets) {
+    const idx = Math.min(HIST_BINS - 1, Math.max(0, Math.floor((o + range) / binW)));
+    counts[idx]++;
+  }
+  const maxCount = Math.max(1, ...counts);
+  const hasData = offsets.length > 0;
+  const mean = hasData ? offsets.reduce((s, o) => s + o, 0) / offsets.length : 0;
+  const W = HIST_BINS;
+  const H = 30;
+  const meanX = ((mean + range) / (range * 2)) * W;
+  // One-line coaching takeaway: a tendency word (only when meaningfully off) trailed
+  // by the precise average offset. "On time" carries no word — just the number.
+  const tendency = !hasData || Math.abs(mean) < 8
+    ? "" : mean < 0 ? labels.tendEarly : labels.tendLate;
+  return (
+    <div className="results-hist">
+      <div className="results-hist__head">
+        <span className="results-hist__label">{labels.timing}</span>
+        {hasData && (
+          <span className="results-hist__verdict">
+            {tendency}
+            <span className="results-hist__avg">{tendency ? " · " : ""}{labels.avgOffset} {mean >= 0 ? "+" : ""}{mean.toFixed(1)}ms</span>
+          </span>
+        )}
+      </div>
+      <svg className="results-hist__chart" viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" aria-hidden="true">
+        {counts.map((c, i) => {
+          const h = (c / maxCount) * (H - 2);
+          const centre = i - (HIST_BINS - 1) / 2;
+          const cls = centre < 0 ? "early" : centre > 0 ? "late" : "on";
+          return (
+            <rect
+              key={i}
+              className={`results-hist__bar results-hist__bar--${cls}`}
+              x={i + 0.12}
+              y={H - h}
+              width={0.76}
+              height={h}
+            />
+          );
+        })}
+        <line className="results-hist__center" x1={W / 2} y1={0} x2={W / 2} y2={H} vectorEffect="non-scaling-stroke" />
+        {hasData && (
+          <line className="results-hist__mean" x1={meanX} y1={0} x2={meanX} y2={H} vectorEffect="non-scaling-stroke" />
+        )}
+      </svg>
+      <div className="results-hist__axis">
+        <span>{labels.early} −{range}ms</span>
+        <span>0</span>
+        <span>+{range}ms {labels.late}</span>
+      </div>
+    </div>
+  );
+}
 
 const ISSUE_LABELS_EN: Record<IssueReason, string> = {
   timing: "timing",
   contact: "contact",
   direction: "direction",
-  travel: "travel",
-  flow: "flow",
+  gesture: "gesture",
 };
 const ISSUE_LABELS_JP: Record<IssueReason, string> = {
   timing: "タイミング",
   contact: "接触",
   direction: "方向",
-  travel: "距離",
-  flow: "フロー",
+  gesture: "ジェスチャー",
 };
-const ISSUE_ORDER: IssueReason[] = ["timing", "contact", "direction", "travel", "flow"];
+const ISSUE_ORDER: IssueReason[] = ["timing", "contact", "direction", "gesture"];
+
+const NOTE_LABELS_EN: Record<NoteKind, string> = { cut: "cut", flow: "flow", lyric: "lyric" };
+const NOTE_LABELS_JP: Record<NoteKind, string> = { cut: "カット", flow: "フロー", lyric: "歌詞" };
+const NOTE_ORDER: NoteKind[] = ["cut", "flow", "lyric"];
+
+// Accuracy thresholds for the "next grade" hint, ascending so the first entry
+// above the current accuracy is the next tier up. Mirrors computeGrade.
+const GRADE_STEPS: { grade: string; min: number }[] = [
+  { grade: "C", min: 0.5 }, { grade: "B", min: 0.7 }, { grade: "A", min: 0.85 },
+  { grade: "S", min: 0.95 }, { grade: "SS", min: 0.99 }, { grade: "SSS", min: 1.0 },
+];
 
 // Tiers that can carry an issue (Tier 3 is clean by definition).
 type IssueTier = "tier2" | "tier1" | "miss";
 const ISSUE_TIERS: IssueTier[] = ["tier2", "tier1", "miss"];
 
-// Hovering a tier filters the issue row to that tier; hovering an issue
-// re-counts the tier breakdown to that issue. Both directions stay linked.
+// Hover cross-filter. Three linked dimensions: tier (the breakdown row), note
+// kind (chart-data row, shown as chart totals but acting as a filter), and issue
+// reason. Hovering any cell scopes the dynamic dimensions to matching hits.
+type Dim = "tier" | "note" | "issue";
 type Focus =
-  | { kind: "tier"; tier: IssueTier }
-  | { kind: "issue"; issue: IssueReason }
+  | { dim: "tier"; tier: IssueTier }
+  | { dim: "note"; note: NoteKind }
+  | { dim: "issue"; issue: IssueReason }
   | null;
+
+interface NonPerfectHit { tier: IssueTier; note: NoteKind; issue: IssueReason; }
 
 interface Props {
   stats: GameStats;
@@ -48,49 +163,104 @@ interface Props {
   onTryAgain: () => void;
   songName: string;
   artist: string;
+  difficulty: string;
+  level: number | null;
+  bpm: number | null;
 }
 
-export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, artist }: Props) {
+export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, artist, difficulty, level, bpm }: Props) {
   const lang = useLang();
   const [shareStatus, setShareStatus] = useState<"idle" | "copied" | "failed">("idle");
   const [focus, setFocus] = useState<Focus>(null);
 
+  // Enter retries, Escape returns — the buttons are right there, just wire keys.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === "Enter") { e.preventDefault(); onTryAgain(); }
+      else if (e.key === "Escape") { e.preventDefault(); window.location.href = returnHref; }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onTryAgain, returnHref]);
+
   const grade = computeGrade(stats);
   const accuracy = computeAccuracy(stats);
   const pct = (accuracy * 100).toFixed(2);
+  const scoreView = useCountUp(stats.score);
+  const accView = useCountUp(accuracy * 100);
+
+  // Distance to the next grade up — a concrete reason to retry. Mirrors the
+  // accuracy thresholds in computeGrade; undefined once already at the top.
+  const nextStep = GRADE_STEPS.find(s => s.min > accuracy);
+  // Achievement badge: an all-PERFECT run, else a no-miss full combo.
+  const badgeKey: "allPerfect" | "fullCombo" | null =
+    stats.total === 0 ? null
+    : stats.tier3 === stats.total ? "allPerfect"
+    : stats.miss === 0 ? "fullCombo"
+    : null;
 
   const labels = lang === "jp" ? LABELS_JP : LABELS_EN;
   const issueLabels = lang === "jp" ? ISSUE_LABELS_JP : ISSUE_LABELS_EN;
+  const noteLabels = lang === "jp" ? NOTE_LABELS_JP : NOTE_LABELS_EN;
+  const difficultyName = difficulty ? difficulty.toUpperCase() : "";
   const acceptedHits = stats.hits.filter(hit => hit.result !== "miss");
-  const avgOffset = acceptedHits.length === 0
-    ? 0
-    : acceptedHits.reduce((sum, hit) => sum + hit.offsetMs, 0) / acceptedHits.length;
-  const earlyCount = acceptedHits.filter(hit => hit.timing === "early").length;
-  const lateCount = acceptedHits.filter(hit => hit.timing === "late").length;
 
-  // issueByTier[tier][issue] = count; every non-Tier-3 hit carries one issue.
-  const issueByTier: Record<IssueTier, Partial<Record<IssueReason, number>>> = {
-    tier2: {}, tier1: {}, miss: {},
-  };
+  // Every non-Tier-3 hit carries an issue; flatten them so each dimension's
+  // counts are a simple predicate over the same list.
+  const npHits: NonPerfectHit[] = [];
   for (const hit of stats.hits) {
     if (hit.result === "tier3" || !hit.issue) continue;
-    const tier = hit.result as IssueTier;
-    issueByTier[tier][hit.issue] = (issueByTier[tier][hit.issue] ?? 0) + 1;
+    npHits.push({ tier: hit.result as IssueTier, note: hit.kind, issue: hit.issue });
   }
-  const issueTotals: Partial<Record<IssueReason, number>> = {};
-  for (const tier of ISSUE_TIERS) {
-    for (const issue of ISSUE_ORDER) {
-      const n = issueByTier[tier][issue];
-      if (n) issueTotals[issue] = (issueTotals[issue] ?? 0) + n;
-    }
-  }
-  const presentIssues = ISSUE_ORDER.filter(issue => (issueTotals[issue] ?? 0) > 0);
+  const matchesFocus = (h: NonPerfectHit): boolean =>
+    focus === null
+      || (focus.dim === "tier" ? h.tier === focus.tier
+        : focus.dim === "note" ? h.note === focus.note
+        : h.issue === focus.issue);
+  const countWhere = (pred: (h: NonPerfectHit) => boolean): number => npHits.filter(pred).length;
 
-  // Counts shown depend on focus: a focused tier scopes the issue row to that
-  // tier, a focused issue scopes the tier breakdown to that issue.
-  const issueCounts = focus?.kind === "tier" ? issueByTier[focus.tier] : issueTotals;
+  // Tier and issue counts scope to the active focus (unless it's their own
+  // dimension); the note row always shows the chart's fixed composition.
   const tierCount = (tier: IssueTier): number =>
-    focus?.kind === "issue" ? (issueByTier[tier][focus.issue] ?? 0) : stats[tier];
+    focus !== null && focus.dim !== "tier"
+      ? countWhere(h => h.tier === tier && matchesFocus(h))
+      : stats[tier];
+  const issueCount = (issue: IssueReason): number =>
+    focus !== null && focus.dim !== "issue"
+      ? countWhere(h => h.issue === issue && matchesFocus(h))
+      : countWhere(h => h.issue === issue);
+
+  // Early/late counts, restricted to timing-issue hits (so they reflect rhythm
+  // errors only — never a mis-aimed-but-on-time hit, and never a PERFECT, which
+  // carries no issue). Revealed beside the Issues label on a timing hover.
+  const timingEarly = stats.hits.filter(h => h.issue === "timing" && h.timing === "early").length;
+  const timingLate = stats.hits.filter(h => h.issue === "timing" && h.timing === "late").length;
+
+  // A cell is active when it is the hovered cell (same dimension) or, while a
+  // different dimension is focused, it still has matching hits; everything else
+  // dims while any focus is held. A zero-count cell always reads dimmed (nothing
+  // to drill into) even at rest.
+  const cellState = (dim: Dim, isHovered: boolean, count: number): string => {
+    if (count === 0) return " is-dim";
+    const active = focus?.dim === dim ? isHovered : focus !== null && count > 0;
+    return (active ? " is-active" : "") + (focus !== null && !active ? " is-dim" : "");
+  };
+  // The note row holds fixed chart totals, so it only highlights its own hover;
+  // a kind the chart never uses stays dimmed.
+  const noteCellState = (note: NoteKind): string =>
+    stats.noteCounts[note] === 0 ? " is-dim"
+      : focus?.dim === "note" ? (focus.note === note ? " is-active" : " is-dim") : "";
+
+  // What currently scopes the issue rows, shown beside the Issues label. A timing
+  // hover additionally reveals its early/late split (kept off-row so the grid
+  // never reflows). Falls back to a quiet hint when nothing is focused.
+  const issueIndicator: string =
+    focus === null ? labels.hoverFilter
+    : focus.dim === "tier" ? JUDGEMENT_LABEL[focus.tier]
+    : focus.dim === "note" ? noteLabels[focus.note]
+    : focus.issue === "timing"
+      ? `${labels.early} ${timingEarly} · ${labels.late} ${timingLate}`
+      : issueLabels[focus.issue];
 
   const handleShare = (): void => {
     shareResult({ accuracy: `${pct}%`, grade, songName, artist, lang })
@@ -107,81 +277,117 @@ export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, artist
   return (
     <div className="results-overlay">
       <div className="results-panel">
-        <h2 className="results-title">{labels.title}</h2>
-        <div className={`results-grade results-grade--${grade.toLowerCase()}`}>{grade}</div>
-        <div className="results-stats">
-          <div className="results-stat">
-            <span className="results-stat__label">{labels.score}</span>
-            <span className="results-stat__value">{stats.score}</span>
+        <div className="results-head">
+          <h2 className="results-title">{labels.title}</h2>
+          <div className="results-songhead">
+            <span className="results-songhead__name">{songName}</span>
+            {artist && <span className="results-songhead__artist">{artist}</span>}
           </div>
-          <div className="results-stat">
-            <span className="results-stat__label">{labels.accuracy}</span>
-            <span className="results-stat__value">{pct}%</span>
+        </div>
+        <div className="results-body">
+        <div className="results-left">
+          <div className={`results-grade results-grade--${grade.toLowerCase()}`}>{grade}</div>
+          <div className="results-accuracy">{accView.toFixed(2)}%</div>
+          <div className="results-next">
+            {nextStep
+              ? `${((nextStep.min - accuracy) * 100).toFixed(2)}% ${labels.to} ${nextStep.grade}`
+              : labels.topGrade}
           </div>
+          {badgeKey && (
+            <div className={`results-badge results-badge--${badgeKey}`}>{labels[badgeKey]}</div>
+          )}
+          <div className="results-headline">
+            <div className="results-stat">
+              <span className="results-stat__label">{labels.score}</span>
+              <span className="results-stat__value">{Math.round(scoreView)}</span>
+            </div>
+            <div className="results-stat">
+              <span className="results-stat__label">{labels.maxCombo}</span>
+              <span className="results-stat__value">{stats.maxCombo}x</span>
+            </div>
+          </div>
+        </div>
+        <div className="results-right">
           <div className="results-breakdown">
-            <span className={`results-breakdown__tier3${focus?.kind === "issue" ? " is-dim" : ""}`}>
+            <span className={`results-breakdown__tier3${focus !== null && focus.dim !== "tier" ? " is-dim" : ""}`}>
               {JUDGEMENT_LABEL.tier3}: {stats.tier3}
             </span>
             {ISSUE_TIERS.map(tier => {
-              const active = focus?.kind === "tier"
-                ? focus.tier === tier
-                : focus?.kind === "issue"
-                  ? tierCount(tier) > 0
-                  : false;
+              const count = tierCount(tier);
               const cls = `results-breakdown__${tier} results-tierbtn`
-                + (active ? " is-active" : "")
-                + (focus !== null && !active ? " is-dim" : "");
+                + cellState("tier", focus?.dim === "tier" && focus.tier === tier, count);
               return (
                 <span
                   key={tier}
                   className={cls}
-                  onPointerEnter={() => setFocus({ kind: "tier", tier })}
+                  onPointerEnter={() => setFocus({ dim: "tier", tier })}
                   onPointerLeave={() => setFocus(null)}
                 >
-                  {JUDGEMENT_LABEL[tier]}: {tierCount(tier)}
+                  {JUDGEMENT_LABEL[tier]}: {count}
                 </span>
               );
             })}
           </div>
-          <div className="results-detail">
-            <span>{labels.maxCombo}: {stats.maxCombo}x</span>
-            <span>{labels.avgOffset}: {avgOffset >= 0 ? "+" : ""}{avgOffset.toFixed(1)}ms</span>
-            <span>{labels.earlyLate}: {earlyCount} / {lateCount}</span>
+
+          <div className="results-chart">
+            <span className="results-section__label">{labels.chart}</span>
+            <div className="results-chart__meta">
+              {difficultyName && (
+                <span className="results-chart__stat results-chart__diff">
+                  <b>{difficultyName}</b>
+                  {level != null && <span className="results-chart__level"> {labels.level} {level}</span>}
+                </span>
+              )}
+              {bpm != null && (
+                <span className="results-chart__stat">
+                  {labels.bpm} <b>{bpm}</b>
+                </span>
+              )}
+            </div>
+            <div className="results-notes">
+              {NOTE_ORDER.map(note => (
+                <span
+                  key={note}
+                  className={`results-note results-note--${note}${noteCellState(note)}`}
+                  onPointerEnter={() => setFocus({ dim: "note", note })}
+                  onPointerLeave={() => setFocus(null)}
+                >
+                  <span className="results-note__kind">{noteLabels[note]}</span>
+                  <span className="results-note__count">{stats.noteCounts[note]}</span>
+                </span>
+              ))}
+            </div>
           </div>
+
           <div className="results-issues">
             <span className="results-issues__label">
               {labels.issues}
-              {focus?.kind === "tier" && (
-                <span className="results-issues__filter"> · {JUDGEMENT_LABEL[focus.tier]}</span>
-              )}
+              <span className={`results-issues__filter${focus === null ? " is-hint" : ""}`}>
+                {" · "}{issueIndicator}
+              </span>
             </span>
             <div className="results-issues__list">
-              {presentIssues.length === 0 ? (
-                <span className="results-issues__empty">{labels.clean}</span>
-              ) : presentIssues.map(issue => {
-                const count = issueCounts[issue] ?? 0;
-                const active = focus?.kind === "issue"
-                  ? focus.issue === issue
-                  : focus?.kind === "tier"
-                    ? count > 0
-                    : false;
-                const cls = "results-issue"
-                  + (active ? " is-active" : "")
-                  + (focus !== null && !active ? " is-dim" : "");
+              {ISSUE_ORDER.map(issue => {
+                const count = issueCount(issue);
+                const cls = `results-issue results-issue--${issue}`
+                  + cellState("issue", focus?.dim === "issue" && focus.issue === issue, count);
                 return (
                   <span
                     key={issue}
                     className={cls}
-                    onPointerEnter={() => setFocus({ kind: "issue", issue })}
+                    onPointerEnter={() => setFocus({ dim: "issue", issue })}
                     onPointerLeave={() => setFocus(null)}
                   >
-                    {issueLabels[issue]} {count}
+                    <span className="results-issue__kind">{issueLabels[issue]}</span>
+                    <span className="results-issue__count">{count}</span>
                   </span>
                 );
               })}
             </div>
           </div>
         </div>
+        </div>
+        <TimingHistogram offsets={acceptedHits.map(hit => hit.offsetMs)} labels={labels} />
         <div className="results-actions">
           <button
             className={`results-btn results-btn--share results-btn--share-${shareStatus}`}

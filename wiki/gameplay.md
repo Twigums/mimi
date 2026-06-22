@@ -107,7 +107,7 @@ Tier 3 and Tier 2 results preserve combo. Tier 1 and Miss break combo.
 
 ## Feedback
 
-Hit feedback should be sensory first. Stronger hits should produce brighter visual bursts and fuller sounds. Lower accepted hits should be smaller or softer. Results include max combo, average timing offset, early/late counts, and issue counts without making the playfield depend on reading judgement text.
+Hit feedback should be sensory first. Stronger hits should produce brighter visual bursts and fuller sounds. Lower accepted hits should be smaller or softer. Results include max combo, average timing offset, early/late counts, and a breakdown of imperfect hits by tier, note kind, and issue (see Completion Screen), without making the playfield depend on reading judgement text.
 
 ## Approach Rate
 
@@ -161,4 +161,17 @@ Times are in milliseconds. `x` and `y` use the 800 x 600 logical play area.
 
 ## Completion Screen
 
-When the song ends, a results overlay appears inside the game area. It displays grade, score, accuracy, judgement breakdown, and actions for Share, Try Again, and Back.
+When the song ends, a results overlay appears inside the game area. It displays grade, score, accuracy, a judgement breakdown, and actions for Share, Try Again, and Back.
+
+The breakdown accounts for every imperfect hit (Great, Good, Miss) across three linked dimensions: by tier, by note kind (cut / flow / lyric), and by issue. The **issue** is the single binding constraint that held the hit below Tier 3 — the lowest-scoring gesture metric for that hit. There are four issue buckets:
+
+| Issue | Meaning |
+|-------|---------|
+| Timing | Timing was the limiting factor (the hit landed outside the higher tier's window) |
+| Contact | The pointer path did not pass close enough to the note |
+| Direction | The slash angle was too far from the note's arrow |
+| Gesture | The stroke itself was the limit: a cut's travel/slash distance or a flow's traced shape |
+
+Every note kind can produce a Timing, Contact, or Gesture issue. Direction applies to cut only — lyric notes have no direction, and a flow anchor's heading is folded into its shape, which reports as a Gesture issue. There is no separate travel, flow, or continuity issue; cut travel and flow shape both surface as Gesture.
+
+The three dimensions are cross-linked: hovering any cell scopes the other two dimensions to the hits matching it.
