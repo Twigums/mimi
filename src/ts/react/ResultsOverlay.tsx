@@ -274,7 +274,6 @@ export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, artist
         <div className="results-body">
         <div className="results-left">
           <div className={`results-grade results-grade--${grade.toLowerCase()}`}>{grade}</div>
-          <img className="results-miku" src={mikuSvg(grade)} alt={`Miku ${grade}`} />
           <div className="results-accuracy">{accView.toFixed(2)}%</div>
           <div className="results-next">
             {nextStep
@@ -285,14 +284,17 @@ export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, artist
             <div className={`results-badge results-badge--${badgeKey}`}>{labels[badgeKey]}</div>
           )}
           <div className="results-headline">
-            <div className="results-stat">
-              <span className="results-stat__label">{labels.score}</span>
-              <span className="results-stat__value">{Math.round(scoreView)}</span>
+            <div className="results-headline__stats">
+              <div className="results-stat">
+                <span className="results-stat__label">{labels.score}</span>
+                <span className="results-stat__value">{Math.round(scoreView)}</span>
+              </div>
+              <div className="results-stat">
+                <span className="results-stat__label">{labels.maxCombo}</span>
+                <span className="results-stat__value">{stats.maxCombo}x</span>
+              </div>
             </div>
-            <div className="results-stat">
-              <span className="results-stat__label">{labels.maxCombo}</span>
-              <span className="results-stat__value">{stats.maxCombo}x</span>
-            </div>
+            <img className="results-miku" src={mikuSvg(grade)} alt={`Miku ${grade}`} />
           </div>
         </div>
         <div className="results-right">
