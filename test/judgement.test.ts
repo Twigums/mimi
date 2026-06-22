@@ -109,7 +109,7 @@ check("resting on a note still misses for insufficient travel", () => {
   const judgement = judged(judgeGesture(note(), gesture));
 
   assert.equal(judgement.result, "miss");
-  assert.equal(judgement.issue, "travel");
+  assert.equal(judgement.issue, "gesture");
   assert.ok(judgement.gesture.travel < CUT_TRAVEL_TIER1);
 });
 
@@ -170,13 +170,13 @@ check("a flow gesture tracing the ribbon shape earns tier 3", () => {
 
 check("a flow gesture off the ribbon shape is capped by the flow metric", () => {
   // Ribbon heads right; the gesture sweeps perpendicular (90 degrees off every bin),
-  // so the shape cap — reported in the flow issue slot — holds it to tier 2.
+  // so the shape cap — reported in the gesture issue slot — holds it to tier 2.
   const flow = note({ kind: "flow", flowShape: [0, 0, 0, 0] });
   const gesture = withLatest(lineThroughCenter(Math.PI / 2, 40), NOTE_TIME + CUT_METRIC_WINDOW_MS);
   const judgement = judged(judgeGesture(flow, gesture));
 
   assert.equal(judgement.result, "tier2");
-  assert.equal(judgement.issue, "flow");
+  assert.equal(judgement.issue, "gesture");
 });
 
 check("flow timing is more lenient than cut", () => {

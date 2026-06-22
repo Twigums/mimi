@@ -203,7 +203,7 @@ export function GameSurface({ onReady, returnHref, onTryAgain }: Props) {
           </button>
         )}
 
-        <div className={`game-song-info${infoFaded ? " faded" : ""}`}>
+        <div className={`game-song-info${infoFaded || result ? " faded" : ""}`}>
           <span className="game-song-name">{displayName}</span>
           <span className="game-song-author">{displayAuthor}</span>
           {songInfo.mapper && <span className="game-song-mapper">{songInfo.mapper}</span>}
