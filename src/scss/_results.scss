@@ -344,7 +344,7 @@ html.theme-dark .results-overlay {
 }
 
 // Chart composition: difficulty / bpm meta plus the chart's note totals. The
-// note chips double as cross-filters that scope the issues row and histogram.
+// note chips double as cross-filters that scope the issues + tier rows.
 .results-chart {
   display: flex;
   flex-direction: column;

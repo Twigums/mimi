@@ -52,7 +52,8 @@ function useCountUp(target: number, durationMs = 800): number {
 // SVG strip centred on 0, early/late shaded, with a marker at the mean. Surfaces
 // per-hit offsetMs we already capture — the single most useful rhythm-game stat.
 // Bounds are pinned to the GOOD timing window so the scale is constant across
-// runs (and stays fixed while a note-kind hover filters the bars).
+// runs. The strip always covers the whole run — hover filtering scopes the
+// breakdown rows, not the timing distribution.
 const HIST_BINS = 21;
 const HIST_RANGE = TIER1_MS;
 
@@ -235,25 +236,20 @@ export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, artist
   const timingEarly = stats.hits.filter(h => h.issue === "timing" && h.timing === "early").length;
   const timingLate = stats.hits.filter(h => h.issue === "timing" && h.timing === "late").length;
 
-  // The histogram filters to the active focus the same way: a note-kind hover
-  // narrows it to that kind, a tier/issue hover to those hits.
-  const histHits = acceptedHits.filter((h): boolean => {
-    if (focus === null) return true;
-    if (focus.dim === "note") return h.kind === focus.note;
-    if (focus.dim === "tier") return h.result === focus.tier;
-    return h.issue === focus.issue;
-  });
-
   // A cell is active when it is the hovered cell (same dimension) or, while a
   // different dimension is focused, it still has matching hits; everything else
-  // dims while any focus is held.
+  // dims while any focus is held. A zero-count cell always reads dimmed (nothing
+  // to drill into) even at rest.
   const cellState = (dim: Dim, isHovered: boolean, count: number): string => {
+    if (count === 0) return " is-dim";
     const active = focus?.dim === dim ? isHovered : focus !== null && count > 0;
     return (active ? " is-active" : "") + (focus !== null && !active ? " is-dim" : "");
   };
-  // The note row holds fixed chart totals, so it only highlights its own hover.
+  // The note row holds fixed chart totals, so it only highlights its own hover;
+  // a kind the chart never uses stays dimmed.
   const noteCellState = (note: NoteKind): string =>
-    focus?.dim === "note" ? (focus.note === note ? " is-active" : " is-dim") : "";
+    stats.noteCounts[note] === 0 ? " is-dim"
+      : focus?.dim === "note" ? (focus.note === note ? " is-active" : " is-dim") : "";
 
   // What currently scopes the issue rows, shown beside the Issues label. A timing
   // hover additionally reveals its early/late split (kept off-row so the grid
@@ -391,7 +387,7 @@ export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, artist
           </div>
         </div>
         </div>
-        <TimingHistogram offsets={histHits.map(hit => hit.offsetMs)} labels={labels} />
+        <TimingHistogram offsets={acceptedHits.map(hit => hit.offsetMs)} labels={labels} />
         <div className="results-actions">
           <button
             className={`results-btn results-btn--share results-btn--share-${shareStatus}`}
