@@ -81,6 +81,9 @@ export interface GameStats {
   combo: number;
   maxCombo: number;
   hits: HitDetail[];
+  // Total notes of each kind in the chart (independent of how they were judged),
+  // surfaced as chart composition in the results screen.
+  noteCounts: Record<NoteKind, number>;
 }
 
 export interface SpawnSpec {
@@ -614,6 +617,8 @@ export function createGame(deps: GameDeps): GameHandle {
     },
 
     getStats(): GameStats {
+      const noteCounts: Record<NoteKind, number> = { cut: 0, flow: 0, lyric: 0 };
+      for (const n of notes) noteCounts[n.kind]++;
       return {
         score,
         tier3:   tier3Count,
@@ -624,6 +629,7 @@ export function createGame(deps: GameDeps): GameHandle {
         combo:   comboCount,
         maxCombo,
         hits:    hitDetails.slice(),
+        noteCounts,
       };
     },
 
