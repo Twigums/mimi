@@ -169,11 +169,10 @@ html.theme-dark .bg-sky .cloud-layer {
   // solid color — sky.ts puts the translucency on the note group so that
   // overlapping head/stem/flag joints don't stack alpha unevenly.
   // notes are draggable (sky.ts); the invisible note-hit rect is the grab area
+  // motion is driven by the JS physics loop in sky.ts (gravity + note-on-note
+  // collisions), not CSS, so the glyph carries its own transform attribute
   .floating-note {
     color: var(--miku-teal);
-    transform-box: fill-box;
-    transform-origin: center;
-    animation: note-fall 28s linear forwards;
     cursor: grab;
     touch-action: none;
 
@@ -207,25 +206,11 @@ html.theme-dark .bg-sky .cloud-layer {
   }
 }
 
-@keyframes note-fall {
-  0% {
-    transform: translate(0, 0) rotate(0deg);
-  }
-
-  50% {
-    transform: translate(var(--sway-x, -40px), calc(var(--fall-y, 1300px) * 0.5)) rotate(calc(var(--spin, 12deg) * 0.5));
-  }
-
-  100% {
-    transform: translate(0, var(--fall-y, 1300px)) rotate(var(--spin, 12deg));
-  }
-}
-
 // sky.ts places elements in-view without animation under reduced motion
+// (the note physics loop also stays idle there); clouds and stars are CSS
 @media (prefers-reduced-motion: reduce) {
 
   .bg-sky .cloud,
-  .bg-sky .floating-note,
   .bg-sky .star {
     animation: none;
   }
