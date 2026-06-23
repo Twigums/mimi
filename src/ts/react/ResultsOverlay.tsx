@@ -57,12 +57,6 @@ function useCountUp(target: number, durationMs = 800): number {
   return val;
 }
 
-// Distribution of hit offsets (ms; negative = early, positive = late) as a small
-// SVG strip centred on 0, early/late shaded, with a marker at the mean. Surfaces
-// per-hit offsetMs we already capture — the single most useful rhythm-game stat.
-// Bounds are pinned to the GOOD timing window so the scale is constant across
-// runs. The strip always covers the whole run — hover filtering scopes the
-// breakdown rows, not the timing distribution.
 const HIST_BINS = 21;
 const HIST_RANGE = TIER1_MS;
 
@@ -182,7 +176,6 @@ export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, artist
   const [shareStatus, setShareStatus] = useState<"idle" | "copied" | "failed">("idle");
   const [focus, setFocus] = useState<Focus>(null);
 
-  // Enter retries, Escape returns — the buttons are right there, just wire keys.
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
       if (e.key === "Enter") { e.preventDefault(); onTryAgain(); }

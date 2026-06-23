@@ -17,7 +17,6 @@
   justify-content: center;
   transition: background 0.2s, color 0.2s;
 
-  // the gear spins playfully on hover
   svg {
     display: block;
     transition: transform 0.45s var(--motion-ease-bouncy);
@@ -40,7 +39,6 @@
   }
 }
 
-// over the dark night-mode song background the pill goes translucent
 html.theme-dark .song-page .settings-btn {
   background: rgba(255, 255, 255, 0.14);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.35);
@@ -52,8 +50,7 @@ html.theme-dark .song-page .settings-btn {
   }
 }
 
-// sun ↔ moon morph: in dark mode the rays shrink away, the core grows, and
-// the mask bite slides in to carve the crescent
+// theme toggle between sun <-> moon
 .theme-toggle {
   .theme-icon-core {
     fill: currentColor;
@@ -106,14 +103,10 @@ html.theme-dark .theme-toggle {
   display: flex;
   align-items: center;
   justify-content: center;
-  // mounted inside .home-main, which is pointer-events: none — re-enable
   pointer-events: auto;
 }
 
 .options-panel {
-  // panel-scoped theme tokens: ink on a white cloud by day; the theme-dark
-  // override below flips the whole menu to a dark navy surface. --ink itself
-  // stays constant on purpose (it colors text on the dusk-lit cloud buttons)
   --panel-fill: var(--cloud-fill);
   --panel-ink: var(--ink);
   --panel-ink-soft: var(--ink-soft);
@@ -355,14 +348,11 @@ html.theme-dark .options-panel {
   accent-color: var(--miku-teal);
 }
 
-// the menu's single testplay surface sits above the settings grid; the margins
-// clear the cloud frame, which overflows the canvas box
 .testplay-wrap--panel {
   max-width: 360px;
   margin: 0.5rem auto 2.5rem;
 }
 
-// common settings stay visible; sections pack into two columns and never split
 .options-grid {
   column-count: 2;
   column-gap: 1.75rem;

@@ -9,11 +9,6 @@ html body.home-page {
   background-color: transparent;
 }
 
-// scoped to .home-page: the song page styles its own .bg-overlay in _song.scss.
-// night gradient sits on the element; the day gradient on ::before fades out
-// in dark mode — gradients can't transition, so themes crossfade instead.
-// z-index 0 (not -1): the body background paints over negative-z descendants,
-// which would make the draggable notes unreachable; .home-main sits at z 1
 .home-page .bg-overlay {
   position: fixed;
   inset: 0;
@@ -21,7 +16,6 @@ html body.home-page {
   z-index: 0;
   background: var(--bg-night-home);
 
-  // background: url('/images/gameplay.gif') center / cover no-repeat;
   &::before {
     content: '';
     position: absolute;
@@ -32,8 +26,6 @@ html body.home-page {
     pointer-events: none;
   }
 
-  // the veil paints above the sky svg — without this it would steal the
-  // pointer events meant for the draggable notes
   &::after {
     content: '';
     position: absolute;
@@ -53,26 +45,20 @@ html.theme-dark .home-page .bg-overlay::before {
   width: 100%;
   height: 100%;
 
-  // randomly generated clouds spawn at the bottom and rise; note glyphs
-  // are loaded from static/images/music_notes and fall from the top
   .cloud {
     animation: cloud-rise 24s linear forwards;
   }
 
-  // clouds belong to the day sky — the group fade hides them at night and
-  // wins over each cloud's inline random opacity
   .cloud-layer {
     pointer-events: none;
     transition: opacity 0.8s ease;
   }
 
-  // parts share one solid fill; the .cloud group carries the random opacity
-  // so overlapping puffs composite as one silhouette without seams
   .cloud-part {
     fill: #fff;
   }
 
-  // night scenery — invisible by day, faded in when html.theme-dark is set
+  // dark mode
   .night-layer {
     opacity: 0;
     pointer-events: none;
@@ -93,10 +79,7 @@ html.theme-dark .home-page .bg-overlay::before {
     }
   }
 
-  // celestial dial: sun and moon on opposite ends of a wheel hubbed below
-  // the horizon (origin matches DIAL_CX/DIAL_CY in sky.ts); sky.ts sets the
-  // inline rotation, always clockwise, so each body sets on the right and
-  // rises from the left horizon
+  // def for sun <-> moon
   .sky-dial {
     pointer-events: none;
     transform-origin: 960px 3000px;
@@ -165,12 +148,6 @@ html.theme-dark .bg-sky .cloud-layer {
 }
 
 .bg-sky {
-
-  // solid color — sky.ts puts the translucency on the note group so that
-  // overlapping head/stem/flag joints don't stack alpha unevenly.
-  // notes are draggable (sky.ts); the invisible note-hit rect is the grab area
-  // motion is driven by the JS physics loop in sky.ts (gravity + note-on-note
-  // collisions), not CSS, so the glyph carries its own transform attribute
   .floating-note {
     color: var(--miku-teal);
     cursor: grab;
@@ -206,8 +183,6 @@ html.theme-dark .bg-sky .cloud-layer {
   }
 }
 
-// sky.ts places elements in-view without animation under reduced motion
-// (the note physics loop also stays idle there); clouds and stars are CSS
 @media (prefers-reduced-motion: reduce) {
 
   .bg-sky .cloud,
@@ -231,8 +206,6 @@ html.theme-dark .bg-sky .cloud-layer {
   padding: 1.5rem 2rem;
   border-bottom: none;
   z-index: var(--z-chrome);
-  // the bar spans the viewport; only its content should swallow clicks,
-  // so notes drifting behind the empty stretch stay grabbable
   pointer-events: none;
 }
 
@@ -276,12 +249,11 @@ html.theme-dark .bg-sky .cloud-layer {
 
 .home-main {
   position: relative;
-  z-index: 1; // paints above the z-0 background overlay
+  z-index: 1;
   display: flex;
   align-items: center;
   justify-content: center;
   height: 100vh;
-  // let pointer events through to the sky notes; the menu re-enables them
   pointer-events: none;
 }
 
@@ -329,8 +301,7 @@ html.theme-dark .bg-sky .cloud-layer {
     filter 0.3s var(--motion-ease-standard),
     color 0.2s;
 
-  // cloud puffs — the button's drop-shadow wraps the merged silhouette,
-  // so the puffs must share its background and stay borderless
+  // cloud puffs
   &::before,
   &::after {
     position: absolute;
@@ -347,7 +318,7 @@ html.theme-dark .bg-sky .cloud-layer {
     left: 17%;
   }
 
-  // the small puff doubles as a music note that pops out on hover
+  // music note pop out on hover
   &::after {
     content: '♪';
     display: flex;
@@ -380,7 +351,7 @@ html.theme-dark .bg-sky .cloud-layer {
   }
 }
 
-// alternate puff placement so neighbouring clouds aren't identical
+// alternate puff placement so neighbouring clouds are not identical
 .layout-pane>.btn-main:nth-of-type(even),
 .song-list-entry:nth-child(even) .btn-main {
   &::before {
@@ -401,7 +372,6 @@ html.theme-dark .bg-sky .cloud-layer {
   font-family: var(--font-display);
   font-weight: 700;
   color: var(--ink-soft);
-  // opaque so the wisp puff merges seamlessly with the pill
   background: var(--cloud-fill);
   border: none;
   border-radius: var(--radius-pill);
@@ -414,7 +384,6 @@ html.theme-dark .bg-sky .cloud-layer {
     background 0.2s,
     color 0.2s;
 
-  // two wisps keep it cloud-like but clearly lighter than .btn-main
   &::before,
   &::after {
     content: '';
@@ -604,7 +573,6 @@ html.theme-dark .bg-sky .cloud-layer {
   min-height: $diff-btn-height;
   border-radius: var(--radius-card);
 
-  // the diagonal split badge keeps its shape — no cloud puffs here
   &::before,
   &::after {
     content: none;
@@ -746,7 +714,6 @@ html.theme-dark .bg-sky .cloud-layer {
     }
   }
 
-  // spawn links sit inside colored marks — keep the mark's own text color
   mark a[href^="spawn:"] {
     color: inherit;
     text-decoration-color: currentColor;
@@ -776,12 +743,9 @@ html.theme-dark .bg-sky .cloud-layer {
   }
 }
 
-// shared interactive testplay surface (tutorial pane + options menu)
 .testplay-wrap {
   position: relative;
 
-  // the shared cloud frame (skin in _song.scss) hugs the canvas box; the
-  // canvas paints above the frame's inner arcs
   .game-frame {
     position: absolute;
     inset: 0;
@@ -801,7 +765,6 @@ html.theme-dark .bg-sky .cloud-layer {
   cursor: none;
 }
 
-// the tutorial pane sizes its TestPlay surface to a fixed responsive width
 .testplay-wrap--tutorial {
   flex-shrink: 0;
   width: 280px;
@@ -857,7 +820,7 @@ html.theme-dark .bg-sky .cloud-layer {
   }
 }
 
-// invert the dark logos for the night sky (keeps two-tone marks legible)
+// invert logos
 html.theme-dark .home-footer img {
   filter: invert(1);
 }

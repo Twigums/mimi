@@ -1,5 +1,3 @@
-// ── Sass variables ───────────────────────────────────────────────────────────
-
 // Home layout
 $layout-max-width: 400px;
 
@@ -24,13 +22,12 @@ $diff-colors: (
   expert: #9c27b0,
 );
 
-// ── CSS custom properties ─────────────────────────────────────────────────────
-
+// css
 :root {
-  // typography
+  // font
   --font-display: 'M PLUS Rounded 1c', 'JetBrains Mono', sans-serif;
 
-  // miku palette
+  // miku colors
   --miku-teal: #39c5bb;
   --miku-teal-deep: #1d9e94;
   --ink: #1c4e57;
@@ -44,10 +41,7 @@ $diff-colors: (
   --negative-text-color: #f7fdfe;
   --base-highlight-color: #1d9e94;
 
-  // theme-dependent tokens (day values; html.theme-dark overrides below).
-  // --ink/--ink-soft above stay constant: they color text on white surfaces
-  // (cloud buttons, cards, options panel); --page-* color text that sits
-  // directly on the themed page background
+  // theme-dependent tokens
   --page-ink: #1c4e57;
   --page-ink-soft: rgba(28, 78, 87, 0.62);
   --page-ink-faint: rgba(28, 78, 87, 0.45);
@@ -67,18 +61,17 @@ $diff-colors: (
   --surface-hud: rgba(255, 255, 255, 0.92);
   --surface-hud-line: rgba(57, 197, 187, 0.45);
 
-  // hit judgment colors (bright, tuned for dark backgrounds)
+  // hit judgment colors
   --color-perfect: #ffd94a;
   --color-good: #8cf0ff;
   --color-miss: #ff6b6b;
 
-  // grade colors (SSS/S/B not covered by judgment colors above)
+  // grade colors (etc.)
   --color-grade-sss: #ffd700;
   --color-grade-s: #c8b4ff;
   --color-grade-b: #7ddc78;
 
-  // day-adapted judgment/grade/accent colors — deeper variants for legibility on
-  // light surfaces (results panel day fill, etc.)
+  // light-theme (day) judgment/grade/accent colors
   --color-perfect-day:   #d99500;
   --color-good-day:      #1f93a6;
   --color-miss-day:      #e0473d;
@@ -89,7 +82,7 @@ $diff-colors: (
   --color-teal-day:      #2a9db0;
   --color-purple-day:    #7d5fd6;
 
-  // results overlay — panel surface (day: soft blue-white)
+  // results overlay
   --results-fill-glow:   rgba(57, 197, 187, 0.16);
   --results-fill-top:    #eef6fc;
   --results-fill-bottom: #c8dcef;
@@ -97,10 +90,7 @@ $diff-colors: (
   --results-highlight:   inset 0 1px 0 rgba(255, 255, 255, 0.6);
   --results-line:        rgba(28, 78, 87, 0.16);
 
-  // page backgrounds — day/night pairs exist separately so the overlays can
-  // crossfade between them (gradients themselves can't transition); the
-  // --bg-gradient-* aliases resolve to the current theme for single-layer
-  // users (loading screen, tutorial canvas)
+  // page bg
   --bg-day-home: linear-gradient(180deg, #b8ecf6 0%, #ddf6fb 55%, #ffffff 100%);
   --bg-night-home: linear-gradient(180deg, #060b22 0%, #101d40 55%, #1b2d57 100%);
   --bg-day-song: radial-gradient(ellipse at center, #cdeef6 0%, #a8d8e2 65%, #8fc3cf 100%);
@@ -129,13 +119,12 @@ $diff-colors: (
   --motion-ease-bouncy: cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 
-// night mode — toggled by core/theme.ts via the sun/moon button
+// dark (night) mode
 html.theme-dark {
   --base-color: #0a1126;
   --base-text-color: #d9ecf2;
   --base-highlight-color: #5fd4c9;
 
-  // white surfaces go dull blue-grey at night, like dusk clouds
   --cloud-fill: #c9d3e2;
   --cloud-glow: rgba(15, 90, 84, 0.45);
   --cloud-bright: #dde4ef;
@@ -153,8 +142,7 @@ html.theme-dark {
   --song-text-dim: rgba(255, 255, 255, 0.62);
   --song-text-shadow: 0 0 6px rgba(0, 0, 0, 0.6);
   --game-dim: rgba(0, 0, 0, 0.55);
-  // the game frame goes royal purple at night (the cloud band hosts yellow
-  // stars there) instead of following the dusk --cloud-fill
+
   --game-frame-fill: #5b4a9b;
   --game-frame-glow: rgba(132, 102, 222, 0.5);
   --surface-hud: rgba(6, 22, 28, 0.92);
@@ -163,11 +151,10 @@ html.theme-dark {
   --bg-gradient-home: var(--bg-night-home);
   --bg-gradient-song: var(--bg-night-song);
 
-  // night palette entries not present in :root
   --color-late:         #ff9d6b;
   --color-purple-night: #c8b4ff;
 
-  // results overlay — panel surface (night: deep purple from game-frame palette)
+  // results overlay
   --results-fill-glow:   rgba(132, 102, 222, 0.22);
   --results-fill-top:    rgba(48, 34, 92, 0.97);
   --results-fill-bottom: rgba(22, 14, 50, 0.99);

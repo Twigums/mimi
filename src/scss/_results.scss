@@ -1,13 +1,7 @@
 @use 'variables' as *;
 
-// Panel-scoped theme tokens, mirroring .options-panel's --panel-* convention.
-// Day is the default (no .theme-dark on <html>); the override block below flips
-// the whole screen to the deep-navy night surface. Bright pastel judgement/grade
-// colours are tuned for dark, so day uses deeper, legible variants.
 .results-overlay {
   --rp-veil: rgba(206, 226, 236, 0.85);
-  // Soft blue vertical gradient with a teal top-glow, mirroring the depth of the
-  // night fill below.
   --rp-fill:
     radial-gradient(130% 90% at 50% 0%, var(--results-fill-glow), transparent 60%),
     linear-gradient(180deg, var(--results-fill-top), var(--results-fill-bottom));
@@ -36,9 +30,6 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  // No backdrop-filter here: it would promote the overlay to its own composited
-  // layer, which an ancestor's fractional translate(-50%,-50%) (.game-area) then
-  // resamples — softening the panel text. The veil alone hides the frozen field.
   background: var(--rp-veil);
   animation: results-fade-in 0.3s ease forwards;
 }
@@ -98,8 +89,6 @@ html.theme-dark .results-overlay {
   100% { transform: rotate(0deg); }
 }
 
-// Grade stamps in; the surrounding stats rise in a gentle stagger. All guarded
-// behind reduced-motion so the panel just appears for users who opt out.
 @media (prefers-reduced-motion: no-preference) {
   .results-grade      { animation: results-grade-in 0.5s var(--motion-ease-bouncy) 0.75s both; }
   .results-miku       { animation: results-rise 0.45s ease 1.0s both; }
@@ -130,8 +119,6 @@ html.theme-dark .results-overlay {
   align-items: center;
   gap: 1.4rem;
   padding: 2rem 2.6rem;
-  // Lit glass: a teal top-glow over the theme fill, plus a hairline inner
-  // highlight so it reads as a surface rather than a flat overlay.
   background: var(--rp-fill);
   border: 1px solid var(--rp-line);
   border-radius: var(--radius-card);
@@ -142,8 +129,7 @@ html.theme-dark .results-overlay {
   color: var(--rp-ink);
 }
 
-// Two columns: a grade/headline hero on the left, the analytic breakdowns on the
-// right. Collapses to a single column on narrow viewports.
+// grade on left, analytics on right
 .results-body {
   display: grid;
   grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.15fr);
@@ -179,7 +165,6 @@ html.theme-dark .results-overlay {
   color: var(--rp-ink);
 }
 
-// Distance to the next grade up — a quiet reason to retry.
 .results-next {
   font-size: 0.8rem;
   letter-spacing: 0.05em;
@@ -228,7 +213,6 @@ html.theme-dark .results-overlay {
     grid-template-columns: minmax(0, 1fr);
     row-gap: 1.2rem;
   }
-  // Divider only reads with two columns side by side.
   .results-right {
     padding-left: 0;
     border-left: none;
@@ -251,9 +235,6 @@ html.theme-dark .results-overlay {
   color: var(--rp-ink-dim);
 }
 
-// The song just played, folded into the panel (a results screen conventionally
-// shows it) so the background .game-song-info can be hidden — nothing sharp then
-// peeks through the veil.
 .results-songhead {
   display: flex;
   flex-direction: column;
@@ -282,9 +263,6 @@ html.theme-dark .results-overlay {
   line-height: 1;
   letter-spacing: -0.02em;
 
-  // Soft radial halo behind the letter in its own grade colour. A centred square
-  // (aspect-ratio 1) that fades fully to transparent inside its own bounds, so it
-  // reads as a round glow with no hard edge cropped by the letter's box.
   &::before {
     content: "";
     position: absolute;
@@ -299,7 +277,6 @@ html.theme-dark .results-overlay {
     pointer-events: none;
   }
 
-  // Glow scales off the letter's own colour so it works in both themes.
   &--sss, &--ss, &--s, &--a, &--f {
     text-shadow: 0 0 18px color-mix(in srgb, currentColor 55%, transparent);
   }
@@ -341,8 +318,6 @@ html.theme-dark .results-overlay {
   gap: 0.5rem 1rem;
   font-size: 0.96rem;
   font-variant-numeric: tabular-nums;
-  // Full-width so the row keeps a constant width as hover swaps the counts;
-  // items only re-flow within it instead of resizing the block.
   width: 100%;
 
   span { transition: opacity 0.15s ease, text-shadow 0.15s ease; }
@@ -353,7 +328,6 @@ html.theme-dark .results-overlay {
   &__miss  { color: var(--rp-miss); }
 }
 
-// Tier counts double as filters for the issue breakdown.
 .results-tierbtn { cursor: default; }
 
 .results-breakdown .is-active {
@@ -365,7 +339,6 @@ html.theme-dark .results-overlay {
   opacity: 0.3;
 }
 
-// Shared small-caps section heading for the chart-data and issues blocks.
 .results-section__label,
 .results-issues__label {
   font-size: 0.74rem;
@@ -374,8 +347,6 @@ html.theme-dark .results-overlay {
   color: var(--rp-ink-dim);
 }
 
-// Chart composition: difficulty / bpm meta plus the chart's note totals. The
-// note chips double as cross-filters that scope the issues + tier rows.
 .results-chart {
   display: flex;
   flex-direction: column;
@@ -397,8 +368,6 @@ html.theme-dark .results-overlay {
     }
   }
 
-  // The difficulty reads as a small display badge ("HARD lv. 4"): the name in the
-  // display face, the level trailing in a dimmer weight.
   &__diff b {
     margin-left: 0;
     font-family: var(--font-display);
@@ -420,8 +389,6 @@ html.theme-dark .results-overlay {
 
   &__label { display: block; }
 
-  // Trails the label with whatever currently scopes the rows; italic + faint
-  // while it is only the idle "hover to filter" prompt.
   &__filter {
     text-transform: none;
     letter-spacing: 0;
@@ -434,8 +401,6 @@ html.theme-dark .results-overlay {
   }
 }
 
-// Note + issue chips share a fixed grid so counts never reflow the layout as a
-// hover swaps their widths; each row keeps constant cell positions.
 .results-notes,
 .results-issues__list {
   display: grid;
@@ -457,8 +422,6 @@ html.theme-dark .results-overlay {
   font-size: 0.82rem;
   font-variant-numeric: tabular-nums;
   cursor: default;
-  // Accent-tinted surface so each chip reads as its own line rather than blending
-  // into a run of text; --accent is set per kind / per issue below.
   background: color-mix(in srgb, var(--accent, var(--rp-ink)) 8%, transparent);
   border: 1px solid color-mix(in srgb, var(--accent, var(--rp-ink)) 22%, transparent);
   transition: opacity 0.15s ease, background 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
@@ -484,17 +447,16 @@ html.theme-dark .results-overlay {
   &.is-dim { opacity: 0.32; }
 }
 
-// Note-kind accents mirror the in-game palette (cut red, flow teal, lyric pale).
 .results-note--cut   { --accent: var(--rp-miss); }
 .results-note--flow  { --accent: var(--rp-good); }
 .results-note--lyric { --accent: var(--rp-ink-soft); }
 
-// Issue-reason accents — four distinct hues so the binding constraints separate.
 .results-issue--timing    { --accent: var(--rp-good); }
 .results-issue--contact   { --accent: var(--rp-purple); }
 .results-issue--direction { --accent: var(--rp-late); }
 .results-issue--gesture   { --accent: var(--rp-grade-sss); }
 
+// judgement timing histogram
 .results-hist {
   display: flex;
   flex-direction: column;
@@ -520,7 +482,6 @@ html.theme-dark .results-overlay {
     font-variant-numeric: tabular-nums;
   }
 
-  // The precise average offset, dimmer than the verdict it trails.
   &__avg { color: var(--rp-ink-dim); }
 
   &__chart {
@@ -530,9 +491,6 @@ html.theme-dark .results-overlay {
     border-bottom: 1px solid var(--rp-line);
   }
 
-  // Early (left of 0) reads cool, late (right) warm; the exact-0 bin stays the
-  // perfect colour. Stretched by preserveAspectRatio=none, so the marker lines
-  // use non-scaling strokes.
   &__bar--early { fill: var(--rp-good); }
   &__bar--late  { fill: var(--rp-late); }
   &__bar--on    { fill: var(--rp-perfect); }
@@ -540,8 +498,6 @@ html.theme-dark .results-overlay {
   &__center { stroke: var(--rp-ink-faint); stroke-dasharray: 3 3; }
   &__mean   { stroke: var(--rp-ink); stroke-width: 1.5; }
 
-  // Grid (not flex space-between) so the middle "0" sits at exactly 50% to line
-  // up with the dashed center line; the side labels hug the edges.
   &__axis {
     display: grid;
     grid-template-columns: 1fr auto 1fr;
@@ -581,9 +537,6 @@ html.theme-dark .results-overlay {
     transform: translateY(0) scale(0.96);
   }
 
-  // Tinted-accent buttons: bg/border are translucent washes of the accent, and
-  // the label mixes the accent toward --rp-ink so it stays legible on either
-  // theme's surface (lightened on navy, darkened on the day cloud).
   &--try-again {
     background: color-mix(in srgb, var(--rp-teal) 18%, transparent);
     border: 1px solid color-mix(in srgb, var(--rp-teal) 55%, transparent);

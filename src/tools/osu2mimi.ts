@@ -5,8 +5,7 @@ const OSU_HEIGHT  = 384;
 const MIMI_WIDTH  = 800;
 const MIMI_HEIGHT = 600;
 
-// Fit osu play area inside mimi play area, preserving aspect ratio.
-// Both are 4:3 so scale = 1.5625 and offsets are 0, but this handles
+// both osu and mimi are 4:3
 const SCALE    = Math.min(MIMI_WIDTH / OSU_WIDTH, MIMI_HEIGHT / OSU_HEIGHT);
 const OFFSET_X = (MIMI_WIDTH  - OSU_WIDTH  * SCALE) / 2;
 const OFFSET_Y = (MIMI_HEIGHT - OSU_HEIGHT * SCALE) / 2;
@@ -42,8 +41,8 @@ interface Note {
     x:        number;
     y:        number;
     kind:     NoteKind;
-    degrees:  number | null; // null = "auto" (no authored direction)
-    newCombo: boolean;       // osu new-combo: ends the previous flow phrase
+    degrees:  number | null;
+    newCombo: boolean;
 }
 
 const OSU_TYPE_SLIDER   = 1 << 1;
@@ -65,8 +64,6 @@ function sliderDegrees(parts: string[], osuX: number, osuY: number): number | nu
     const dx = cx - osuX;
     const dy = cy - osuY;
     if (!Number.isFinite(dx) || !Number.isFinite(dy) || (dx === 0 && dy === 0)) return null;
-    // osu y increases down; mimi authored degrees use standard math (y up), which the
-    // chart compiler flips back — so negate dy here, matching the cut convention.
     return parseFloat((Math.atan2(-dy, dx) * (180 / Math.PI)).toFixed(1));
 }
 
@@ -197,8 +194,6 @@ function main(): void {
         "# kind, time_ms, degrees, x, y",
     );
 
-    // Cut and pinned-flow rows carry their slider direction; auto flow and lyric rows
-    // emit "auto". A `break` before a new-combo object ends the previous flow phrase.
     notes.forEach((note, i) => {
         const mayNeedBreak = i > 0 && note.kind === "flow" && notes[i - 1].kind === "flow";
         if (note.newCombo && mayNeedBreak) out.push("break");

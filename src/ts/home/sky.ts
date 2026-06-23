@@ -4,6 +4,7 @@ const SVG_NS = "http://www.w3.org/2000/svg";
 const VIEW_W = 1920;
 const VIEW_H = 1080;
 const MAX_ELEMENTS = 40;
+const MAX_NOTES = 10;
 const INITIAL_CLOUDS = 6;
 const INITIAL_NOTES = 4;
 const CLOUD_SPAWN_MS = 2400;
@@ -367,6 +368,8 @@ interface PhysNote {
   rot: number;          // degrees
   vrot: number;         // degrees / ms
   dragging: boolean;
+  dragPrevX: number;    // last frame's centre while dragging, for cursor-speed velocity
+  dragPrevY: number;
 }
 
 // the glyph rotates about the body centre and is offset so the asset is
@@ -451,7 +454,20 @@ function createNoteWorld(svg: SVGSVGElement, staticField: boolean): NoteWorld {
     last = now;
 
     for (const n of notes) {
-      if (n.dragging) continue;
+      if (n.dragging) {
+        // velocity tracks cursor travel so a bump hands off the drag momentum
+        if (dt > 0) {
+          let vx = (n.cx - n.dragPrevX) / dt;
+          let vy = (n.cy - n.dragPrevY) / dt;
+          const sp = Math.hypot(vx, vy);
+          if (sp > MAX_THROW_SPEED) { vx *= MAX_THROW_SPEED / sp; vy *= MAX_THROW_SPEED / sp; }
+          n.vx = vx;
+          n.vy = vy;
+        }
+        n.dragPrevX = n.cx;
+        n.dragPrevY = n.cy;
+        continue;
+      }
       n.vy += GRAVITY * dt;
       n.cx += n.vx * dt;
       n.cy += n.vy * dt;
@@ -498,7 +514,7 @@ function createNoteWorld(svg: SVGSVGElement, staticField: boolean): NoteWorld {
 }
 
 function spawnNote(world: NoteWorld, assets: Map<NoteKind, NoteAsset>, initial: boolean, staticField: boolean): void {
-  if (world.count() >= MAX_ELEMENTS) return;
+  if (world.count() >= MAX_NOTES) return;
   const asset = assets.get(pickNoteKind()) ?? assets.get("quarter");
   if (!asset) return;
 
@@ -534,6 +550,8 @@ function spawnNote(world: NoteWorld, assets: Map<NoteKind, NoteAsset>, initial: 
     rot: rand(-20, 20),
     vrot: staticField ? 0 : rand(-0.015, 0.015),
     dragging: false,
+    dragPrevX: 0,
+    dragPrevY: 0,
   };
   renderNote(n);
   makeNoteDraggable(world.svg, n);
@@ -559,6 +577,8 @@ function makeNoteDraggable(svg: SVGSVGElement, n: PhysNote): void {
     n.vx = 0;
     n.vy = 0;
     n.vrot = 0;
+    n.dragPrevX = n.cx;
+    n.dragPrevY = n.cy;
     svg.appendChild(n.el); // raise above the other notes while held
 
     const p = svgPoint(svg, e.clientX, e.clientY);
@@ -606,7 +626,7 @@ function makeNoteDraggable(svg: SVGSVGElement, n: PhysNote): void {
 
 function scheduleSpawns(spawn: () => void, baseMs: number): void {
   const tick = (): void => {
-    spawn();
+    if (!document.hidden) spawn();
     window.setTimeout(tick, baseMs * rand(1 - SPAWN_JITTER, 1 + SPAWN_JITTER));
   };
   window.setTimeout(tick, baseMs * rand(0.2, 1));
