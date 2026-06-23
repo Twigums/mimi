@@ -4,7 +4,7 @@ title: tutorial
 
 ## mimi
 
-Mimi is a rhythm game that focuses on moving your cursor to swipe notes! In mimi, we have 3 types of notes:
+In mimi, we have 3 types of notes:
 
 <mark class="cut">[Cut](spawn:cut)</mark>: Swipe through the red arrow in the marked direction.
 

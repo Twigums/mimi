@@ -1,6 +1,6 @@
 ## How to Build
 
-Requires `node`/`npm` and `stack`. Stack will use a compatible GHC from `~/.stack` (or a compatible system GHC if you already have one).
+Requires `node >=20.19.0`/`npm` and `stack`. Stack will use a compatible GHC from `~/.stack` (or a compatible system GHC if you already have one).
 
 1. Install dependencies + build haskell binary:
    ```bash

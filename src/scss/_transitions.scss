@@ -1,7 +1,5 @@
 @use 'variables' as *;
 
-// seamless light/dark theme switches: every themed color eases between its
-// day and night value; elements that declare their own transition keep it
 *,
 *::before,
 *::after {
@@ -33,7 +31,6 @@
   }
 }
 
-// children bounce in one after another for a rhythm-game cadence
 .layout-pane > *,
 .song-pane > *,
 .song-list > *,

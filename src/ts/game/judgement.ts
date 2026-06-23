@@ -18,20 +18,18 @@ export const CUT_CONTACT_TIER1   = 110;
 export const CUT_TRAVEL_TIER3    = 40;
 export const CUT_TRAVEL_TIER2    = 24;
 export const CUT_TRAVEL_TIER1    = 8;
-// Flow gesture caps are deliberately looser than cut: flow rewards a continuous
-// traced motion. Contact uses the cut thresholds for now; FLOW_CONTACT_* are kept
-// defined for future tuning. Flow has no separate direction cap — direction is
-// folded into the shape metric below.
+// Flow caps run looser than cut — flow rewards continuous traced motion. Contact
+// reuses the cut thresholds for now (FLOW_CONTACT_* kept for future tuning); flow
+// has no direction cap, folding heading into the shape metric below.
 export const FLOW_CONTACT_TIER3  = 65;
 export const FLOW_CONTACT_TIER2  = 95;
 export const FLOW_CONTACT_TIER1  = 130;
 export const FLOW_TRAVEL_TIER3   = 24;
 export const FLOW_TRAVEL_TIER2   = 12;
 export const FLOW_TRAVEL_TIER1   = 4;
-// Flow timing is more lenient than cut for the perfect/great windows (gliding
-// through a phrase shouldn't demand cut-level precision per anchor). Tier 1 stays at
-// the shared TIER1_MS so the engine's eligibility/expiry/draw windows are unchanged;
-// the other gesture metrics can be tightened later if flow ends up too easy.
+// Flow's perfect/great windows are more lenient than cut (gliding a phrase shouldn't
+// demand cut-level precision per anchor). Tier 1 stays at the shared TIER1_MS so the
+// engine's eligibility/expiry/draw windows are unchanged.
 export const FLOW_TIER3_MS       = 70;
 export const FLOW_TIER2_MS       = 120;
 // Flow's single shape metric: the RMS angle between the gesture's heading sequence
@@ -240,13 +238,11 @@ function contactForSegment(note: JudgementNote, start: PointerSample, end: Point
   };
 }
 
-// The issue is the binding constraint that held the note below Tier 3: the
-// first metric (in priority order) whose cap equals the final result. Since the
-// result is the minimum of all caps, at least one cap matches it for any
-// non-Tier-3 note; a clean Tier 3 has no issue. For a miss this resolves to the
-// first metric that fell past Tier 1, identical to the previous miss-only logic.
-// Travel (cut slash / flow motion) and the flow shape cap both surface as the
-// single `gesture` issue.
+// The issue is the binding constraint that held the note below Tier 3: the first
+// metric (in priority order) whose cap equals the final result. The result is the
+// minimum of all caps, so at least one matches for any non-Tier-3 note; a clean
+// Tier 3 has no issue. Travel (cut slash / flow motion) and the flow shape cap both
+// surface as the single `gesture` issue.
 function issueFor(
   result: HitResult,
   timingCap: HitResult,
@@ -263,12 +259,11 @@ function issueFor(
   return undefined;
 }
 
-// The flow shape cap: how well the gesture traces the ribbon's local shape. Both the
-// gesture and the ribbon are reduced to a heading sequence (resampled by arc length),
-// and the cap is the RMS per-bin heading error — position-invariant, so it measures
-// shape, not distance. A lone anchor has no ribbon shape and is left free (motion is
-// still required by travel/contact). The previous anchor's grade is irrelevant, so a
-// single weak anchor no longer caps the rest of the phrase.
+// The flow shape cap: how well the gesture traces the ribbon's local shape. Gesture
+// and ribbon are both reduced to a heading sequence (resampled by arc length), and the
+// cap is the RMS per-bin heading error — position-invariant, so it measures shape, not
+// distance. A lone anchor has no ribbon shape and is left free (travel/contact still
+// require motion); the previous anchor's grade does not cascade into this one.
 function flowShapeCap(note: JudgementNote, samples: PointerSample[], startIndex: number, endIndex: number): HitResult {
   const target = note.flowShape;
   if (!target || target.length === 0) return "tier3";

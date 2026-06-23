@@ -3,7 +3,16 @@ import { useLang } from "./hooks/useLang";
 import { computeGrade, computeAccuracy, JUDGEMENT_LABEL } from "../game/grade";
 import { TIER1_MS } from "../game/judgement";
 import { shareResult } from "../song/share";
+import { withPath } from "../core/sitePath";
 import type { GameStats, IssueReason, NoteKind } from "../game/engine";
+import type { Grade } from "../game/grade";
+
+function mikuSvg(grade: Grade): string {
+  if (grade === "SSS" || grade === "SS" || grade === "S") return withPath("/images/miku/miku_S.svg");
+  if (grade === "A") return withPath("/images/miku/miku_A.svg");
+  if (grade === "B") return withPath("/images/miku/miku_B.svg");
+  return withPath("/images/miku/miku_C.svg");
+}
 
 const LABELS_EN = {
   title: "Results", score: "Score", accuracy: "Accuracy",
@@ -48,12 +57,6 @@ function useCountUp(target: number, durationMs = 800): number {
   return val;
 }
 
-// Distribution of hit offsets (ms; negative = early, positive = late) as a small
-// SVG strip centred on 0, early/late shaded, with a marker at the mean. Surfaces
-// per-hit offsetMs we already capture — the single most useful rhythm-game stat.
-// Bounds are pinned to the GOOD timing window so the scale is constant across
-// runs. The strip always covers the whole run — hover filtering scopes the
-// breakdown rows, not the timing distribution.
 const HIST_BINS = 21;
 const HIST_RANGE = TIER1_MS;
 
@@ -173,7 +176,6 @@ export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, artist
   const [shareStatus, setShareStatus] = useState<"idle" | "copied" | "failed">("idle");
   const [focus, setFocus] = useState<Focus>(null);
 
-  // Enter retries, Escape returns — the buttons are right there, just wire keys.
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
       if (e.key === "Enter") { e.preventDefault(); onTryAgain(); }
@@ -274,9 +276,13 @@ export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, artist
     : shareStatus === "failed" ? labels.failed
     : labels.share;
 
+  const mikuAnim = (grade === "SSS" || grade === "SS" || grade === "S" || grade === "A")
+    ? "bounce" : "sway";
+
   return (
     <div className="results-overlay">
       <div className="results-panel">
+        <img className={`results-miku results-miku--${mikuAnim}`} src={mikuSvg(grade)} alt={`Miku ${grade}`} />
         <div className="results-head">
           <h2 className="results-title">{labels.title}</h2>
           <div className="results-songhead">

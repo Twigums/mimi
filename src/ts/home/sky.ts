@@ -4,6 +4,7 @@ const SVG_NS = "http://www.w3.org/2000/svg";
 const VIEW_W = 1920;
 const VIEW_H = 1080;
 const MAX_ELEMENTS = 40;
+const MAX_NOTES = 10;
 const INITIAL_CLOUDS = 6;
 const INITIAL_NOTES = 4;
 const CLOUD_SPAWN_MS = 2400;
@@ -11,6 +12,12 @@ const NOTE_SPAWN_MS = 4200;
 const SHOOTING_STAR_SPAWN_MS = 9000;
 const SPAWN_JITTER = 0.5; // spawn intervals vary ±50% around the base frequency
 const NOTE_BASE_H = 60;   // nominal glyph height before scaling
+// note physics (units: SVG user units, ms)
+const GRAVITY = 0.00003;        // downward accel, keeps the gentle "fall" feel
+const NOTE_RESTITUTION = 0.7;   // bounciness of note-on-note hits
+const COLLISION_ITERS = 2;      // relaxation passes per frame for stable stacks
+const MAX_THROW_SPEED = 2.5;    // cap a flick so a note can't teleport off
+const MAX_STEP_MS = 32;         // clamp dt after a tab-switch so nothing tunnels
 const STAR_COUNT = 26;
 // hub of the celestial dial, far below the horizon; must match the
 // .sky-dial transform-origin in _home.scss
@@ -341,47 +348,214 @@ function spawnCloud(layer: SVGGElement, initial: boolean, staticField: boolean):
   layer.appendChild(cloud);
 }
 
-function spawnNote(svg: SVGSVGElement, assets: Map<NoteKind, NoteAsset>, initial: boolean, staticField: boolean): void {
-  if (svg.childElementCount >= MAX_ELEMENTS) return;
+// a physics-driven note: an axis-aligned body (box = the glyph's scaled SVG
+// dims, per the brief — loose, rotation-ignoring) carrying linear + angular
+// velocity. cx/cy is the body centre; the glyph is rendered about it
+interface PhysNote {
+  el: SVGGElement;
+  glyph: SVGGElement;
+  s: number;            // glyph scale (NOTE_BASE_H/viewBoxH × random size)
+  vbW: number;
+  vbH: number;
+  hw: number;           // half-width / half-height of the collision box
+  hh: number;
+  mass: number;
+  invMass: number;      // 0 while dragged (immovable, but still shoves others)
+  cx: number;
+  cy: number;
+  vx: number;
+  vy: number;
+  rot: number;          // degrees
+  vrot: number;         // degrees / ms
+  dragging: boolean;
+  dragPrevX: number;    // last frame's centre while dragging, for cursor-speed velocity
+  dragPrevY: number;
+}
+
+// the glyph rotates about the body centre and is offset so the asset is
+// centred, so cx/cy is the true pivot (clean tumbling, simple collisions)
+function renderNote(n: PhysNote): void {
+  n.glyph.setAttribute(
+    "transform",
+    `translate(${n.cx.toFixed(1)} ${n.cy.toFixed(1)}) rotate(${n.rot.toFixed(1)}) scale(${n.s.toFixed(4)}) translate(${(-n.vbW / 2).toFixed(1)} ${(-n.vbH / 2).toFixed(1)})`,
+  );
+}
+
+// gone once fully past an edge (with slack so spawns just above the top and
+// near-misses aren't culled mid-flight)
+function offscreen(n: PhysNote): boolean {
+  return (
+    n.cy - n.hh > VIEW_H + 60 ||
+    n.cy + n.hh < -600 ||
+    n.cx + n.hw < -200 ||
+    n.cx - n.hw > VIEW_W + 200
+  );
+}
+
+// AABB collision: separate along the least-penetration axis and exchange
+// momentum there (1D impulse with restitution, weighted by inverse mass)
+function collide(a: PhysNote, b: PhysNote): void {
+  const dx = b.cx - a.cx;
+  const ox = a.hw + b.hw - Math.abs(dx);
+  if (ox <= 0) return;
+  const dy = b.cy - a.cy;
+  const oy = a.hh + b.hh - Math.abs(dy);
+  if (oy <= 0) return;
+  const invSum = a.invMass + b.invMass;
+  if (invSum === 0) return; // two dragged notes: both immovable
+
+  let nx = 0;
+  let ny = 0;
+  let pen = 0;
+  if (ox < oy) {
+    nx = dx < 0 ? -1 : 1; // contact normal points from a to b
+    pen = ox;
+  } else {
+    ny = dy < 0 ? -1 : 1;
+    pen = oy;
+  }
+
+  // push the pair apart, share by inverse mass
+  const corr = pen / invSum;
+  a.cx -= nx * corr * a.invMass;
+  a.cy -= ny * corr * a.invMass;
+  b.cx += nx * corr * b.invMass;
+  b.cy += ny * corr * b.invMass;
+
+  const rvn = (b.vx - a.vx) * nx + (b.vy - a.vy) * ny;
+  if (rvn > 0) return; // already separating
+  const j = (-(1 + NOTE_RESTITUTION) * rvn) / invSum;
+  a.vx -= j * a.invMass * nx;
+  a.vy -= j * a.invMass * ny;
+  b.vx += j * b.invMass * nx;
+  b.vy += j * b.invMass * ny;
+
+  // tangential slip becomes a little spin so hits read as tumbles
+  const slip = nx !== 0 ? b.vy - a.vy : b.vx - a.vx;
+  a.vrot -= slip * 0.04;
+  b.vrot += slip * 0.04;
+}
+
+interface NoteWorld {
+  svg: SVGSVGElement;
+  add: (n: PhysNote) => void;
+  count: () => number;
+}
+
+// one rAF loop integrating + colliding + culling every live note; idles when
+// the field empties and restarts on the next add (static field never starts)
+function createNoteWorld(svg: SVGSVGElement, staticField: boolean): NoteWorld {
+  let notes: PhysNote[] = [];
+  let running = false;
+  let last = 0;
+
+  const frame = (now: number): void => {
+    const dt = Math.min(now - last, MAX_STEP_MS);
+    last = now;
+
+    for (const n of notes) {
+      if (n.dragging) {
+        // velocity tracks cursor travel so a bump hands off the drag momentum
+        if (dt > 0) {
+          let vx = (n.cx - n.dragPrevX) / dt;
+          let vy = (n.cy - n.dragPrevY) / dt;
+          const sp = Math.hypot(vx, vy);
+          if (sp > MAX_THROW_SPEED) { vx *= MAX_THROW_SPEED / sp; vy *= MAX_THROW_SPEED / sp; }
+          n.vx = vx;
+          n.vy = vy;
+        }
+        n.dragPrevX = n.cx;
+        n.dragPrevY = n.cy;
+        continue;
+      }
+      n.vy += GRAVITY * dt;
+      n.cx += n.vx * dt;
+      n.cy += n.vy * dt;
+      n.rot += n.vrot * dt;
+    }
+
+    for (let it = 0; it < COLLISION_ITERS; it++) {
+      for (let i = 0; i < notes.length; i++) {
+        for (let j = i + 1; j < notes.length; j++) collide(notes[i], notes[j]);
+      }
+    }
+
+    const alive: PhysNote[] = [];
+    for (const n of notes) {
+      if (!n.dragging && offscreen(n)) {
+        n.el.remove();
+        continue;
+      }
+      renderNote(n);
+      alive.push(n);
+    }
+    notes = alive;
+
+    if (notes.length > 0) requestAnimationFrame(frame);
+    else running = false;
+  };
+
+  const start = (): void => {
+    if (running || staticField) return;
+    running = true;
+    last = performance.now();
+    requestAnimationFrame(frame);
+  };
+
+  return {
+    svg,
+    add: (n) => {
+      svg.appendChild(n.el);
+      notes.push(n);
+      start();
+    },
+    count: () => notes.length,
+  };
+}
+
+function spawnNote(world: NoteWorld, assets: Map<NoteKind, NoteAsset>, initial: boolean, staticField: boolean): void {
+  if (world.count() >= MAX_NOTES) return;
   const asset = assets.get(pickNoteKind()) ?? assets.get("quarter");
   if (!asset) return;
 
-  const scale = rand(0.8, 1.9);
-  const assetScale = NOTE_BASE_H / asset.viewBoxH;
-  const height = NOTE_BASE_H * scale;
-  const pos = {
-    x: rand(60, VIEW_W - 60),
-    y: staticField ? rand(height, VIEW_H - height) : -(height + 10),
-  };
-  const tilt = rand(-20, 20);
+  const s = (NOTE_BASE_H / asset.viewBoxH) * rand(0.8, 1.9);
+  const hw = (asset.viewBoxW * s) / 2;
+  const hh = (asset.viewBoxH * s) / 2;
 
   const note = document.createElementNS(SVG_NS, "g");
   note.setAttribute("class", "floating-note");
   const glyph = buildNoteGlyph(asset);
-  const applyPos = (): void => {
-    glyph.setAttribute(
-      "transform",
-      `translate(${pos.x.toFixed(1)} ${pos.y.toFixed(1)}) scale(${(scale * assetScale).toFixed(4)}) rotate(${tilt.toFixed(0)})`,
-    );
-  };
-  applyPos();
   note.appendChild(glyph);
   // parts are solid teal; the group alone carries the translucency so
   // head/stem/flag overlaps composite evenly (same trick as the clouds)
   note.style.opacity = rand(0.2, 0.4).toFixed(2);
 
-  if (!staticField) {
-    note.style.setProperty("--fall-y", `${(VIEW_H + 2 * height + 20).toFixed(0)}px`);
-    note.style.setProperty("--sway-x", `${rand(-120, 120).toFixed(0)}px`);
-    note.style.setProperty("--spin", `${rand(-25, 25).toFixed(0)}deg`);
-    const duration = rand(20, 36);
-    note.style.animationDuration = `${duration.toFixed(1)}s`;
-    if (initial) note.style.animationDelay = `-${rand(0, duration * 0.9).toFixed(1)}s`;
-    note.addEventListener("animationend", () => note.remove());
-  }
-
-  makeNoteDraggable(svg, note, pos, applyPos);
-  svg.appendChild(note);
+  const mass = hw * hh; // ∝ area, so big notes shove little ones convincingly
+  const n: PhysNote = {
+    el: note,
+    glyph,
+    s,
+    vbW: asset.viewBoxW,
+    vbH: asset.viewBoxH,
+    hw,
+    hh,
+    mass,
+    invMass: 1 / mass,
+    cx: rand(hw + 20, VIEW_W - hw - 20),
+    // static: scattered in view; initial: spread down the field so it starts
+    // populated; otherwise drop in from just above the top edge
+    cy: staticField ? rand(hh, VIEW_H - hh) : initial ? rand(-hh, VIEW_H * 0.7) : -(hh + 10),
+    vx: staticField ? 0 : rand(-0.02, 0.02),
+    vy: staticField ? 0 : rand(0.01, 0.03),
+    rot: rand(-20, 20),
+    vrot: staticField ? 0 : rand(-0.015, 0.015),
+    dragging: false,
+    dragPrevX: 0,
+    dragPrevY: 0,
+  };
+  renderNote(n);
+  makeNoteDraggable(world.svg, n);
+  world.add(n);
 }
 
 function svgPoint(svg: SVGSVGElement, clientX: number, clientY: number): DOMPoint {
@@ -390,46 +564,35 @@ function svgPoint(svg: SVGSVGElement, clientX: number, clientY: number): DOMPoin
   return ctm === null ? point : point.matrixTransform(ctm.inverse());
 }
 
-// drag a note and release it to throw it along the drag direction, replacing
-// the random fall trajectory it would otherwise have taken
-function makeNoteDraggable(
-  svg: SVGSVGElement,
-  note: SVGGElement,
-  pos: { x: number; y: number },
-  applyPos: () => void,
-): void {
+// drag a note and release it to throw it: dragging pins the body to the cursor
+// (immovable, infinite mass) and release hands the sampled velocity back to the
+// physics loop, so a flick carries momentum and a slow drop just keeps falling
+function makeNoteDraggable(svg: SVGSVGElement, n: PhysNote): void {
   let drag: { offX: number; offY: number; samples: { t: number; x: number; y: number }[] } | null = null;
 
-  note.addEventListener("pointerdown", (e) => {
+  n.el.addEventListener("pointerdown", (e) => {
     e.preventDefault();
-    // bake the current animated offset into the glyph position by comparing
-    // rendered centers before/after dropping all motion (exact even
-    // mid-rotation); the grabbed note straightens in your hand
-    const before = note.getBoundingClientRect();
-    note.style.animation = "none"; // detaches the CSS fall
-    // a re-grabbed note may still be on a WAAPI throw flight — cancel it,
-    // or it keeps offsetting the note and its finish handler removes it
-    for (const a of note.getAnimations()) a.cancel();
-    note.style.transform = "none";
-    const after = note.getBoundingClientRect();
-    const ctm = svg.getScreenCTM();
-    pos.x += ((before.x + before.width / 2) - (after.x + after.width / 2)) / (ctm === null ? 1 : ctm.a);
-    pos.y += ((before.y + before.height / 2) - (after.y + after.height / 2)) / (ctm === null ? 1 : ctm.d);
-    applyPos();
-    svg.appendChild(note); // raise above the other notes while held
+    n.dragging = true;
+    n.invMass = 0; // immovable while held, but still shoves what it bumps
+    n.vx = 0;
+    n.vy = 0;
+    n.vrot = 0;
+    n.dragPrevX = n.cx;
+    n.dragPrevY = n.cy;
+    svg.appendChild(n.el); // raise above the other notes while held
 
     const p = svgPoint(svg, e.clientX, e.clientY);
-    drag = { offX: p.x - pos.x, offY: p.y - pos.y, samples: [{ t: e.timeStamp, x: p.x, y: p.y }] };
-    note.classList.add("dragging");
-    note.setPointerCapture(e.pointerId);
+    drag = { offX: p.x - n.cx, offY: p.y - n.cy, samples: [{ t: e.timeStamp, x: p.x, y: p.y }] };
+    n.el.classList.add("dragging");
+    n.el.setPointerCapture(e.pointerId);
   });
 
-  note.addEventListener("pointermove", (e) => {
+  n.el.addEventListener("pointermove", (e) => {
     if (drag === null) return;
     const p = svgPoint(svg, e.clientX, e.clientY);
-    pos.x = p.x - drag.offX;
-    pos.y = p.y - drag.offY;
-    applyPos();
+    n.cx = p.x - drag.offX;
+    n.cy = p.y - drag.offY;
+    renderNote(n); // immediate, so it tracks even when the loop is idle (static)
     // velocity window: keep only the last ~100 ms of movement
     drag.samples.push({ t: e.timeStamp, x: p.x, y: p.y });
     while (drag.samples.length > 1 && e.timeStamp - drag.samples[0].t > 100) drag.samples.shift();
@@ -442,39 +605,28 @@ function makeNoteDraggable(
     const last = drag.samples[drag.samples.length - 1];
     // a pointer that rested before release means a still drop, not a throw
     const rested = e.timeStamp - last.t > 120;
-    throwNote(note, rested ? 0 : (last.x - first.x) / dt, rested ? 0 : (last.y - first.y) / dt);
-    note.classList.remove("dragging");
+    let vx = rested ? 0 : (last.x - first.x) / dt;
+    let vy = rested ? 0 : (last.y - first.y) / dt;
+    const speed = Math.hypot(vx, vy);
+    if (speed > MAX_THROW_SPEED) {
+      vx *= MAX_THROW_SPEED / speed;
+      vy *= MAX_THROW_SPEED / speed;
+    }
+    n.vx = vx;
+    n.vy = vy;
+    n.vrot = Math.max(-0.05, Math.min(0.05, vx * 0.03)); // horizontal flick → tumble
+    n.dragging = false;
+    n.invMass = 1 / n.mass;
+    n.el.classList.remove("dragging");
     drag = null;
   };
-  note.addEventListener("pointerup", release);
-  note.addEventListener("pointercancel", release);
-}
-
-// launch along the release velocity (SVG units/ms) far enough to exit the
-// viewBox from anywhere, spinning as it flies
-function throwNote(note: SVGGElement, vx: number, vy: number): void {
-  const speed = Math.hypot(vx, vy);
-  // direction of flight; a still release simply resumes falling
-  const still = speed < 0.05;
-  const ux = still ? 0 : vx / speed;
-  const uy = still ? 1 : vy / speed;
-  // pace: a still or slow release drifts at natural fall speed, and violent
-  // flicks are capped so they read as a visible streak instead of vanishing
-  const pace = Math.min(Math.max(speed, 0.055), 1.6);
-  const distance = 2400;
-  const flight = note.animate(
-    [
-      { transform: "translate(0, 0) rotate(0deg)" },
-      { transform: `translate(${(ux * distance).toFixed(0)}px, ${(uy * distance).toFixed(0)}px) rotate(${rand(-360, 360).toFixed(0)}deg)` },
-    ],
-    { duration: distance / pace, easing: "linear", fill: "forwards" },
-  );
-  flight.addEventListener("finish", () => note.remove());
+  n.el.addEventListener("pointerup", release);
+  n.el.addEventListener("pointercancel", release);
 }
 
 function scheduleSpawns(spawn: () => void, baseMs: number): void {
   const tick = (): void => {
-    spawn();
+    if (!document.hidden) spawn();
     window.setTimeout(tick, baseMs * rand(1 - SPAWN_JITTER, 1 + SPAWN_JITTER));
   };
   window.setTimeout(tick, baseMs * rand(0.2, 1));
@@ -515,9 +667,10 @@ export function initBgSky(): void {
   svg.appendChild(cloudLayer);
 
   for (let i = 0; i < INITIAL_CLOUDS; i++) spawnCloud(cloudLayer, true, staticField);
+  const noteWorld = createNoteWorld(svg, staticField);
   void loadNoteAssets().then(noteAssets => {
-    for (let i = 0; i < INITIAL_NOTES; i++) spawnNote(svg, noteAssets, true, staticField);
-    if (!staticField) scheduleSpawns(() => spawnNote(svg, noteAssets, false, false), NOTE_SPAWN_MS);
+    for (let i = 0; i < INITIAL_NOTES; i++) spawnNote(noteWorld, noteAssets, true, staticField);
+    if (!staticField) scheduleSpawns(() => spawnNote(noteWorld, noteAssets, false, false), NOTE_SPAWN_MS);
   });
   if (staticField) return;
 
