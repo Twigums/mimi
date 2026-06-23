@@ -1,3 +1,5 @@
+@use 'variables' as *;
+
 // Panel-scoped theme tokens, mirroring .options-panel's --panel-* convention.
 // Day is the default (no .theme-dark on <html>); the override block below flips
 // the whole screen to the deep-navy night surface. Bright pastel judgement/grade

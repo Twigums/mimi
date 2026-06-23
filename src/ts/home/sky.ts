@@ -352,8 +352,10 @@ function spawnNote(svg: SVGSVGElement, assets: Map<NoteKind, NoteAsset>, initial
   const pos = {
     x: rand(60, VIEW_W - 60),
     y: staticField ? rand(height, VIEW_H - height) : -(height + 10),
+    // grab folds the live animated spin into rot so freezing the fall changes
+    // nothing — neither position nor angle snaps
+    rot: rand(-20, 20),
   };
-  const tilt = rand(-20, 20);
 
   const note = document.createElementNS(SVG_NS, "g");
   note.setAttribute("class", "floating-note");
@@ -361,7 +363,7 @@ function spawnNote(svg: SVGSVGElement, assets: Map<NoteKind, NoteAsset>, initial
   const applyPos = (): void => {
     glyph.setAttribute(
       "transform",
-      `translate(${pos.x.toFixed(1)} ${pos.y.toFixed(1)}) scale(${(scale * assetScale).toFixed(4)}) rotate(${tilt.toFixed(0)})`,
+      `translate(${pos.x.toFixed(1)} ${pos.y.toFixed(1)}) scale(${(scale * assetScale).toFixed(4)}) rotate(${pos.rot.toFixed(1)})`,
     );
   };
   applyPos();
@@ -395,26 +397,35 @@ function svgPoint(svg: SVGSVGElement, clientX: number, clientY: number): DOMPoin
 function makeNoteDraggable(
   svg: SVGSVGElement,
   note: SVGGElement,
-  pos: { x: number; y: number },
+  pos: { x: number; y: number; rot: number },
   applyPos: () => void,
 ): void {
   let drag: { offX: number; offY: number; samples: { t: number; x: number; y: number }[] } | null = null;
 
   note.addEventListener("pointerdown", (e) => {
     e.preventDefault();
-    // bake the current animated offset into the glyph position by comparing
-    // rendered centers before/after dropping all motion (exact even
-    // mid-rotation); the grabbed note straightens in your hand
-    const before = note.getBoundingClientRect();
+    // bake the live animated pose into the glyph placement so dropping the CSS
+    // fall changes nothing — neither position nor angle. getComputedStyle
+    // resolves the *animated* matrix (getScreenCTM/transform attr would read the
+    // base value and teleport the note back to its un-fallen spot). A rigid body
+    // is fixed by one point + orientation, so we map the glyph anchor (pos, in
+    // note-local user units) through that matrix about the real transform-origin
+    // (fill-box center, per _home.scss) and fold the matrix's rotation into rot.
+    const raw = new DOMMatrix(getComputedStyle(note).transform);
+    const bb = note.getBBox(); // fill bbox = transform-box: fill-box origin basis
+    const ox = bb.x + bb.width / 2;
+    const oy = bb.y + bb.height / 2;
+    const applied = new DOMMatrix().translate(ox, oy).multiply(raw).translate(-ox, -oy);
+    const rendered = applied.transformPoint(new DOMPoint(pos.x, pos.y));
+    const spin = (Math.atan2(raw.b, raw.a) * 180) / Math.PI;
     note.style.animation = "none"; // detaches the CSS fall
     // a re-grabbed note may still be on a WAAPI throw flight — cancel it,
     // or it keeps offsetting the note and its finish handler removes it
     for (const a of note.getAnimations()) a.cancel();
     note.style.transform = "none";
-    const after = note.getBoundingClientRect();
-    const ctm = svg.getScreenCTM();
-    pos.x += ((before.x + before.width / 2) - (after.x + after.width / 2)) / (ctm === null ? 1 : ctm.a);
-    pos.y += ((before.y + before.height / 2) - (after.y + after.height / 2)) / (ctm === null ? 1 : ctm.d);
+    pos.x = rendered.x;
+    pos.y = rendered.y;
+    pos.rot += spin;
     applyPos();
     svg.appendChild(note); // raise above the other notes while held
 
