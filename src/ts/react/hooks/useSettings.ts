@@ -3,6 +3,7 @@ import {
   loadAr, saveAr, subscribeAr,
   loadVolume, saveVolume, subscribeVolume,
   loadHitsoundVolume, saveHitsoundVolume, subscribeHitsoundVolume,
+  loadUiVolume, saveUiVolume, subscribeUiVolume,
   loadHiddenMod, saveHiddenMod, subscribeHiddenMod,
   loadCursorSize, saveCursorSize, subscribeCursorSize,
   loadCursorR, saveCursorR, subscribeCursorR,
@@ -35,6 +36,10 @@ export function useVolume(): [number, (v: number) => void] {
 
 export function useHitsoundVolume(): [number, (v: number) => void] {
   return useNumericSetting(loadHitsoundVolume, saveHitsoundVolume, subscribeHitsoundVolume);
+}
+
+export function useUiVolume(): [number, (v: number) => void] {
+  return useNumericSetting(loadUiVolume, saveUiVolume, subscribeUiVolume);
 }
 
 export function useHiddenMod(): [boolean, (v: boolean) => void] {

@@ -7,7 +7,7 @@ import {
   TIMING_OFFSET_MIN, TIMING_OFFSET_MAX,
   resetSettings,
 } from "../core/settings";
-import { useApproachRate, useVolume, useHitsoundVolume, useHiddenMod, useCursorSize, useCursorR, useCursorG, useCursorB, useTrailFadeSpeed, useTrailShape, useTrailDecay, useMusicOffset } from "./hooks/useSettings";
+import { useApproachRate, useVolume, useHitsoundVolume, useUiVolume, useHiddenMod, useCursorSize, useCursorR, useCursorG, useCursorB, useTrailFadeSpeed, useTrailShape, useTrailDecay, useMusicOffset } from "./hooks/useSettings";
 import { TestPlay } from "./TestPlay";
 import { ColorPicker } from "./ColorPicker";
 import { useLang } from "./hooks/useLang";
@@ -39,6 +39,7 @@ export function OptionsPanel({ isSongPage = false }: Props) {
   const [ar, setAr] = useApproachRate();
   const [vol, setVol] = useVolume();
   const [hsVol, setHsVol] = useHitsoundVolume();
+  const [uiVol, setUiVol] = useUiVolume();
   const [hidden, setHidden] = useHiddenMod();
   const [cursorSize, setCursorSize] = useCursorSize();
   const [cursorR, setCursorR] = useCursorR();
@@ -127,6 +128,23 @@ export function OptionsPanel({ isSongPage = false }: Props) {
                 value={hsVol}
                 style={sliderFill(hsVol, VOLUME_MIN, VOLUME_MAX)}
                 onChange={e => setHsVol(Number(e.target.value))}
+              />
+            </div>
+
+            <div className="options-row">
+              <label className="options-label">
+                <span>{isJp ? "操作音量" : "Interface Volume"}</span>
+                <span className="options-setting-value">{uiVol}%</span>
+              </label>
+              <input
+                type="range"
+                className="options-slider"
+                min={VOLUME_MIN}
+                max={VOLUME_MAX}
+                step={VOLUME_STEP}
+                value={uiVol}
+                style={sliderFill(uiVol, VOLUME_MIN, VOLUME_MAX)}
+                onChange={e => setUiVol(Number(e.target.value))}
               />
             </div>
           </section>

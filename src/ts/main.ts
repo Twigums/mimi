@@ -2,6 +2,7 @@ import { createElement } from "react";
 import { createRoot } from "react-dom/client";
 import { initLangToggle } from "./core/lang";
 import { initThemeToggle } from "./core/theme";
+import { initUiSounds }    from "./core/uiSound";
 import { initBgSky }      from "./home/sky";
 import { initSongPage }   from "./song/controller";
 import { HomeLayoutSwitcher } from "./react/HomeLayoutSwitcher";
@@ -10,6 +11,7 @@ import { GameSurface }        from "./react/GameSurface";
 document.addEventListener("DOMContentLoaded", () => {
   initLangToggle();
   initThemeToggle();
+  initUiSounds();
 
   const homeRoot = document.getElementById("home-root");
   if (homeRoot) {

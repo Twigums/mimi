@@ -480,9 +480,10 @@ html.theme-dark .bg-sky .cloud-layer {
   overflow-x: hidden;
   overscroll-behavior: contain;
   scrollbar-width: none;
-  // top clears the song buttons' cloud puffs (top: -0.95rem); sides leave room for
-  // their drop-shadows so overflow-x: hidden does not shave the glow.
-  padding: 1.1rem 0.5rem;
+  // top clears the song buttons' cloud puff and the music note that pops up on hover
+  // (peaks ~1.2rem above the button); sides leave room for their drop-shadows so
+  // overflow-x: hidden does not shave the glow; bottom clears the back button's shadow.
+  padding: 1.6rem 0.5rem 1.1rem;
 
   &::-webkit-scrollbar {
     display: none;
