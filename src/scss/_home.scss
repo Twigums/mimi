@@ -911,7 +911,9 @@ html.theme-dark .home-footer img {
   position: fixed;
   bottom: 4.5rem;
   right: 1.5rem;
-  min-width: 340px;
+  // wider than the bubble so Miku (flex-end) sits to its lower-right, leaving
+  // the bubble's tail to land off Miku's top-left corner
+  min-width: 23.5rem;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -928,38 +930,42 @@ html.theme-dark .home-footer img {
   }
 }
 
-// Wrapper that owns filter + top cloud puffs (same technique as .btn-main)
+// Wrapper that owns the shadow/glow and hosts the cloud-puff border
 .miku-hint__cloud {
   position: relative;
-  margin-right: 1.5rem; // offsets Miku right so bubble sits top-left of it
-  // shadow below (like btn-main hover) + ambient glow
+  z-index: 1; // keep the cloud + its glow above Miku so the hop never clips it
+  // shadow below (like btn-main hover) + ambient glow, wrapping frame + body
   filter:
     drop-shadow(0 5px 0 var(--cloud-glow))
     drop-shadow(0 12px 22px rgba(57, 197, 187, 0.3))
     drop-shadow(0 0 18px rgba(57, 197, 187, 0.18));
 
-  &::before {
-    content: '';
+  // cloud-puff border drawn by the same generator as the gameplay frame, but a
+  // single flat colour (the button fill) instead of the night purple + sparkles
+  .game-frame {
     position: absolute;
-    background: var(--cloud-fill);
-    border-radius: 50%;
-    width: 2.4rem;
-    height: 2.4rem;
-    top: -0.95rem;
-    left: 18%;
+    inset: 0;
+    width: 100%;
+    height: 100%;
     z-index: 0;
+    filter: none; // the wrapper owns the shadow; suppress the frame's own glow
+
+    circle { fill: var(--cloud-fill); }
+    .frame-star { display: none; } // single colour: no sparkles
   }
 
+  // third, smallest tail dot — the speech-bubble's pointer landing on Miku's
+  // top-left so it reads as her speaking. Sits clear of the puff border and
+  // beyond the bubble's right edge (negative right), reaching toward Miku.
   &::after {
     content: '';
     position: absolute;
     background: var(--cloud-fill);
     border-radius: 50%;
-    width: 1.7rem;
-    height: 1.7rem;
-    top: -0.7rem;
-    left: 42%;
-    z-index: 0;
+    bottom: -2.5rem;
+    right: -0.8rem;
+    width: 0.4rem;
+    height: 0.4rem;
   }
 }
 
@@ -970,37 +976,39 @@ html.theme-dark .miku-hint__cloud {
     drop-shadow(0 0 20px rgba(57, 197, 187, 0.2));
 }
 
-// Main bubble body — tail dots point down-right toward Miku's top-left
+// Main bubble body — fixed width so the tail lands consistently relative to
+// Miku regardless of language; tail dots trail down-right toward Miku's top-left
 .miku-hint__bubble {
   position: relative;
   z-index: 1;
+  box-sizing: border-box;
+  width: 15rem;
   background: var(--cloud-fill);
   border-radius: 1.6rem;
   padding: 0.85rem 1.15rem;
-  max-width: 235px;
 
-  // larger tail dot — bottom-right, toward Miku
+  // first/largest tail dot — clears the puff border below the bubble's lower-right
   &::before {
     content: '';
     position: absolute;
     background: var(--cloud-fill);
     border-radius: 50%;
-    bottom: -0.55rem;
-    right: 1.2rem;
-    width: 0.75rem;
-    height: 0.75rem;
+    bottom: -1.3rem;
+    right: 0.5rem;
+    width: 0.82rem;
+    height: 0.82rem;
   }
 
-  // smaller tail dot — further right and down
+  // second tail dot — continues the trail down and toward Miku
   &::after {
     content: '';
     position: absolute;
     background: var(--cloud-fill);
     border-radius: 50%;
-    bottom: -0.95rem;
-    right: 0.55rem;
-    width: 0.48rem;
-    height: 0.48rem;
+    bottom: -1.95rem;
+    right: -0.15rem;
+    width: 0.56rem;
+    height: 0.56rem;
   }
 }
 
@@ -1040,6 +1048,8 @@ html.theme-dark .miku-hint__tutorial-word {
 }
 
 .miku-hint__miku {
+  position: relative;
+  z-index: 0; // sits under the cloud so its hop can't paint over the cloud's shine
   width: 120px;
   height: 120px;
   object-fit: contain;

@@ -25,10 +25,13 @@ function forEachEdge(
 const FRAME_PUFFS: ReadonlyArray<readonly [number, number]> = [[24, -2], [18, -8], [21, 1], [18, -6]];
 const FRAME_STEP = 31; // target spacing between puff centres
 
-function frameCircles(w: number, h: number, s: number): Array<{ cx: number; cy: number; r: number }> {
+// `stepScale` widens the gap between puffs without changing their size, so a
+// frame can read less busy (fewer, more separated puffs) while keeping or
+// growing the circle radius via `s`. Defaults to 1 (unchanged for the game area).
+function frameCircles(w: number, h: number, s: number, stepScale = 1): Array<{ cx: number; cy: number; r: number }> {
   const circles: Array<{ cx: number; cy: number; r: number }> = [];
   forEachEdge(w, h, (len, place) => {
-    const n = Math.max(4, Math.round(len / (FRAME_STEP * s)));
+    const n = Math.max(4, Math.round(len / (FRAME_STEP * s * stepScale)));
     for (let i = 0; i <= n; i++) {
       const [r, rel] = FRAME_PUFFS[i % FRAME_PUFFS.length];
       const [cx, cy] = place((i * len) / n, rel * s);
@@ -94,14 +97,15 @@ interface Props {
   w: number;
   h: number;
   scale?: number;
+  stepScale?: number;
 }
 
 // memoised: hosts re-render every score tick, but the frame only changes
 // when the observed size does
-export const GameFrame = memo(function GameFrame({ w, h, scale = 1 }: Props) {
+export const GameFrame = memo(function GameFrame({ w, h, scale = 1, stepScale = 1 }: Props) {
   return (
     <svg className="game-frame" viewBox={`0 0 ${w} ${h}`} aria-hidden="true">
-      {frameCircles(w, h, scale).map((c, i) => (
+      {frameCircles(w, h, scale, stepScale).map((c, i) => (
         <circle key={i} cx={c.cx} cy={c.cy} r={c.r} />
       ))}
       {frameStars(w, h, scale).map((s, i) => (
