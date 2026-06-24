@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { warmSongOrigins } from "../core/preload";
+import { withPath } from "../core/sitePath";
 import { useLang } from "./hooks/useLang";
 import { OptionsPanel } from "./OptionsPanel";
 import { TestPlay } from "./TestPlay";
@@ -131,6 +132,9 @@ export function HomeLayoutSwitcher({ infoContent, infoContentJp, tutorialContent
   const tutorialRef     = useRef<TestPlayHandle>(null);
   const tutorialInfoRef = useRef<HTMLDivElement>(null);
 
+  const [tutorialHintHovered, setTutorialHintHovered] = useState(false);
+  const mikuVariant = useMemo(() => (Math.random() < 0.5 ? "miku_A" : "miku_S"), []);
+
   const [selectedSong, setSelectedSong] = useState<SongEntry | null>(null);
   const [renderedSong, setRenderedSong] = useState<SongEntry | null>(null);
   const [activeDiffId, setActiveDiffId] = useState<string | null>(null);
@@ -228,6 +232,7 @@ export function HomeLayoutSwitcher({ infoContent, infoContentJp, tutorialContent
   };
 
   return (
+    <>
     <div className={`layout-container${layout === "tutorial" || currentLayout === "tutorial" ? " layout-container--tutorial" : ""}`}>
       <OptionsPanel />
       <div className={`layout-pane${exiting ? " exiting" : ""}`} key={paneKey}>
@@ -236,7 +241,10 @@ export function HomeLayoutSwitcher({ infoContent, infoContentJp, tutorialContent
             <button className="btn-main" onClick={handlePlayClick}>
               {t("Play", "プレイ")}
             </button>
-            <button className="btn-main" onClick={() => setLayout("tutorial")}>
+            <button
+              className={`btn-main${tutorialHintHovered ? " btn-main--shine" : ""}`}
+              onClick={() => setLayout("tutorial")}
+            >
               {t("Tutorial", "チュートリアル")}
             </button>
             <button className="btn-main" onClick={() => setLayout("info")}>
@@ -376,5 +384,28 @@ export function HomeLayoutSwitcher({ infoContent, infoContentJp, tutorialContent
         )}
       </div>
     </div>
+
+    {currentLayout === "original" && (
+      <div className={`miku-hint${exiting ? " miku-hint--exiting" : ""}`} aria-hidden="true">
+        <div className="miku-hint__cloud">
+          <div className="miku-hint__bubble">
+            <span className="miku-hint__text">
+              {t("Is this your first time? Try reading the ", "初めてですか？")}
+              <span
+                className="miku-hint__tutorial-word"
+                onPointerEnter={() => setTutorialHintHovered(true)}
+                onPointerLeave={() => setTutorialHintHovered(false)}
+                onClick={() => setLayout("tutorial")}
+              >
+                {t("tutorial", "チュートリアル")}
+              </span>
+              {t("!", "を読んでみて！")}
+            </span>
+          </div>
+        </div>
+        <img className="miku-hint__miku" src={withPath(`/images/miku/${mikuVariant}.svg`)} alt="" />
+      </div>
+    )}
+    </>
   );
 }
