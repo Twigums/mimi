@@ -466,6 +466,29 @@ html.theme-dark .bg-sky .cloud-layer {
   white-space: nowrap;
 }
 
+// The selection pane (song list, then difficulty list) is centred in a fixed-height
+// viewport. When its content is taller than the viewport — a long difficulty list, a
+// wrapped song title, either orientation — vertical centring pushes the overflow off
+// BOTH ends, clipping the song name at the top with no way to reach it. Make the pane
+// the single scroll container; the reduced max-height leaves room for the fixed header
+// (top-left site name) and footer so neither overlaps the scrolled content.
+.song-pane {
+  box-sizing: border-box;
+  max-height: calc(100vh - 8rem);
+  max-height: calc(100dvh - 8rem);
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+  scrollbar-width: none;
+  // top clears the song buttons' cloud puffs (top: -0.95rem); sides leave room for
+  // their drop-shadows so overflow-x: hidden does not shave the glow.
+  padding: 1.1rem 0.5rem;
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
 .song-detail-header {
   width: 100%;
   display: flex;
@@ -633,6 +656,20 @@ html.theme-dark .bg-sky .cloud-layer {
   span {
     min-width: 0;
     overflow-wrap: anywhere;
+  }
+}
+
+// Landscape phones have very little height, so even with the pane scrolling (base
+// rule above) the chrome eats most of the view. Shrink it so more of the difficulty
+// list shows before scrolling: drop the detail panel's reserved height and the song
+// title size.
+@media (max-height: 540px) {
+  .difficulty-detail {
+    min-height: 0;
+  }
+
+  .song-title {
+    font-size: 1.05rem;
   }
 }
 
