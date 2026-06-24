@@ -99,7 +99,7 @@ export function OptionsPanel({ isSongPage = false }: Props) {
 
             <div className="options-row">
               <label className="options-label">
-                <span>{isJp ? "音楽音量" : "Music Volume"}</span>
+                <span>{isJp ? "ミュージック" : "Music Volume"}</span>
                 <span className="options-setting-value">{vol}%</span>
               </label>
               <input
