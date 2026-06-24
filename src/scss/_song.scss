@@ -1,3 +1,5 @@
+@use 'variables' as *;
+
 .textalive-banner { display: none !important; }
 
 #loading-screen {
@@ -250,7 +252,7 @@ html.theme-dark .song-page .bg-overlay::before {
   &:hover { opacity: 1; }
 }
 
-@media (max-aspect-ratio: 33/20) {
+@media (max-aspect-ratio: #{$song-hud-collapse-ratio}) {
   .btn-hud-toggle {
     display: flex;
   }
@@ -633,6 +635,13 @@ html.theme-dark .game-frame .frame-star {
   display: inline-block;
 }
 
+@media (max-aspect-ratio: #{$song-footer-stack-ratio}) {
+  .song-page-footer {
+    flex-direction: column;
+    align-items: flex-end;
+  }
+}
+
 .btn-fullscreen {
   background: none;
   border: none;
@@ -705,7 +714,7 @@ html.theme-dark .game-frame .frame-star {
   }
 }
 
-@media (max-aspect-ratio: 1/1), (max-width: 400px) {
+@media (max-aspect-ratio: #{$song-warning-ratio}), (max-width: 400px), (max-height: 699px) {
   .small-screen-warning {
     opacity: 1;
     pointer-events: all;
@@ -724,11 +733,6 @@ html.theme-dark .game-frame .frame-star {
   .song-page-footer {
     z-index: var(--z-small-screen-ui);
   }
-}
-
-:fullscreen .small-screen-warning {
-  opacity: 0;
-  pointer-events: none;
 }
 
 @media (max-width: 600px) {

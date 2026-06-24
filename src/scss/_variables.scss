@@ -22,6 +22,11 @@ $diff-colors: (
   expert: #9c27b0,
 );
 
+// Song HUD responsive breakpoints (width/height aspect ratios)
+$song-hud-collapse-ratio: '13 / 7';   // 1300 x 700: collapse lang/theme/settings into dropdown
+$song-footer-stack-ratio: '12 / 7';   // 1200 x 700: stack fullscreen above back
+$song-warning-ratio:      '11.5 / 7'; // 1150 x 700: show increase-screen-size warning
+
 // css
 :root {
   // font
