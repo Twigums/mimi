@@ -1,6 +1,6 @@
 {
   "name": "mimi",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "private": true,
   "scripts": {
     "setup": "npm install && stack build --system-ghc",
