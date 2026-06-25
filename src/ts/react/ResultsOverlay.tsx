@@ -42,24 +42,24 @@ function MikuFigure({ grade, anim }: { grade: Grade; anim: "bounce" | "sway" }) 
 }
 
 const LABELS_EN = {
-  score: "Score", accuracy: "Accuracy",
+  accuracy: "Accuracy",
   maxCombo: "Max combo", avgOffset: "Avg offset", issues: "Issues",
   judgement: "Judgement", level: "lv.", bpm: "BPM",
   timing: "Timing", early: "early", late: "late",
   tendEarly: "Tends early", tendLate: "Tends late",
   to: "to", fullCombo: "Full Mimi", allPerfect: "All Mimi",
-  hoverFilter: "hover to filter", best: "Best", newRecord: "New Record!",
+  hoverFilter: "hover to filter", best: "Best", newRecord: "New Record!", toGo: "to go",
   advancedDetails: "Advanced Details", basicDetails: "Basic Details",
   share: "Share", copied: "Copied!", failed: "Failed", tryAgain: "Try Again", back: "Back",
 };
 const LABELS_JP = {
-  score: "スコア", accuracy: "精度",
+  accuracy: "精度",
   maxCombo: "最大コンボ", avgOffset: "平均ズレ", issues: "課題",
   judgement: "判定", level: "Lv.", bpm: "BPM",
   timing: "タイミング", early: "早", late: "遅",
   tendEarly: "早め", tendLate: "遅め",
   to: "まで", fullCombo: "フルミミ", allPerfect: "オールミミ",
-  hoverFilter: "ホバーで絞り込み", best: "ベスト", newRecord: "自己ベスト更新！",
+  hoverFilter: "ホバーで絞り込み", best: "ベスト", newRecord: "自己ベスト更新！", toGo: "あと",
   advancedDetails: "詳細表示", basicDetails: "簡易表示",
   share: "シェア", copied: "コピー済み！", failed: "失敗", tryAgain: "やり直す", back: "戻る",
 };
@@ -300,7 +300,6 @@ export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, songId
     if (committed.current || !songId || stats.total === 0) return;
     committed.current = true;
     setPb(commitPersonalBest(songId, difficulty, {
-      score: stats.score,
       accuracy: computeAccuracy(stats),
       grade: computeGrade(stats),
       maxCombo: stats.maxCombo,
@@ -321,17 +320,18 @@ export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, songId
   const grade = computeGrade(stats);
   const accuracy = computeAccuracy(stats);
   const pct = (accuracy * 100).toFixed(2);
-  const scoreView = useCountUp(stats.score);
   const accView = useCountUp(accuracy * 100);
 
   // Distance to the next grade up — a concrete reason to retry. Mirrors the
   // accuracy thresholds in computeGrade; undefined once already at the top.
   const nextStep = GRADE_STEPS.find(s => s.min > accuracy);
-  // Achievement badge: an all-PERFECT run, else a no-miss full combo.
+  // Achievement badge: an all-PERFECT run, else an unbroken full combo. A combo
+  // breaks on a GOOD (tier1) as well as a miss, so a true full combo means the
+  // longest streak spans every note — not merely that nothing was missed (#86).
   const badgeKey: "allPerfect" | "fullCombo" | null =
     stats.total === 0 ? null
       : stats.tier3 === stats.total ? "allPerfect"
-        : stats.miss === 0 ? "fullCombo"
+        : stats.maxCombo === stats.total ? "fullCombo"
           : null;
 
   const labels = lang === "jp" ? LABELS_JP : LABELS_EN;
@@ -339,6 +339,14 @@ export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, songId
   const noteLabels = lang === "jp" ? NOTE_LABELS_JP : NOTE_LABELS_EN;
   const difficultyName = difficulty ? difficulty.toUpperCase() : "";
   const acceptedHits = stats.hits.filter(hit => hit.result !== "miss");
+
+  // The parenthetical delta on a "Best" line. A run that beats (or ties) the
+  // prior best reads as a gain "(+diff)"; one that falls short reads how far it
+  // still has to go — "(あと diff)" in JP, "(diff to go)" in EN — never a bare
+  // minus, so a missed best frames the next attempt rather than the shortfall.
+  const bestDelta = (beatsBest: boolean, diff: string): string =>
+    beatsBest ? `(+${diff})`
+      : lang === "jp" ? `(${labels.toGo}${diff})` : `(${diff} ${labels.toGo})`;
 
   // Every non-Tier-3 hit carries an issue; flatten them so each dimension's
   // counts are a simple predicate over the same list.
@@ -425,6 +433,16 @@ export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, songId
           <div className="results-left">
             <div className={`results-grade results-grade--${grade.toLowerCase()}`}>{grade}</div>
             <div className="results-accuracy">{accView.toFixed(2)}%</div>
+            {pb && (
+              <div className="results-accuracy-best">
+                <span className="results-accuracy-best__label">{labels.best}</span>
+                <span className="results-accuracy-best__value">
+                  {`${(Math.max(accuracy, pb.previous?.accuracy ?? 0) * 100).toFixed(2)}% `}
+                  {bestDelta(accuracy >= (pb.previous?.accuracy ?? 0),
+                    `${(Math.abs(accuracy - (pb.previous?.accuracy ?? 0)) * 100).toFixed(2)}%`)}
+                </span>
+              </div>
+            )}
             {nextStep && (
               <div className="results-next">
                 {`${((nextStep.min - accuracy) * 100).toFixed(2)}% ${labels.to} ${nextStep.grade}`}
@@ -438,23 +456,19 @@ export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, songId
             )}
             <div className="results-headline">
               <div className="results-stat">
-                <span className="results-stat__label">{labels.score}</span>
-                <span className="results-stat__value">{Math.round(scoreView)}</span>
+                <span className="results-stat__label">{labels.maxCombo}</span>
+                <span className="results-stat__value">{stats.maxCombo}x</span>
               </div>
               {pb && (
-                <div className="results-stat">
+                <div className="results-stat results-stat--hint">
                   <span className="results-stat__hintlabel">{labels.best}</span>
                   <span className="results-stat__hintvalue">
-                    {stats.score >= (pb.previous?.score ?? 0) // don't use isRecord, so tie shows +0 not -0
-                      ? `${stats.score} (+${stats.score - (pb.previous?.score ?? 0)})`
-                      : `${pb.previous?.score ?? 0} (${stats.score - (pb.previous?.score ?? 0) >= 0 ? "+" : ""}${stats.score - (pb.previous?.score ?? 0)})`}
+                    {`${Math.max(stats.maxCombo, pb.previous?.maxCombo ?? 0)}x `}
+                    {bestDelta(stats.maxCombo >= (pb.previous?.maxCombo ?? 0),
+                      `${Math.abs(stats.maxCombo - (pb.previous?.maxCombo ?? 0))}x`)}
                   </span>
                 </div>
               )}
-            </div>
-            <div className="results-stat">
-              <span className="results-stat__label">{labels.maxCombo}</span>
-              <span className="results-stat__value">{stats.maxCombo}x</span>
             </div>
           </div>
           <div className="results-right">

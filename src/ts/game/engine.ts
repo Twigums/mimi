@@ -8,6 +8,7 @@ import {
   CUT_METRIC_WINDOW_MS,
   FLOW_SHAPE_BINS,
   LYRIC_HOLD_RADIUS,
+  MAX_POINTS,
   TIER1_MS,
   type HitResult,
   type HitTiming,
@@ -121,7 +122,7 @@ export interface GameHandle {
 interface GameDeps {
   canvas:          HTMLCanvasElement;
   gameArea:        HTMLElement;
-  onScore:         (score: number) => void;
+  onAccuracy:      (accuracy: number) => void;
   onFeedback:      (result: HitResult, x: number, y: number) => void;
   onComboChange:   (combo: number) => void;
   onPlayingChange: (playing: boolean) => void;
@@ -175,7 +176,7 @@ function normalizeChartNotes(rawNotes: RawNote[]): Note[] {
 }
 
 export function createGame(deps: GameDeps): GameHandle {
-  const { canvas, gameArea, onScore, onFeedback, onComboChange, onPlayingChange } = deps;
+  const { canvas, gameArea, onAccuracy, onFeedback, onComboChange, onPlayingChange } = deps;
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("2D canvas context unavailable");
 
@@ -305,7 +306,12 @@ export function createGame(deps: GameDeps): GameHandle {
   // preventing stale mid-song positions from triggering immediate misses.
   let skipExpiry = false;
 
-  const setScore = (v: number): void => { score = v; onScore(v); };
+  // `score` is the internal accuracy accumulator (sum of judged points), never shown
+  // to the player; accuracy = score / (judged notes × MAX_POINTS) is the live readout.
+  const emitAccuracy = (): void => {
+    const total = tier3Count + tier2Count + tier1Count + missCount;
+    onAccuracy(total === 0 ? 0 : score / (total * MAX_POINTS));
+  };
 
   const recordPointerSample = (songMs: number): void => {
     pointerSamples.push({
@@ -438,6 +444,7 @@ export function createGame(deps: GameDeps): GameHandle {
     note.state = "missed";
     note.hitResult = "miss";
     missCount++;
+    emitAccuracy();
     comboCount = 0;
     onComboChange(0);
     hitDetails.push({
@@ -470,7 +477,8 @@ export function createGame(deps: GameDeps): GameHandle {
     else if (result === "tier2") tier2Count++;
     else if (result === "tier1") tier1Count++;
     if (points > 0) {
-      setScore(score + points);
+      score += points;
+      emitAccuracy();
       if (result === "tier1") {
         comboCount = 0;
       } else {
@@ -613,7 +621,7 @@ export function createGame(deps: GameDeps): GameHandle {
       for (const n of notes) { n.state = "pending"; n.hitResult = undefined; }
       animations = [];
       animStart = 0;
-      setScore(0);
+      score = 0;
       tier3Count = 0;
       tier2Count = 0;
       tier1Count = 0;
@@ -622,6 +630,7 @@ export function createGame(deps: GameDeps): GameHandle {
       maxCombo   = 0;
       hitDetails = [];
       pointerSamples.length = 0;
+      emitAccuracy();
       onComboChange(0);
       onPlayingChange(false);
     },

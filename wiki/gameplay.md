@@ -119,6 +119,8 @@ Grade thresholds:
 
 Tier 3 and Tier 2 results preserve combo. Tier 1 and Miss break combo.
 
+The completion screen awards a **Full Combo** badge only when the combo is never broken across the whole song — every note resolves Tier 2 or better (no Goods and no Misses), so the max combo equals the note count. An all-Tier-3 run earns the stronger **All Perfect** badge instead.
+
 ## Feedback
 
 Hit feedback should be sensory first. Stronger hits should produce brighter visual bursts and fuller sounds. Lower accepted hits should be smaller or softer. Results include max combo, average timing offset, early/late counts, and a breakdown of imperfect hits by tier, note kind, and issue (see Completion Screen), without making the playfield depend on reading judgement text.
@@ -175,7 +177,7 @@ Times are in milliseconds. `x` and `y` use the 800 x 600 logical play area.
 
 ## Completion Screen
 
-When the song ends, a results overlay appears inside the game area. It displays grade, score, accuracy, a judgement breakdown, and actions for Share, Try Again, and Back.
+When the song ends, a results overlay appears inside the game area. It displays grade, accuracy, max combo, a judgement breakdown, and actions for Share, Try Again, and Back. There is no numeric score.
 
 The breakdown accounts for every imperfect hit (Great, Good, Miss) across three linked dimensions: by tier, by note kind (cut / flow / lyric), and by issue. The **issue** is the single binding constraint that held the hit below Tier 3 — the lowest-scoring gesture metric for that hit. There are four issue buckets:
 

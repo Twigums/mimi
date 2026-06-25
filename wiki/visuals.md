@@ -50,14 +50,14 @@ When a song tab loads, a full-screen overlay is shown with a progress bar while 
 ## Hit Feedback (Song Tab)
 After each note is resolved, a brief label floats up from the note's position and fades out, indicating the judgement result.
 
-## Score Display (Song Tab)
-A live score counter is displayed in the top-right of the game area and updates on each hit.
+## Accuracy Display (Song Tab)
+A live accuracy percentage is displayed in the bottom-right of the game area and updates on each hit. There is no numeric score counter.
 
 ## Combo Display (Song Tab)
-A combo counter is displayed in the bottom-left of the game area. It shows the current consecutive hit count with a "COMBO" label beneath it. A brief pop animation plays when the combo increments. Both the score and combo displays are hidden until the song begins playing.
+A combo counter is displayed in the bottom-left of the game area. It shows the current consecutive hit count with a "COMBO" label beneath it. A brief pop animation plays when the combo increments. Both the accuracy and combo displays are hidden until the song begins playing.
 
 ## Results Overlay (Song Tab)
-After the song finishes, an overlay appears inside the game area. It shows the player's grade, score, accuracy, and a breakdown of imperfect hits along three rows — by judgement tier, by note kind, and by issue. Hovering any cell scopes the other two rows to the matching hits and highlights it. Three actions are available: share the result, try again, or return to the home tab.
+After the song finishes, an overlay appears inside the game area. It shows the player's grade, accuracy, max combo, and a breakdown of imperfect hits along three rows — by judgement tier, by note kind, and by issue. Hovering any cell scopes the other two rows to the matching hits and highlights it. Three actions are available: share the result, try again, or return to the home tab.
 
 ## Custom Cursor (Song Tab)
 The default OS cursor is hidden over the game canvas and replaced by a custom shiny orb with a particle trail. The orb always renders above all other game elements. The cursor's size, color, trail particle shape (circle/star/square), trail decay style (fade/scatter), and trail fade speed can all be adjusted in the Cursor section of the Options panel.
