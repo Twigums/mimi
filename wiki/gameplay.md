@@ -40,14 +40,16 @@ Cut notes start with a timing tier, then gesture quality can cap the final resul
 | Direction error | <= 25 degrees | <= 45 degrees | <= 70 degrees | > 70 degrees |
 | Contact distance | <= 45 logical px | <= 75 logical px | <= 110 logical px | > 110 logical px |
 | Travel | >= 40 logical px | >= 24 logical px | >= 8 logical px | < 8 logical px |
+| Path straightness | >= 0.85 | >= 0.65 | >= 0.40 | < 0.40 |
 
 Calculation of gesture metrics observes the cursor movement through a "judgement window" (currently +/- 240 ms for each, but can be tweaked per metric) and algorithmically selects the optimal start/end points to judge as the cut. This is because the player may perform multiple gestures within the window at higher densities.
 
 - "Optimal" is chosen greedily based on tier, and starting at +0ms (the note's exact time), the engine will end early to give feedback on a judgement as early as it knows the player can't do any better for that note.
-- A cut also finalizes the moment its gesture has "settled" — the pointer has left the contact zone — because a better-timed re-cut is then implausible. This keeps feedback (hitsound and visuals) from lagging behind an early cut instead of waiting for the timing window to lapse. The earliest a cut may settle this way is `min(note_time - Tier 3 window, previous_note_time)`, so at higher densities a motion sweeping toward an adjacent note cannot claim this note during the previous note's territory.
+- A cut also finalizes the moment its gesture has "settled" — the pointer has left the contact zone — because a better-timed re-cut is then implausible. This keeps feedback (hitsound and visuals) from lagging behind an early cut instead of waiting for the timing window to lapse. The earliest a cut may settle this way is `max(note_time - Tier 1 window, previous_note_time)`: never before the note's own Tier 1 (Good) window opens (earlier than that no result is even a non-miss, so a sweep leaving the zone sooner is not yet this note's gesture), and never during the previous note's territory, so at higher densities a motion sweeping toward an adjacent note cannot claim this note early.
 - Direction error is the angle between the note arrow and the gesture direction formed by the chosen start/end points.
 - Contact distance is the closest distance achieved between the note center and the player's pointer path within the chosen gesture, calculated using the data points that lie between the chosen start/end points. Note that the interaction zone is intentionally larger than the visible note.
 - Travel is the distance between the chosen start/end points.
+- Path straightness is the net displacement between the chosen start/end points divided by the actual path length walked between them (1 for a perfectly straight slash, lower the more the path wanders or doubles back). It forces the scored gesture to be **one coherent stroke**, so contact and direction cannot be borrowed from different motions inside the window: any slice that passes the note while reversing scores low here. This is what makes a backward or flailing swipe fail — a clean forward stroke through the note still scores, but a pass that doubles back cannot be dressed up as a slash by the window's endpoints. Reported in the Gesture issue slot alongside travel.
 - There is currently no accounting for the duration between the chosen start/end points. It can be incorporated later if needed for tuning, but this decision naturally makes travel requirements easier for beginners, as higher densities prevent spending a full judgement window on a gesture for a single note.
 
 ## Flow Judgement
@@ -67,9 +69,9 @@ Unlike a cut, a flow anchor has no single authored direction. The ribbon between
 |----------------|--------|--------|--------|------|
 | Contact distance | <= 45 logical px | <= 75 logical px | <= 110 logical px | > 110 logical px |
 | Travel | >= 24 logical px | >= 12 logical px | >= 4 logical px | < 4 logical px |
-| Shape error | <= 60 degrees | <= 90 degrees | <= 120 degrees | > 120 degrees |
+| Shape error | <= 60 degrees | <= 75 degrees | <= 100 degrees | > 100 degrees |
 
-Shape error compares the gesture and the ribbon as **heading sequences**: each is resampled along its length into a fixed number of segments, and the error is the average angle between the matching segments. Because it uses only headings, it measures the *shape* of the motion (its direction and how it bends) and is independent of position — staying near the anchor is the separate contact metric. A lone flow anchor with no linked neighbours has no ribbon shape, so it is judged on motion alone, like a lyric. The shape error depends only on the player's own motion, never on how a neighbouring anchor was judged, so one weak anchor does not cap the rest of the phrase.
+Shape error compares the gesture and the ribbon as **heading sequences**: each is resampled along its length into a fixed number of segments, and the error is the average angle between the matching segments. Because it uses only headings, it measures the *shape* of the motion (its direction and how it bends) and is independent of position — staying near the anchor is the separate contact metric. The perfect threshold stays generous (a following motion keeps full credit through curves and corners), but the great/good boundaries are deliberately tight: a roughly perpendicular sweep (~90 degrees off) lands in Tier 1, not Tier 2, and motion past ~100 degrees off (sideways or backward) misses, so flailing across anchors cannot farm Greats. A lone flow anchor with no linked neighbours has no ribbon shape, so it is judged on motion alone, like a lyric. The shape error depends only on the player's own motion, never on how a neighbouring anchor was judged, so one weak anchor does not cap the rest of the phrase.
 
 Contact currently uses the same thresholds as cut while flow contact is being tuned. Travel still requires real motion through the anchor.
 
