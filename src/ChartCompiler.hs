@@ -46,9 +46,14 @@ data NoteEntry = NoteEntry
 parseNote :: (Double -> Double) -> String -> Either String NoteEntry
 parseNote toMs line =
     case map trim (splitOn ',' line) of
+        -- An `end` marker carries only a time; it bounds a preceding lyric's hold and is
+        -- stripped by the engine, so it needs no position/direction.
+        [k, t] | map toLower k == "end" -> do
+            t' <- readDouble "time" t
+            Right $ NoteEntry "end" (toMs t') 0 0 0 False False Nothing
         [k, t, d, x, y]    -> go k t d x y Nothing
         [k, t, d, x, y, c] -> go k t d x y (Just c)
-        _                   -> Left $ "Expected 5 or 6 comma-separated fields: " ++ line
+        _                   -> Left $ "Expected `end, time`, or 5 or 6 comma-separated fields: " ++ line
   where
     go k t d x y mChar = do
         t'  <- readDouble "time" t
@@ -100,6 +105,9 @@ showNum d
   where n = round d :: Int
 
 renderNote :: NoteEntry -> String
+renderNote n
+    | neKind n == "end" =
+        "  { \"kind\": \"end\", \"time\": " ++ showNum (neTimeMs n) ++ ", \"state\": \"pending\" }"
 renderNote n =
     "  { \"kind\": \""     ++ neKind n                ++ "\"" ++
     ", \"time\": "         ++ showNum (neTimeMs    n) ++

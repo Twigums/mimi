@@ -127,10 +127,24 @@ window, then misses.
 The hold length itself has **no constant** — it is the gap to the next note, with no
 default or cap.
 
+## Update — explicit lyric-end marker (implemented)
+
+The "dedicated release-marker note kind" below is now in. A new inert `end, time` chart
+line bounds a lyric's hold where no playable note sits:
+
+- **Format/compiler.** `ChartCompiler.hs` parses `end, time` into a minimal
+  `{"kind":"end","time":…}`. No position/direction — it is not drawn or judged.
+- **Engine.** `setChart` extracts `end` markers before normalization, feeds their times
+  to `computeLyricHolds`, then discards them, so no non-playable kind leaks into
+  judging/drawing/stats/`pendingStart`. `computeLyricHolds` now binds each lyric to the
+  **nearest event strictly after it** across all note times + marker times (was
+  `notes[i+1]`), which also makes the bound robust to same-time notes.
+- **osu converter.** A clap **slider** emits the lyric + an `end` marker at the slider
+  tail (duration from `SliderMultiplier` + timing points); a clap **circle** is just a
+  next-note-bound lyric. Same-time events are ordered `end` → cut/flow → lyric.
+
 ## Out of scope / follow-ups
 
 - TextAlive-derived hold *duration* (the string auto-fills from the hold window; the
   duration is set by note placement).
-- Explicit per-row hold end / a dedicated release-marker note kind (pending the chart
-  format rewrite the author mentioned).
 - "Miku singing" theming tie-in (post).

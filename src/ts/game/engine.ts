@@ -320,21 +320,23 @@ export function createGame(deps: GameDeps): GameHandle {
     while (pointerSamples.length > 256) pointerSamples.shift();
   };
 
-  // A lyric is a hold lasting until the next note (any kind) — no default, no cap; the
-  // charter places the following note where the hold should end. A lyric with no
-  // following note cannot be bounded: it is an invalid chart (left holdMs undefined and
-  // logged), and the engine judges it as a miss. Notes are time-sorted, so notes[i+1]
-  // is the bound. See LYRIC_HOLD_PLAN.md / wiki.
-  const computeLyricHolds = (): void => {
-    for (let i = 0; i < notes.length; i++) {
-      const n = notes[i];
+  // A lyric is a hold lasting until the next event strictly after its start — no
+  // default, no cap. The bound is the nearest of: a following note (any kind) or an
+  // inert `end` marker time (a chart-level lyric-end marker, which lets the hold end
+  // where no playable note sits). Using "strictly after" keeps a note charted on the
+  // lyric's own beat (e.g. a cut leading into it) from collapsing the hold to zero. A
+  // lyric with no later event cannot be bounded: it is an invalid chart (left holdMs
+  // undefined and logged), and the engine judges it as a miss. See LYRIC_HOLD_PLAN.md.
+  const computeLyricHolds = (endTimes: number[]): void => {
+    const boundTimes = notes.map(n => n.time).concat(endTimes).sort((a, b) => a - b);
+    for (const n of notes) {
       if (n.kind !== "lyric") continue;
-      const next = notes[i + 1];
-      if (next) {
-        n.holdMs = next.time - n.time;
+      const end = boundTimes.find(t => t > n.time);
+      if (end !== undefined) {
+        n.holdMs = end - n.time;
       } else {
         n.holdMs = undefined;
-        console.error(`[mimi] lyric note at ${n.time}ms is the final note: a lyric hold needs a following note to bound it (invalid chart).`);
+        console.error(`[mimi] lyric note at ${n.time}ms has no following note or end marker to bound its hold (invalid chart).`);
       }
     }
   };
@@ -623,11 +625,23 @@ export function createGame(deps: GameDeps): GameHandle {
 
   return {
     setChart(n: Note[]): void {
-      notes = normalizeChartNotes(n as RawNote[]);
+      // `end` markers are inert: they only carry a time that bounds a preceding lyric's
+      // hold. Pull their times out, then discard them so judging/drawing/stats never see
+      // them (keeping the rest of the engine free of a non-playable kind).
+      const endTimes: number[] = [];
+      const playable: RawNote[] = [];
+      for (const r of n as RawNote[]) {
+        if (typeof r.kind === "string" && r.kind.toLowerCase() === "end") {
+          if (typeof r.time === "number") endTimes.push(r.time);
+        } else {
+          playable.push(r);
+        }
+      }
+      notes = normalizeChartNotes(playable);
       pendingStart = 0;
       debugDrawOnce = true;
       linkFlowPhrases();
-      computeLyricHolds();
+      computeLyricHolds(endTimes);
       populateLyricChars();
     },
 
