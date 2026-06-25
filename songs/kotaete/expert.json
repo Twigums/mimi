@@ -60,5 +60,6 @@
   { "kind": "lyric", "time": 20618, "x": 448.4, "y": 454.7, "direction": 0.0, "directionPinned": true, "lyricChar": "か", "state": "pending" },
   { "kind": "lyric", "time": 21080, "x": 259.4, "y": 120.3, "direction": 0.0, "directionPinned": true, "lyricChar": "が", "state": "pending" },
   { "kind": "lyric", "time": 21311, "x": 234.4, "y": 418.8, "direction": 0.0, "directionPinned": true, "lyricChar": "き", "state": "pending" },
-  { "kind": "lyric", "time": 21772, "x": 451.6, "y": 201.6, "direction": 0.0, "directionPinned": true, "lyricChar": "を", "state": "pending" }
+  { "kind": "lyric", "time": 21772, "x": 451.6, "y": 201.6, "direction": 0.0, "directionPinned": true, "lyricChar": "を", "state": "pending" },
+  { "kind": "end", "time": 22233, "state": "pending" }
 ]
