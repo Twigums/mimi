@@ -21,10 +21,11 @@ export { MAX_POINTS, TIER1_POINTS, TIER2_POINTS, TIER3_POINTS } from "./judgemen
 export const LOGICAL_W = 800;
 export const LOGICAL_H = 600;
 
-// A lyric auto-fills with every sung character within its hold window. The window is
-// shifted earlier by this tolerance so a note charted slightly after a syllable's onset
-// still claims its first character; the uniform shift keeps adjacent lyric windows a
-// clean, non-overlapping partition of the song timeline.
+// A lyric auto-fills with every sung character within its hold window. The window reaches
+// back by this tolerance before the note time so a note charted slightly after a
+// syllable's onset still claims its first character; the reach-back is clamped to the
+// previous note's end so it never steals a syllable from the prior hold (adjacent lyric
+// windows stay a clean, non-overlapping partition of the song timeline).
 const LYRIC_CHAR_WINDOW_TOL_MS = 80;
 
 // How far the ribbon bows through each flow anchor, as a fraction of the shorter
@@ -349,12 +350,21 @@ export function createGame(deps: GameDeps): GameHandle {
   // Auto-fill each lyric's text with every sung character in its hold window (typically
   // 1–4 chars). Runs after computeLyricHolds, so holdMs is set. An explicit chart
   // override (lyricChar already present) and invalid (unbounded) lyrics are skipped.
+  //
+  // The window runs from a tolerance before the note time up to — but excluding — the
+  // hold's end (note.time + holdMs). The upper bound is exclusive, so a syllable starting
+  // exactly on the bounding event belongs to the next note, not this one. The lower bound
+  // is clamped to the previous note's end so the backward tolerance only reaches into a
+  // gap, never into the prior hold: adjacent windows tile without overlap (no syllable
+  // claimed twice) and a short hold can't slide its whole window before its own note.
   const populateLyricChars = (): void => {
     if (!lyricCharLookup) return;
-    for (const note of notes) {
+    for (let i = 0; i < notes.length; i++) {
+      const note = notes[i];
       if (note.kind !== "lyric" || note.lyricChar !== undefined || note.holdMs === undefined) continue;
-      const start = note.time - LYRIC_CHAR_WINDOW_TOL_MS;
-      const text = lyricCharLookup(start, start + note.holdMs);
+      const prevEnd = i > 0 ? noteEndMs(notes[i - 1]) : -Infinity;
+      const start = Math.max(note.time - LYRIC_CHAR_WINDOW_TOL_MS, prevEnd);
+      const text = lyricCharLookup(start, note.time + note.holdMs);
       note.lyricChar = text;
       if (text === "") {
         console.warn(`[mimi] lyric note at ${note.time}ms: no vocal characters in its hold window`);
