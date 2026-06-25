@@ -1,9 +1,10 @@
 import type { Note } from "./engine";
 
-// TextAlive character timings can land a few milliseconds to either side of an authored
-// lyric boundary. Treat chars within epsilon of a lyric start as part of that lyric, and
-// chars within epsilon of its end as part of the following boundary instead.
-export const LYRIC_CHAR_BOUNDARY_EPSILON_MS = 20;
+// A vocal character's TextAlive onset can lead its authored lyric note by a few tens of
+// milliseconds. This epsilon is the lead tolerance at a lyric boundary: a char within
+// epsilon before a lyric's note counts as that lyric's (not the previous one's), and a
+// char within epsilon before a lyric's hold end is left for the following boundary.
+export const LYRIC_CHAR_BOUNDARY_EPSILON_MS = 30;
 
 // A lyric's note row resolves once its hold window plus the metric grace has passed.
 // An invalid (unbounded) lyric has no hold, so it resolves at its note time like a tap.
@@ -36,11 +37,18 @@ export function lyricCharWindow(
   prevEnd: number,
 ): { startMs: number; endMs: number; clampedToPrev: boolean } {
   const rawStart = note.time - LYRIC_CHAR_BOUNDARY_EPSILON_MS;
+  // Start collecting where the previous event ended (minus epsilon), so consecutive
+  // lyric windows TILE the timeline with no gaps. When a flow/cut note sits between two
+  // lyrics it bounds the earlier lyric's hold early; without tiling, a vocal char that
+  // leads the later lyric falls into that uncovered gap and is dropped. For back-to-back
+  // lyrics prevEnd == note.time, so the start stays note−epsilon; the first note has no
+  // previous event (prevEnd is -Infinity), so it keeps the raw start.
   const prevBoundaryStart = prevEnd - LYRIC_CHAR_BOUNDARY_EPSILON_MS;
+  const startMs = Number.isFinite(prevBoundaryStart) ? Math.min(rawStart, prevBoundaryStart) : rawStart;
   return {
-    startMs: Math.max(rawStart, prevBoundaryStart),
+    startMs,
     endMs: note.time + (note.holdMs ?? 0) - LYRIC_CHAR_BOUNDARY_EPSILON_MS,
-    clampedToPrev: prevBoundaryStart > rawStart,
+    clampedToPrev: startMs < rawStart,
   };
 }
 
@@ -48,10 +56,11 @@ export function lyricCharWindow(
 // 1–4 chars). Runs after computeLyricHolds, so holdMs is set. An explicit chart
 // override (lyricChar already present) and invalid (unbounded) lyrics are skipped.
 //
-// The effective fetch window is [note.time - epsilon, holdEnd - epsilon). This includes
-// chars that are within epsilon before the lyric start, and excludes chars that are
-// within epsilon before the hold end. The lower bound is clamped to the previous
-// boundary minus epsilon, so adjacent lyric windows still tile without overlap.
+// The effective fetch window is [prevEnd - epsilon, holdEnd - epsilon): it starts where
+// the previous note ended (so the windows tile with no gap and a char that leads this
+// lyric across an intervening flow/cut note is still collected) and ends epsilon before
+// the hold end (so a char within epsilon of the boundary belongs to the next lyric). For
+// back-to-back lyrics prevEnd == note.time, i.e. [note.time - epsilon, holdEnd - epsilon).
 //
 // `charsInRange` returns the text of every sung character whose start time falls in
 // [startMs, endMs), concatenated in order (empty when none).
