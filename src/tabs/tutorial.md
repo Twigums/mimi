@@ -4,7 +4,7 @@ title: tutorial
 
 ## mimi
 
-In mimi, we have 3 types of notes:
+In **mimi**, we have 3 types of notes:
 
 <mark class="cut">[Cut](spawn:cut)</mark>: Swipe through the red arrow in the marked direction.
 
@@ -13,6 +13,18 @@ In mimi, we have 3 types of notes:
 <mark class="lyric">[Lyric](spawn:lyric)</mark>: Follow Miku's singing, and trace the lyric notes to the beat!
 
 If you want to see what the notes look like, feel free to click on each of the notes and try it out in the game area to the right.
+
+## Issues
+
+**mimi** swipes must be beautiful! This means that your swipe must have perfect timing and perfect movement. Specifially, you need to focus on:
+
+- **Timing**: Was your swipe too early? Too late?
+
+- **Contact**: How close was your swipe to the note? Moving too fast or too slow hurts your score!
+
+- **Direction**: Are you swiping in the correct direction? Miku wants you to swipe in the direction of the arrow.
+
+- **Gesture**: Is your overall movement clean? Make sure to swipe cleanly through **cut** notes and follow **flow** notes!
 
 ## Settings
 

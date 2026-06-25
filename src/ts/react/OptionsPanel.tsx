@@ -29,11 +29,13 @@ export function OptionsPanel({ isSongPage = false }: Props) {
     exitTimer.current = setTimeout(() => {
       setOpen(false);
       setExiting(false);
+      document.body.classList.remove('options-open');
     }, 240);
   }, []);
 
   useEffect(() => () => {
     if (exitTimer.current !== null) clearTimeout(exitTimer.current);
+    document.body.classList.remove('options-open');
   }, []);
 
   const [ar, setAr] = useApproachRate();
@@ -53,7 +55,10 @@ export function OptionsPanel({ isSongPage = false }: Props) {
 
   useEffect(() => {
     const btn = document.getElementById("settings-btn");
-    const handleOpen = () => setOpen(true);
+    const handleOpen = () => {
+      setOpen(true);
+      document.body.classList.add('options-open');
+    };
     btn?.addEventListener("click", handleOpen);
     return () => btn?.removeEventListener("click", handleOpen);
   }, []);

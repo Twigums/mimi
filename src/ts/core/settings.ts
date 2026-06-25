@@ -44,7 +44,7 @@ function subscribeBoolSetting(event: string, cb: (v: boolean) => void): () => vo
 
 export const AR_MIN     = 1;
 export const AR_MAX     = 20;
-const AR_DEFAULT = 10;
+const AR_DEFAULT = 5;
 
 // [1, 10] → 2000ms–1000ms; (10, 20] → 1000ms–300ms
 export function arToMs(ar: number): number {
