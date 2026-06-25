@@ -9,10 +9,17 @@
 // without it a small illustrative mock is used so the tool runs out of the box.
 //
 // Because a chart's note times need NOT match the API's char `startTime`s exactly, every
-// lyric block also lists the chars just outside its window with their offset to the window
-// bounds — so a near-miss caused by an offset mismatch is visible at a glance.
+// lyric block also lists the chars just outside its epsilon-adjusted window with their
+// offset to the window bounds — so a near-miss caused by an offset mismatch is visible
+// at a glance.
 import { readFileSync } from "fs";
-import { computeLyricHolds, populateLyricChars, noteEndMs, LYRIC_CHAR_WINDOW_TOL_MS } from "../ts/game/lyrics";
+import {
+  computeLyricHolds,
+  populateLyricChars,
+  noteEndMs,
+  lyricCharWindow,
+  LYRIC_CHAR_BOUNDARY_EPSILON_MS,
+} from "../ts/game/lyrics";
 import { makeCharLookup } from "../ts/song/charLookup";
 import type { Note } from "../ts/game/engine";
 import type { TextAliveChar, TextAlivePhrase, TextAliveVideo } from "../ts/song/textalive";
@@ -79,7 +86,7 @@ const MOCK_PHRASES: PhraseData[] = [
   ] },
   { startTime: 23100, endTime: 30200, chars: [
     { text: "え", startTime: 24238, endTime: 25200 },
-    { text: "お", startTime: 28975, endTime: 29850 },   // 28975: 6ms PAST lyric@27930's window end → empty window
+    { text: "お", startTime: 28975, endTime: 29850 },   // close to a lyric boundary; useful for offset reconciliation
     { text: "か", startTime: 29084, endTime: 30000 },
   ] },
   { startTime: 33200, endTime: 37000, chars: [
@@ -166,9 +173,14 @@ function buildTraces(
 
     const holdMs = note.holdMs;
     const prevEnd = i > 0 ? noteEndMs(notes[i - 1]) : -Infinity;
-    const rawStart = note.time - LYRIC_CHAR_WINDOW_TOL_MS;
-    const windowStart = Math.max(rawStart, prevEnd);
-    const windowEnd = holdMs !== undefined ? note.time + holdMs : note.time;
+    const rawStart = note.time - LYRIC_CHAR_BOUNDARY_EPSILON_MS;
+    const {
+      startMs: windowStart,
+      endMs: windowEnd,
+      clampedToPrev,
+    } = holdMs !== undefined
+      ? lyricCharWindow(note, prevEnd)
+      : { startMs: rawStart, endMs: note.time, clampedToPrev: false };
 
     // Describe the bounding event (what set holdMs).
     const boundT = boundTimes.find(t => t > note.time);
@@ -196,7 +208,7 @@ function buildTraces(
       holdMs,
       windowStart,
       windowEnd,
-      clampedToPrev: windowStart > rawStart,
+      clampedToPrev,
       bound,
       override: overrides.has(i) ? note.lyricChar : undefined,
       newText: holdMs !== undefined ? newLookup(windowStart, windowEnd) : "",
@@ -221,8 +233,8 @@ function printTrace(t: LyricTrace, ordinal: number): void {
     return;
   }
   console.log(`  hold    : holdMs=${t.holdMs}  bound=${t.bound}`);
-  const clampNote = t.clampedToPrev ? `  (lower clamped to prev note's end ${t.windowStart})` : "";
-  console.log(`  window  : [${t.windowStart}, ${t.windowEnd})  = [note−${LYRIC_CHAR_WINDOW_TOL_MS} .. holdEnd), holdEnd EXCLUSIVE${clampNote}`);
+  const clampNote = t.clampedToPrev ? `  (lower clamped to prev boundary minus ${LYRIC_CHAR_BOUNDARY_EPSILON_MS}ms)` : "";
+  console.log(`  window  : [${t.windowStart}, ${t.windowEnd})  = [note−${LYRIC_CHAR_BOUNDARY_EPSILON_MS} .. holdEnd−${LYRIC_CHAR_BOUNDARY_EPSILON_MS}), end epsilon EXCLUDED${clampNote}`);
   console.log(`  result  : ${q(t.newText)}`);
   if (t.oldText !== t.newText) {
     console.log(`  was(BUG): ${q(t.oldText)}   ⚠ old cross-phrase walk differed here`);

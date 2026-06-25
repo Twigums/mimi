@@ -53,6 +53,6 @@ npm run --silent trace:lyrics -- [chart.json] [--chars chars.json] [--json]
 
 ## What it shows
 
-Per lyric note: its chart time/position, computed `holdMs` and bounding event, the exact hold window `[start, end)`, the auto-filled text, the chars selected (each with its offset from the note time), and the chars **just outside** the window with their offset to the window bounds. Because a chart's note times need not match the API's char `startTime`s exactly, those nearby-char offsets let an empty or wrong syllable be reconciled by eye (e.g. "the syllable starts 6 ms past my window end").
+Per lyric note: its chart time/position, computed `holdMs` and bounding event, the exact epsilon-adjusted char window `[start - 20ms, end - 20ms)`, the auto-filled text, the chars selected (each with its offset from the note time), and the chars **just outside** the window with their offset to the window bounds. Because a chart's note times need not match the API's char `startTime`s exactly, those nearby-char offsets let an empty or wrong syllable be reconciled by eye.
 
 It also reports a **dedup check**: the shipped `makeCharLookup` collects each char once, whereas the old unbounded cross-phrase walk re-collected later chars once per preceding phrase (a phrase-3 char three times) — the cause of the duplicated/garbled syllables this tool was written to diagnose.

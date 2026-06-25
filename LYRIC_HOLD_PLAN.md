@@ -30,17 +30,15 @@ From the latest comment on issue #39 (vekt0r-github):
    chart a lyric with <~300 ms to the next note — not an enforced constraint).
 3. **The sung string auto-fills from the whole hold window.** A lyric's text is the
    concatenation of *every* TextAlive character whose start time falls in the note's
-   hold window (`[max(note.time − ε, prevNoteEnd), holdEnd)`, ε an anchor tolerance so a
-   note charted just after a syllable's onset still claims its first char). One note
-   therefore covers the 1–4 syllables sung during its hold. This is **deterministic**
-   under a reasonable model of the TextAlive output (a fixed, time-ordered character list
-   once the video is ready): the only inputs are the note's hold window and that list. The
-   ε reach-back is clamped to the previous note's end so it only fills a gap (never steals
-   the prior hold's chars, and a short hold can't slide its window before its own note),
-   and the upper bound is exclusive at `holdEnd` (a char starting on the bounding event
-   belongs to the next note) — adjacent windows tile cleanly with no char claimed twice.
-   Deriving the hold *duration* from TextAlive remains out of scope (the charter sets it
-   via note placement).
+   epsilon-adjusted hold window (`[max(note.time − ε, prevEnd − ε), holdEnd − ε)`, with
+   ε = 20ms). Chars within ε of the lyric start are included, while chars within ε of the
+   hold end are excluded so they belong to the following boundary. One note therefore
+   covers the 1–4 syllables sung during its hold. This is **deterministic** under a
+   reasonable model of the TextAlive output (a fixed, time-ordered character list once the
+   video is ready): the only inputs are the note's hold window and that list. The lower
+   bound is clamped to the previous boundary minus ε so adjacent windows tile cleanly with
+   no char claimed twice. Deriving the hold *duration* from TextAlive remains out of scope
+   (the charter sets it via note placement).
 
 ## Judgement model
 
@@ -125,7 +123,7 @@ window, then misses.
 | `LYRIC_HOLD_RADIUS`          | 110     | "Still holding" tolerance (gameplay px).           |
 | `LYRIC_RELEASE_GRACE`        | 100     | Early-release window counted as a full hold.       |
 | `LYRIC_HOLD_TIER3/2/1`       | .95/.8/.55 | Held-fraction tier thresholds.                  |
-| `LYRIC_CHAR_WINDOW_TOL_MS`   | 80      | Anchor tolerance shifting the char-fill window.    |
+| `LYRIC_CHAR_BOUNDARY_EPSILON_MS` | 20  | Boundary tolerance for TextAlive char lookup.      |
 
 The hold length itself has **no constant** — it is the gap to the next note, with no
 default or cap.
