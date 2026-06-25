@@ -145,6 +145,11 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPre
   let reportedLoopError = false;
 
   let isPlaying = false;
+  // Mirrors the engine's `skipExpiry`: after a play/restart request the player's
+  // timer can briefly report a stale near-duration position before the seek to the
+  // start lands. While true, the loop must not finish the song (or schedule the
+  // finish timeout) off that stale value; cleared once the timer rewinds near zero.
+  let awaitingRewind = false;
 
   const triggerFinish = (): void => {
     if (finished) return;
@@ -169,10 +174,16 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPre
     hideResult();
   };
 
+  const scheduleFinishTimeout = (fromSongMs: number): void => {
+    if (finishTimeout !== null) { clearTimeout(finishTimeout); finishTimeout = null; }
+    if (songLengthMs > 0) finishTimeout = setTimeout(triggerFinish, Math.max(0, songLengthMs - fromSongMs));
+  };
+
   const resetPlayback = (): void => {
     if (finishTimeout !== null) { clearTimeout(finishTimeout); finishTimeout = null; }
     finished = false;
     isPlaying = false;
+    awaitingRewind = true;
     setBreakSkipTarget(null);
     game.reset();
     storyboard?.reset();
@@ -244,11 +255,10 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPre
         isPlaying = true;
         finished = false;
         game.start();
-        if (finishTimeout !== null) { clearTimeout(finishTimeout); finishTimeout = null; }
-        if (songLengthMs > 0) {
-          const remaining = Math.max(0, songLengthMs - (player?.timer.position ?? 0));
-          finishTimeout = setTimeout(triggerFinish, remaining);
-        }
+        // Defer the finish timeout until the timer confirms it rewound near the
+        // start; the loop schedules it when `awaitingRewind` clears, so a stale
+        // near-duration position here can't fire the finish almost immediately.
+        if (!awaitingRewind) scheduleFinishTimeout(player?.timer.position ?? 0);
       },
       // Propagate self-initiated pause/stop (e.g. an autoplay-blocked or stalled
       // play) to the UI's playing state, otherwise the Start prompt stays hidden
@@ -370,7 +380,16 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPre
         const pct = Math.max(0, Math.min(100, (songMs / songLengthMs) * 100));
         progressFill.style.width = `${pct}%`;
 
-        if (songMs >= songLengthMs) triggerFinish();
+        if (awaitingRewind) {
+          // Clear once the timer has actually rewound into the lead-in window; a
+          // stale near-duration position right after a start request must not pass.
+          if (songMs <= gapSkipLeadInMs) {
+            awaitingRewind = false;
+            if (isPlaying) scheduleFinishTimeout(songMs);
+          }
+        } else if (songMs >= songLengthMs) {
+          triggerFinish();
+        }
       }
     } catch (err) {
       if (!reportedLoopError) {
@@ -394,6 +413,11 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPre
     start(): void {
       if (!playerReady || !player) return;
       dismissResult();
+      // Guard the finish/expiry paths against a stale near-duration timer position
+      // until the player rewinds. game.reset() arms the engine's matching skipExpiry
+      // (the first start has no preceding reset), and clears any leftover state.
+      awaitingRewind = true;
+      game.reset();
       player.requestPlay();
     },
     skipBreak(): void {

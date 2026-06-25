@@ -1,3 +1,5 @@
+@use 'variables' as *;
+
 .textalive-banner { display: none !important; }
 
 #loading-screen {
@@ -250,7 +252,7 @@ html.theme-dark .song-page .bg-overlay::before {
   &:hover { opacity: 1; }
 }
 
-@media (max-aspect-ratio: 33/20) {
+@media (max-aspect-ratio: #{$song-hud-collapse-ratio}) {
   .btn-hud-toggle {
     display: flex;
   }
@@ -291,14 +293,17 @@ html.theme-dark .song-page .bg-overlay::before {
     background: none;
     border: none;
     padding: 0.3rem;
-    color: #fff;
+    opacity: 1; // undo the base 0.55 dim so the label reads at full ink
     font-size: 0.9rem;
     font-weight: normal;
 
     &::before { display: none; }
 
     .lang-option { display: none; padding: 0; opacity: 1; font-weight: normal; }
-    .lang-option.active { display: block; }
+    // the panel surface (--surface-hud) is white in light mode, so the active
+    // label takes the readable, theme-aware song ink instead of flat white
+    // (dark mode keeps its own brighter #fff via a more specific rule)
+    .lang-option.active { display: block; color: var(--song-text); }
 
     .lang-jp.active { font-size: 0; }
     .lang-jp.active::after { content: attr(data-compact); font-size: 0.9rem; }
@@ -308,10 +313,18 @@ html.theme-dark .song-page .bg-overlay::before {
     background: none;
     border: none;
     padding: 0.3rem;
-    color: rgba(255, 255, 255, 0.55);
+    color: var(--song-text-dim);
     transition: color 0.2s ease;
 
-    &:hover { background: none; color: rgba(255, 255, 255, 0.9); }
+    &:hover { background: none; color: var(--song-text); }
+  }
+
+  // theme (sun/moon) toggle draws its icon from currentColor; match the others
+  .song-hud .hud-panel .theme-toggle {
+    color: var(--song-text-dim);
+    transition: color 0.2s ease;
+
+    &:hover { color: var(--song-text); }
   }
 }
 
@@ -633,6 +646,13 @@ html.theme-dark .game-frame .frame-star {
   display: inline-block;
 }
 
+@media (max-aspect-ratio: #{$song-footer-stack-ratio}) {
+  .song-page-footer {
+    flex-direction: column;
+    align-items: flex-end;
+  }
+}
+
 .btn-fullscreen {
   background: none;
   border: none;
@@ -705,7 +725,7 @@ html.theme-dark .game-frame .frame-star {
   }
 }
 
-@media (max-aspect-ratio: 1/1), (max-width: 400px) {
+@media (max-aspect-ratio: #{$song-warning-ratio}), (max-width: 400px), (max-height: 699px) {
   .small-screen-warning {
     opacity: 1;
     pointer-events: all;
@@ -724,11 +744,6 @@ html.theme-dark .game-frame .frame-star {
   .song-page-footer {
     z-index: var(--z-small-screen-ui);
   }
-}
-
-:fullscreen .small-screen-warning {
-  opacity: 0;
-  pointer-events: none;
 }
 
 @media (max-width: 600px) {

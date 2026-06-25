@@ -84,6 +84,11 @@ export const loadHitsoundVolume      = hitsoundSetting.load;
 export const saveHitsoundVolume      = hitsoundSetting.save;
 export const subscribeHitsoundVolume = hitsoundSetting.subscribe;
 
+const uiSoundSetting = createNumericSetting("uiVolume", "uiVolumeChange", clampVolume, VOLUME_DEFAULT);
+export const loadUiVolume      = uiSoundSetting.load;
+export const saveUiVolume      = uiSoundSetting.save;
+export const subscribeUiVolume = uiSoundSetting.subscribe;
+
 export const loadHiddenMod      = (): boolean => loadBoolSetting("modHidden", false);
 export const saveHiddenMod      = (v: boolean): void => saveBoolSetting("modHidden", "modHiddenChange", v);
 export const subscribeHiddenMod = (cb: (v: boolean) => void): (() => void) => subscribeBoolSetting("modHiddenChange", cb);
@@ -191,6 +196,7 @@ export function resetSettings(): void {
   saveAr(AR_DEFAULT);
   saveVolume(VOLUME_DEFAULT);
   saveHitsoundVolume(VOLUME_DEFAULT);
+  saveUiVolume(VOLUME_DEFAULT);
   saveHiddenMod(false);
   saveCursorSize(CURSOR_SIZE_DEFAULT);
   saveTrailFadeSpeed(TRAIL_FADE_DEFAULT);
