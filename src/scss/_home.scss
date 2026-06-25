@@ -992,7 +992,11 @@ html.theme-dark .home-footer img {
     pointer-events: none;
   }
 
-  @media (max-height: 850px), (max-width: 580px) {
+  @media (max-width: 580px) {
+    display: none;
+  }
+
+  @media (max-height: 849px) and (max-width: 999px) {
     display: none;
   }
 }
