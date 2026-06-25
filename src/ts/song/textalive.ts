@@ -65,9 +65,5 @@ declare global {
     TextAliveApp?: {
       Player: new (opts: TextAlivePlayerOptions) => TextAlivePlayer;
     };
-    // Debug seam: the controller publishes the ready TextAlive video here so the
-    // `lyrictrace` capture snippet (printed by `trace:lyrics --help`) can read the
-    // song's real char timings from the browser console. Set in `onVideoReady`.
-    __mimiVideo?: TextAliveVideo;
   }
 }

@@ -269,13 +269,11 @@ Usage:
   --chars FILE   real TextAlive timings to reconcile against the chart. Either:
                    phrase-grouped: [{ "startTime", "endTime", "chars":[{ "text","startTime","endTime" }] }]
                    or a flat list:  [{ "text","startTime","endTime" }]
-                 Capture real data from the song page browser console (paste once
-                 the song's lyrics have loaded — the controller publishes the video
-                 to window.__mimiVideo in onVideoReady):
+                 Capture real data from the song page browser console:
 
-  copy(JSON.stringify((()=>{const v=window.__mimiVideo;if(!v)throw Error("no song video yet — open a song page and wait for its lyrics to load");
-  const o=[];let p=v.firstPhrase;while(p){const ch=[];let c=p.firstChar;while(c&&c.startTime<=p.endTime){
-  ch.push({text:c.text,startTime:c.startTime,endTime:c.endTime});c=c.next;}o.push({startTime:p.startTime,endTime:p.endTime,chars:ch});p=p.next;}return o;})()))
+  copy(JSON.stringify((()=>{const o=[];let p=player.video.firstPhrase;while(p){const ch=[];
+  let c=p.firstChar;while(c&&c.startTime<=p.endTime){ch.push({text:c.text,startTime:c.startTime,
+  endTime:c.endTime});c=c.next;}o.push({startTime:p.startTime,endTime:p.endTime,chars:ch});p=p.next;}return o;})()))
 
   --json         emit the per-lyric trace as JSON instead of the readable report
 `);
