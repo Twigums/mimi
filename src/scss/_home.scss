@@ -296,10 +296,13 @@ html.theme-dark .bg-sky .cloud-layer {
   letter-spacing: 0.1em;
   box-sizing: border-box;
   filter: drop-shadow(0 4px 0 var(--cloud-glow)) drop-shadow(0 10px 18px rgba(57, 197, 187, 0.22));
+  // background-color (0.4s, matching the universal theme transition) keeps the
+  // button body easing in step with its ::before/::after puffs on a theme switch
   transition:
     transform 0.3s var(--motion-ease-bouncy),
     filter 0.3s var(--motion-ease-standard),
-    color 0.2s;
+    color 0.2s,
+    background-color 0.4s ease;
 
   // cloud puffs
   &::before,
@@ -331,7 +334,9 @@ html.theme-dark .bg-sky .cloud-layer {
     font-size: 1rem;
     line-height: 1.1;
     color: transparent;
-    transition: transform 0.3s var(--motion-ease-bouncy), color 0.2s;
+    // include background-color (matching the universal theme transition) so this
+    // puff's fill animates with ::before and the button body on a theme switch
+    transition: transform 0.3s var(--motion-ease-bouncy), color 0.2s, background-color 0.4s ease;
   }
 
   &:hover {
@@ -474,6 +479,15 @@ html.theme-dark .bg-sky .cloud-layer {
 // (top-left site name) and footer so neither overlaps the scrolled content.
 .song-pane {
   box-sizing: border-box;
+  // A scroll container (overflow below) clips ink overflow, so the buttons' soft
+  // drop-shadow glows were sheared into a hard-edged rectangle that read as a
+  // border against the page gradient. Bleed the box outward — a negative inline
+  // margin keeps the margin-box at the container width (so it stays centred and
+  // full-width) while the wider border-box plus matching inline padding pushes
+  // the clip edge past where the glow has faded. Button content width is
+  // unchanged; width lives here (not in _transitions.scss) so this wins.
+  width: calc(100% + 3rem);
+  margin-inline: -1.5rem;
   max-height: calc(100vh - 8rem);
   max-height: calc(100dvh - 8rem);
   overflow-y: auto;
@@ -481,9 +495,19 @@ html.theme-dark .bg-sky .cloud-layer {
   overscroll-behavior: contain;
   scrollbar-width: none;
   // top clears the song buttons' cloud puff and the music note that pops up on hover
-  // (peaks ~1.2rem above the button); sides leave room for their drop-shadows so
-  // overflow-x: hidden does not shave the glow; bottom clears the back button's shadow.
-  padding: 1.6rem 0.5rem 1.1rem;
+  // (peaks ~1.2rem above the button); the 2rem sides hold the buttons' drop-shadow
+  // glows inside the bleed so the clip never shaves them; bottom clears the back
+  // button's shadow.
+  padding: 1.6rem 2rem 1.1rem;
+
+  // Chrome makes an overflow:auto container keyboard-focusable once its content
+  // scrolls, drawing a focus ring around the whole pane (all the difficulties +
+  // info). The interactive content inside is independently focusable, so the
+  // scroller's own ring is redundant noise — suppress it.
+  &:focus,
+  &:focus-visible {
+    outline: none;
+  }
 
   &::-webkit-scrollbar {
     display: none;
@@ -919,6 +943,10 @@ html.theme-dark .home-footer img {
   align-items: flex-start;
   z-index: 5;
   pointer-events: auto;
+  // Miku and the bubble chrome are decorative; only the hint text re-enables
+  // selection (below), so nothing else gets caught in a drag-select
+  user-select: none;
+  -webkit-user-select: none;
 
   &--exiting {
     animation: miku-hint-out 0.24s ease forwards;
@@ -1017,6 +1045,9 @@ html.theme-dark .miku-hint__cloud {
   font-family: var(--font-display);
   color: var(--ink);
   line-height: 1.5;
+  // only the hint text itself is selectable
+  user-select: text;
+  -webkit-user-select: text;
 }
 
 .miku-hint__tutorial-word {

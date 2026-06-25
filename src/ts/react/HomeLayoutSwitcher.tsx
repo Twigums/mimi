@@ -135,9 +135,11 @@ export function HomeLayoutSwitcher({ infoContent, infoContentJp, tutorialContent
 
   const [tutorialHintHovered, setTutorialHintHovered] = useState(false);
   const mikuVariant = useMemo(() => (Math.random() < 0.5 ? "miku_A" : "miku_S"), []);
-  // measure the bubble so its cloud-puff border (GameFrame) matches its real size
+  // measure the bubble so its cloud-puff border (GameFrame) matches its real
+  // size; keyed on currentLayout so the observer re-attaches when the hint
+  // remounts on returning to the original screen (else the border goes missing)
   const bubbleRef = useRef<HTMLDivElement>(null);
-  const bubbleSize = useElementSize(bubbleRef);
+  const bubbleSize = useElementSize(bubbleRef, currentLayout);
 
   const [selectedSong, setSelectedSong] = useState<SongEntry | null>(null);
   const [renderedSong, setRenderedSong] = useState<SongEntry | null>(null);
@@ -237,7 +239,7 @@ export function HomeLayoutSwitcher({ infoContent, infoContentJp, tutorialContent
 
   return (
     <>
-    <div className={`layout-container${layout === "tutorial" || currentLayout === "tutorial" ? " layout-container--tutorial" : ""}`}>
+    <div className={`layout-container${currentLayout === "tutorial" ? " layout-container--tutorial" : ""}`}>
       <OptionsPanel />
       <div className={`layout-pane${exiting ? " exiting" : ""}`} key={paneKey}>
         {currentLayout === "original" && (

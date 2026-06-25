@@ -77,8 +77,12 @@ function frameStars(w: number, h: number, s: number): Array<{ x: number; y: numb
   return stars;
 }
 
-// observes an element's rendered size so the frame redraws from real pixels
-export function useElementSize(ref: RefObject<HTMLElement>): { w: number; h: number } | null {
+// observes an element's rendered size so the frame redraws from real pixels.
+// `resetKey` lets a caller re-attach the observer when its target element is
+// remounted (e.g. a conditionally-rendered host) — the ref identity is stable
+// across remounts, so without it the observer would stay bound to the old,
+// detached node and the size would go stale/null.
+export function useElementSize(ref: RefObject<HTMLElement>, resetKey?: unknown): { w: number; h: number } | null {
   const [size, setSize] = useState<{ w: number; h: number } | null>(null);
   useEffect(() => {
     const el = ref.current;
@@ -89,7 +93,7 @@ export function useElementSize(ref: RefObject<HTMLElement>): { w: number; h: num
     });
     observer.observe(el);
     return () => observer.disconnect();
-  }, [ref]);
+  }, [ref, resetKey]);
   return size;
 }
 
