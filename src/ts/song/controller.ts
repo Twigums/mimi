@@ -1,38 +1,14 @@
 import type { GameHandle, GameStats, Note } from "../game/engine";
 import { arToMs, loadAr, loadVolume, subscribeVolume, loadMusicOffset, subscribeMusicOffset } from "../core/settings";
 import { createStoryboardRenderer, type StoryEntry } from "./storyboard";
-import type { TextAliveChar, TextAlivePlayer, TextAlivePlayerOptions, TextAliveVideo } from "./textalive";
+import { makeCharLookup } from "./charLookup";
+import type { TextAlivePlayer, TextAlivePlayerOptions } from "./textalive";
 
 const JUDGEMENT_WINDOW_MS      = 100;
 const GAP_SKIP_SAFETY_MS      = 120;
 const GAP_SKIP_MIN_BREAK_MS   = 3000;
 
 export type BreakSkipKind = "gap" | "finish";
-
-function charDist(c: TextAliveChar, timeMs: number): number {
-  if (timeMs >= c.startTime && timeMs <= c.endTime) return 0;
-  return Math.min(Math.abs(c.startTime - timeMs), Math.abs(c.endTime - timeMs));
-}
-
-function makeCharLookup(video: TextAliveVideo): (timeMs: number) => { text: string; distMs: number } | null {
-  const chars: TextAliveChar[] = [];
-  let phrase = video.firstPhrase;
-  while (phrase) {
-    let c = phrase.firstChar;
-    while (c) { chars.push(c); c = c.next; }
-    phrase = phrase.next;
-  }
-  if (chars.length === 0) return () => null;
-  return (timeMs: number) => {
-    let best = chars[0];
-    let bestDist = charDist(best, timeMs);
-    for (let i = 1; i < chars.length; i++) {
-      const dist = charDist(chars[i], timeMs);
-      if (dist < bestDist) { bestDist = dist; best = chars[i]; }
-    }
-    return { text: best.text, distMs: bestDist };
-  };
-}
 
 interface SongPageDeps {
   game: GameHandle;
