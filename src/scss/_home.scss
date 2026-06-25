@@ -845,6 +845,35 @@ html.theme-dark .bg-sky .cloud-layer {
   @media (min-width: 1200px) { width: 480px; }
 }
 
+@media (max-width: 600px) {
+  .layout-container--tutorial {
+    padding: 3.5rem 1rem 2rem;
+    max-height: 100vh;
+    overflow-y: auto;
+    scrollbar-width: none;
+    overscroll-behavior: contain;
+
+    &::-webkit-scrollbar { display: none; }
+  }
+
+  .tutorial-layout {
+    flex-direction: column;
+    gap: 1.25rem;
+  }
+
+  // testplay is second in DOM; order: -1 pulls it above the info text
+  .testplay-wrap--tutorial {
+    order: -1;
+    width: 100%;
+    flex-shrink: 0;
+  }
+
+  .tutorial-info {
+    max-height: none;
+    overflow-y: visible;
+  }
+}
+
 .placeholder-text {
   color: var(--page-ink-soft);
   font-style: italic;
@@ -963,7 +992,7 @@ html.theme-dark .home-footer img {
     pointer-events: none;
   }
 
-  @media (max-width: 520px) {
+  @media (max-height: 850px), (max-width: 580px) {
     display: none;
   }
 }
