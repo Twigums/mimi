@@ -1,34 +1,14 @@
 import type { GameHandle, GameStats, Note } from "../game/engine";
 import { arToMs, loadAr, loadVolume, subscribeVolume, loadMusicOffset, subscribeMusicOffset } from "../core/settings";
 import { createStoryboardRenderer, type StoryEntry } from "./storyboard";
-import type { TextAliveChar, TextAlivePlayer, TextAlivePlayerOptions, TextAliveVideo } from "./textalive";
+import { makeCharLookup } from "./charLookup";
+import type { TextAlivePlayer, TextAlivePlayerOptions } from "./textalive";
 
 const JUDGEMENT_WINDOW_MS      = 100;
 const GAP_SKIP_SAFETY_MS      = 120;
 const GAP_SKIP_MIN_BREAK_MS   = 3000;
 
 export type BreakSkipKind = "gap" | "finish";
-
-// Build a range lookup over the song's characters (a fixed, time-ordered list once the
-// video is ready): returns the text of every character whose start time falls in
-// [startMs, endMs), concatenated in order. Used to auto-fill a lyric note from its hold
-// window. Deterministic given the loaded video — the only input is the time range.
-function makeCharLookup(video: TextAliveVideo): (startMs: number, endMs: number) => string {
-  const chars: TextAliveChar[] = [];
-  let phrase = video.firstPhrase;
-  while (phrase) {
-    let c = phrase.firstChar;
-    while (c) { chars.push(c); c = c.next; }
-    phrase = phrase.next;
-  }
-  return (startMs: number, endMs: number) => {
-    let text = "";
-    for (const c of chars) {
-      if (c.startTime >= startMs && c.startTime < endMs) text += c.text;
-    }
-    return text;
-  };
-}
 
 interface SongPageDeps {
   game: GameHandle;

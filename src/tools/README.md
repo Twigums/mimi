@@ -35,3 +35,24 @@ Rules and edge cases:
 ## Output
 
 A `.mimi` chart: a small header (`time_unit: ms`, optional `bpm`/`difficulty`, `beats_per_measure`) followed by `kind, time_ms, degrees, x, y` rows, with `break` lines between flow phrases and `end, time` lines bounding clap-slider lyric holds. `degrees` is a number for `cut`/pinned-`flow`, or `auto` otherwise. See `wiki/how_to_map.md` for the full chart format.
+
+---
+
+# lyrictrace
+
+Traces what the lyric char-population logic does to a compiled chart's lyric notes, against a **mocked** TextAlive video — no live API or browser needed. It reuses the real runtime functions (`makeCharLookup`, `computeLyricHolds`, `populateLyricChars`), so the output reflects exactly what the engine produces at load time.
+
+```bash
+npm run --silent trace:lyrics -- [chart.json] [--chars chars.json] [--json]
+```
+
+- `chart.json` — compiled chart (default `docs/songs/kotaete/hard.json`).
+- `--chars FILE` — real TextAlive timings to reconcile against the chart. Either **phrase-grouped** `[{ startTime, endTime, chars: [{ text, startTime, endTime }] }]` or a **flat** `[{ text, startTime, endTime }]` list. Without it, a small illustrative mock runs so the tool works out of the box.
+- `--json` — emit the per-lyric trace as JSON instead of the readable report.
+- `--help` — usage plus a browser-console snippet to capture the real char timings from the song page.
+
+## What it shows
+
+Per lyric note: its chart time/position, computed `holdMs` and bounding event, the exact hold window `[start, end)`, the auto-filled text, the chars selected (each with its offset from the note time), and the chars **just outside** the window with their offset to the window bounds. Because a chart's note times need not match the API's char `startTime`s exactly, those nearby-char offsets let an empty or wrong syllable be reconciled by eye (e.g. "the syllable starts 6 ms past my window end").
+
+It also reports a **dedup check**: the shipped `makeCharLookup` collects each char once, whereas the old unbounded cross-phrase walk re-collected later chars once per preceding phrase (a phrase-3 char three times) — the cause of the duplicated/garbled syllables this tool was written to diagnose.
