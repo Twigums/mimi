@@ -1,9 +1,11 @@
 import type { Note } from "./engine";
 
-// TextAlive character timings can land a few milliseconds to either side of an authored
-// lyric boundary. Treat chars within epsilon of a lyric start as part of that lyric, and
-// chars within epsilon of its end as part of the following boundary instead.
-export const LYRIC_CHAR_BOUNDARY_EPSILON_MS = 20;
+// A vocal character's TextAlive onset commonly leads its authored lyric note, by up to
+// roughly this many ms. The epsilon is the lead tolerance at a lyric boundary: a char
+// within epsilon before a lyric's note counts as that lyric's, and a char within epsilon
+// before its hold end is left for the following boundary. A syllable that leads by more
+// than epsilon is recovered by the previous-char fallback in populateLyricChars.
+export const LYRIC_CHAR_BOUNDARY_EPSILON_MS = 100;
 
 // A lyric's note row resolves once its hold window plus the metric grace has passed.
 // An invalid (unbounded) lyric has no hold, so it resolves at its note time like a tap.
@@ -44,14 +46,26 @@ export function lyricCharWindow(
   };
 }
 
+// The last character (code-point aware) of a concatenated lookup result, or "" if empty.
+const lastChar = (s: string): string => {
+  const chars = Array.from(s);
+  return chars.length ? chars[chars.length - 1] : "";
+};
+
 // Auto-fill each lyric's text with every sung character in its hold window (typically
 // 1–4 chars). Runs after computeLyricHolds, so holdMs is set. An explicit chart
 // override (lyricChar already present) and invalid (unbounded) lyrics are skipped.
 //
-// The effective fetch window is [note.time - epsilon, holdEnd - epsilon). This includes
-// chars that are within epsilon before the lyric start, and excludes chars that are
-// within epsilon before the hold end. The lower bound is clamped to the previous
-// boundary minus epsilon, so adjacent lyric windows still tile without overlap.
+// The fetch window is [note.time - epsilon, holdEnd - epsilon): it admits a char whose
+// onset leads the note by up to epsilon and excludes a char within epsilon of the hold
+// end (it belongs to the next boundary). The lower bound is clamped to the previous
+// boundary minus epsilon, so adjacent lyric windows don't overlap.
+//
+// If the window is empty — the syllable leads the note by more than epsilon, so its onset
+// never landed inside — fall back to the last char between the previous note and the
+// window start, so the note still shows the syllable it sits on. The lookback is bounded
+// below by prevEnd, so it can only pick up a char orphaned in the gap before this note,
+// never one already claimed by a previous lyric's window.
 //
 // `charsInRange` returns the text of every sung character whose start time falls in
 // [startMs, endMs), concatenated in order (empty when none).
@@ -64,7 +78,7 @@ export function populateLyricChars(
     if (note.kind !== "lyric" || note.lyricChar !== undefined || note.holdMs === undefined) continue;
     const prevEnd = i > 0 ? noteEndMs(notes[i - 1]) : -Infinity;
     const { startMs, endMs } = lyricCharWindow(note, prevEnd);
-    const text = charsInRange(startMs, endMs);
+    const text = charsInRange(startMs, endMs) || lastChar(charsInRange(prevEnd, startMs));
     note.lyricChar = text;
     if (text === "") {
       console.warn(`[mimi] lyric note at ${note.time}ms: no vocal characters in its hold window`);
