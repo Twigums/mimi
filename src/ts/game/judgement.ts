@@ -24,9 +24,9 @@ export const CUT_TRAVEL_TIER1    = 8;
 // direction can no longer be borrowed from different motions inside the window,
 // because any slice spanning a reversal scores low here. Cut only; reported in the
 // gesture issue slot alongside travel.
-export const CUT_STRAIGHT_TIER3  = 0.85;
-export const CUT_STRAIGHT_TIER2  = 0.65;
-export const CUT_STRAIGHT_TIER1  = 0.40;
+export const CUT_STRAIGHT_TIER3  = 0.9;
+export const CUT_STRAIGHT_TIER2  = 0.8;
+export const CUT_STRAIGHT_TIER1  = 0.65;
 // Flow caps run looser than cut — flow rewards continuous traced motion. Contact
 // reuses the cut thresholds for now (FLOW_CONTACT_* kept for future tuning); flow
 // has no direction cap, folding heading into the shape metric below.
@@ -48,9 +48,9 @@ export const FLOW_TIER2_MS       = 120;
 // (~90°) no longer earns a GREAT — it drops to GOOD, and clearly-wrong motion
 // (sideways past ~100°, backward) misses outright.
 export const FLOW_SHAPE_BINS     = 4;
-export const FLOW_CONT_TIER3     = 60 * Math.PI / 180;
-export const FLOW_CONT_TIER2     = 75 * Math.PI / 180;
-export const FLOW_CONT_TIER1     = 100 * Math.PI / 180;
+export const FLOW_CONT_TIER3     = 35 * Math.PI / 180;
+export const FLOW_CONT_TIER2     = 50 * Math.PI / 180;
+export const FLOW_CONT_TIER1     = 70 * Math.PI / 180;
 
 export type NoteKind   = "cut" | "flow" | "lyric";
 export type HitResult  = "tier3" | "tier2" | "tier1" | "miss";
