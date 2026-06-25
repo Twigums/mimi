@@ -257,6 +257,16 @@ html.theme-dark .bg-sky .cloud-layer {
   pointer-events: none;
 }
 
+// At narrow widths, the options backdrop must cover the header controls.
+// .home-main (z-index: 1) normally paints below .home-header (z-index: --z-chrome = 10)
+// because both stacking contexts are in the root. When options is open on a narrow screen,
+// raise .home-main above the header so the fixed backdrop covers the lang/theme/settings buttons.
+@media (max-width: 1100px), (max-height: 1040px) {
+  body.options-open .home-main {
+    z-index: calc(var(--z-chrome) + 1);
+  }
+}
+
 .layout-container {
   pointer-events: auto;
   display: flex;
