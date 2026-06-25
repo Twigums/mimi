@@ -3,9 +3,12 @@ $layout-max-width: 400px;
 
 // Results overlay panel
 $results-panel-width: 680px;
-$results-miku-size:   108px;
 
-// Color picker canvas dimensions (must match SV_W/SV_H/HUE_H in ColorPicker.tsx)
+// Results judgement donut
+$results-pie-size:       280px; // donut display diameter
+$results-pie-miku-size:  48%;   // Miku size in the middle
+
+// Color picker canvas dimensions
 $color-picker-sv-w:  256;
 $color-picker-sv-h:  160;
 $color-picker-hue-h:  14;

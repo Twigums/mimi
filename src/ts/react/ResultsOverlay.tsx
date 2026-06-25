@@ -14,24 +14,52 @@ function mikuSvg(grade: Grade): string {
   return withPath("/images/miku/miku_C.svg");
 }
 
+// Inline the Miku SVG (rather than <img src>) so the app's `html.theme-dark`
+// can reach inner paths — specifically miku_B's `.miku-zzz` sleep strokes, which
+// must follow the in-app theme toggle, not the OS `prefers-color-scheme` an
+// <img>-isolated SVG is limited to. Markup is a first-party build asset.
+function MikuFigure({ grade, anim }: { grade: Grade; anim: "bounce" | "sway" }) {
+  const [markup, setMarkup] = useState("");
+  const src = mikuSvg(grade);
+  useEffect(() => {
+    let alive = true;
+    fetch(src)
+      .then(r => r.text())
+      // drop the XML prolog/comments so it parses cleanly in an HTML context
+      .then(t => { if (alive) setMarkup(t.slice(Math.max(0, t.indexOf("<svg")))); })
+      .catch(() => {});
+    return () => { alive = false; };
+  }, [src]);
+  return (
+    <div
+      className={`results-pie__miku results-pie__miku--${anim}`}
+      role="img"
+      aria-label={`Miku ${grade}`}
+      dangerouslySetInnerHTML={{ __html: markup }}
+    />
+  );
+}
+
 const LABELS_EN = {
-  title: "Results", score: "Score", accuracy: "Accuracy",
+  score: "Score", accuracy: "Accuracy",
   maxCombo: "Max combo", avgOffset: "Avg offset", issues: "Issues",
-  chart: "Chart", level: "lv.", bpm: "BPM",
+  judgement: "Judgement", level: "lv.", bpm: "BPM",
   timing: "Timing", early: "early", late: "late",
   tendEarly: "Tends early", tendLate: "Tends late",
-  to: "to", topGrade: "Top grade!", fullCombo: "Full Combo", allPerfect: "All Perfect",
+  to: "to", fullCombo: "Full Mimi", allPerfect: "All Mimi",
   hoverFilter: "hover to filter",
+  advancedDetails: "Advanced Details", basicDetails: "Basic Details",
   share: "Share", copied: "Copied!", failed: "Failed", tryAgain: "Try Again", back: "Back",
 };
 const LABELS_JP = {
-  title: "リザルト", score: "スコア", accuracy: "精度",
+  score: "スコア", accuracy: "精度",
   maxCombo: "最大コンボ", avgOffset: "平均ズレ", issues: "課題",
-  chart: "譜面", level: "Lv.", bpm: "BPM",
+  judgement: "判定", level: "Lv.", bpm: "BPM",
   timing: "タイミング", early: "早", late: "遅",
   tendEarly: "早め", tendLate: "遅め",
-  to: "まで", topGrade: "最高評価！", fullCombo: "フルコンボ", allPerfect: "オールパーフェクト",
+  to: "まで", fullCombo: "フルミミ", allPerfect: "オールミミ",
   hoverFilter: "ホバーで絞り込み",
+  advancedDetails: "詳細表示", basicDetails: "簡易表示",
   share: "シェア", copied: "コピー済み！", failed: "失敗", tryAgain: "やり直す", back: "戻る",
 };
 
@@ -119,6 +147,85 @@ function TimingHistogram({ offsets, labels }: { offsets: number[]; labels: typeo
   );
 }
 
+// Donut "basic" view: the four judgement tiers as proportional arcs around a
+// hollow centre that frames Miku. Counts sit just outside each arc; the legend
+// names the tiers. Mirrors the breakdown colours.
+type PieTierKey = "tier3" | "tier2" | "tier1" | "miss";
+const PIE_TIERS: { key: PieTierKey; cls: string }[] = [
+  { key: "tier3", cls: "perfect" },
+  { key: "tier2", cls: "good" },
+  { key: "tier1", cls: "ok" },
+  { key: "miss", cls: "miss" },
+];
+const TIER_CLS: Record<PieTierKey, string> = { tier3: "perfect", tier2: "good", tier1: "ok", miss: "miss" };
+
+function JudgementPie(
+  { stats, grade, anim }: { stats: GameStats; grade: Grade; anim: "bounce" | "sway" },
+) {
+  const [hover, setHover] = useState<PieTierKey | null>(null);
+  const total = stats.tier3 + stats.tier2 + stats.tier1 + stats.miss;
+  const size = 192;
+  const cx = size / 2;
+  const cy = size / 2;
+  const r = 70;
+  const sw = 16;
+  const rLabel = r + sw / 2 + 11;
+  const circ = 2 * Math.PI * r;
+  let acc = 0;
+  const segs = PIE_TIERS.map(t => {
+    const count = stats[t.key];
+    const frac = total > 0 ? count / total : 0;
+    const mid = (acc + frac / 2) * 2 * Math.PI - Math.PI / 2;
+    const seg = { ...t, count, frac, offset: acc, mid };
+    acc += frac;
+    return seg;
+  });
+  return (
+    <div className="results-pie">
+      <svg className="results-pie__chart" viewBox={`0 0 ${size} ${size}`}>
+        <circle className="results-pie__track" cx={cx} cy={cy} r={r} fill="none" strokeWidth={sw} />
+        {total > 0 && segs.map(s => s.frac > 0 && (
+          <circle
+            key={s.key}
+            className={`results-pie__seg results-pie__seg--${s.cls}`
+              + (hover !== null && hover !== s.key ? " is-dim" : "")}
+            cx={cx} cy={cy} r={r} fill="none" strokeWidth={sw}
+            strokeDasharray={`${s.frac * circ} ${circ}`}
+            transform={`rotate(${s.offset * 360 - 90} ${cx} ${cy})`}
+            onPointerEnter={() => setHover(s.key)}
+            onPointerLeave={() => setHover(null)}
+          />
+        ))}
+        {/* start/end notch at 12 o'clock, spanning the ring thickness */}
+        <line
+          className="results-pie__notch"
+          x1={cx} y1={cy - r - sw / 2 - 2}
+          x2={cx} y2={cy - r + sw / 2 + 2}
+          vectorEffect="non-scaling-stroke"
+        />
+        {total > 0 && segs.map(s => s.count > 0 && (
+          <text
+            key={s.key}
+            className="results-pie__num"
+            x={cx + Math.cos(s.mid) * rLabel}
+            y={cy + Math.sin(s.mid) * rLabel}
+            onPointerEnter={() => setHover(s.key)}
+            onPointerLeave={() => setHover(null)}
+          >
+            {s.count}
+          </text>
+        ))}
+      </svg>
+      <div className="results-pie__mikuwrap">
+        <MikuFigure grade={grade} anim={anim} />
+      </div>
+      <div className={`results-pie__tag${hover ? ` results-pie__tag--${TIER_CLS[hover]} is-shown` : ""}`}>
+        {hover ? `${JUDGEMENT_LABEL[hover]}: ${stats[hover]}` : " "}
+      </div>
+    </div>
+  );
+}
+
 const ISSUE_LABELS_EN: Record<IssueReason, string> = {
   timing: "timing",
   contact: "contact",
@@ -175,6 +282,9 @@ export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, artist
   const lang = useLang();
   const [shareStatus, setShareStatus] = useState<"idle" | "copied" | "failed">("idle");
   const [focus, setFocus] = useState<Focus>(null);
+  // Default to the at-a-glance donut; "Advanced Details" swaps to the full
+  // cross-filtering breakdown, "Basic Details" returns here.
+  const [view, setView] = useState<"pie" | "detailed">("pie");
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
@@ -282,9 +392,7 @@ export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, artist
   return (
     <div className="results-overlay">
       <div className="results-panel">
-        <img className={`results-miku results-miku--${mikuAnim}`} src={mikuSvg(grade)} alt={`Miku ${grade}`} />
         <div className="results-head">
-          <h2 className="results-title">{labels.title}</h2>
           <div className="results-songhead">
             <span className="results-songhead__name">{songName}</span>
             {artist && <span className="results-songhead__artist">{artist}</span>}
@@ -294,11 +402,11 @@ export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, artist
         <div className="results-left">
           <div className={`results-grade results-grade--${grade.toLowerCase()}`}>{grade}</div>
           <div className="results-accuracy">{accView.toFixed(2)}%</div>
-          <div className="results-next">
-            {nextStep
-              ? `${((nextStep.min - accuracy) * 100).toFixed(2)}% ${labels.to} ${nextStep.grade}`
-              : labels.topGrade}
-          </div>
+          {nextStep && (
+            <div className="results-next">
+              {`${((nextStep.min - accuracy) * 100).toFixed(2)}% ${labels.to} ${nextStep.grade}`}
+            </div>
+          )}
           {badgeKey && (
             <div className={`results-badge results-badge--${badgeKey}`}>{labels[badgeKey]}</div>
           )}
@@ -314,29 +422,22 @@ export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, artist
           </div>
         </div>
         <div className="results-right">
-          <div className="results-breakdown">
-            <span className={`results-breakdown__tier3${focus !== null && focus.dim !== "tier" ? " is-dim" : ""}`}>
-              {JUDGEMENT_LABEL.tier3}: {stats.tier3}
+          <button
+            className="results-viewtoggle"
+            onClick={() => setView(v => (v === "pie" ? "detailed" : "pie"))}
+          >
+            <span className="results-viewtoggle__caret" aria-hidden="true">&gt;</span>
+            <span className="results-viewtoggle__text">
+              {view === "pie" ? labels.advancedDetails : labels.basicDetails}
             </span>
-            {ISSUE_TIERS.map(tier => {
-              const count = tierCount(tier);
-              const cls = `results-breakdown__${tier} results-tierbtn`
-                + cellState("tier", focus?.dim === "tier" && focus.tier === tier, count);
-              return (
-                <span
-                  key={tier}
-                  className={cls}
-                  onPointerEnter={() => setFocus({ dim: "tier", tier })}
-                  onPointerLeave={() => setFocus(null)}
-                >
-                  {JUDGEMENT_LABEL[tier]}: {count}
-                </span>
-              );
-            })}
+          </button>
+          {view === "pie" ? (
+          <div className="results-pieview">
+            <JudgementPie stats={stats} grade={grade} anim={mikuAnim} />
           </div>
-
+          ) : (
+          <>
           <div className="results-chart">
-            <span className="results-section__label">{labels.chart}</span>
             <div className="results-chart__meta">
               {difficultyName && (
                 <span className="results-chart__stat results-chart__diff">
@@ -362,6 +463,30 @@ export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, artist
                   <span className="results-note__count">{stats.noteCounts[note]}</span>
                 </span>
               ))}
+            </div>
+          </div>
+
+          <div className="results-judgement">
+            <span className="results-section__label">{labels.judgement}</span>
+            <div className="results-breakdown">
+              <span className={`results-breakdown__tier3${focus !== null && focus.dim !== "tier" ? " is-dim" : ""}`}>
+                {JUDGEMENT_LABEL.tier3}: {stats.tier3}
+              </span>
+              {ISSUE_TIERS.map(tier => {
+                const count = tierCount(tier);
+                const cls = `results-breakdown__${tier} results-tierbtn`
+                  + cellState("tier", focus?.dim === "tier" && focus.tier === tier, count);
+                return (
+                  <span
+                    key={tier}
+                    className={cls}
+                    onPointerEnter={() => setFocus({ dim: "tier", tier })}
+                    onPointerLeave={() => setFocus(null)}
+                  >
+                    {JUDGEMENT_LABEL[tier]}: {count}
+                  </span>
+                );
+              })}
             </div>
           </div>
 
@@ -391,9 +516,12 @@ export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, artist
               })}
             </div>
           </div>
+
+          <TimingHistogram offsets={acceptedHits.map(hit => hit.offsetMs)} labels={labels} />
+          </>
+          )}
         </div>
         </div>
-        <TimingHistogram offsets={acceptedHits.map(hit => hit.offsetMs)} labels={labels} />
         <div className="results-actions">
           <button
             className={`results-btn results-btn--share results-btn--share-${shareStatus}`}
