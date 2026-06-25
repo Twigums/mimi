@@ -208,6 +208,9 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPre
       onVideoReady(video) {
         storyboard?.setVideo(video);
         game.setCharLookup(makeCharLookup(video));
+        // Expose the ready video for the `lyrictrace` capture snippet (see its
+        // `--help`): it reads real char timings straight from the console.
+        window.__mimiVideo = video;
         songLengthMs = video.duration;
         if (player?.data.song) {
           const { name, artist } = player.data.song;
