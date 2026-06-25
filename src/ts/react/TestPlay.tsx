@@ -38,6 +38,7 @@ interface Toast {
 const DEMO_CHAR  = "か";
 const LOOP_KINDS: NoteKind[] = ["cut", "flow", "lyric"];
 const LOOP_GAP   = 900;            // pause after a note's approach before the next spawns
+const DEMO_HOLD  = 700;            // preview hold length for a spawned lyric (no chart to bound it)
 const MARGIN     = NOTE_RADIUS * 2; // keep notes (and flow offsets) inside the play-field
 // the demo flow pair is spaced in time relative to the approach pace: 150 ms
 // reads well at AR 14, so scale that gap by approachMs / arToMs(14)
@@ -106,6 +107,7 @@ export const TestPlay = forwardRef<TestPlayHandle, Props>(
           game.spawnNote({
             kind, time: base, x: cx, y: cy, direction,
             lyricChar: kind === "lyric" ? DEMO_CHAR : undefined,
+            holdMs: kind === "lyric" ? DEMO_HOLD : undefined,
           });
         }
       };

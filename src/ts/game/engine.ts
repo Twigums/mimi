@@ -5,6 +5,7 @@ import { createCursorRenderer, type CursorRenderer } from "./cursor";
 import {
   CUT_METRIC_WINDOW_MS,
   FLOW_SHAPE_BINS,
+  LYRIC_HOLD_RADIUS,
   TIER1_MS,
   type HitResult,
   type HitTiming,
@@ -20,7 +21,11 @@ export { MAX_POINTS, TIER1_POINTS, TIER2_POINTS, TIER3_POINTS } from "./judgemen
 export const LOGICAL_W = 800;
 export const LOGICAL_H = 600;
 
-const LYRIC_CHAR_MAX_DIST_MS = 80;
+// A lyric auto-fills with every sung character within its hold window. The window is
+// shifted earlier by this tolerance so a note charted slightly after a syllable's onset
+// still claims its first character; the uniform shift keeps adjacent lyric windows a
+// clean, non-overlapping partition of the song timeline.
+const LYRIC_CHAR_WINDOW_TOL_MS = 80;
 
 // How far the ribbon bows through each flow anchor, as a fraction of the shorter
 // adjacent chord. Higher = rounder curves (less kinking at the waypoint) at the cost
@@ -39,6 +44,8 @@ export interface Note {
   state: NoteState;
   hitResult?: HitResult;
   lyricChar?: string;
+  // Lyric only: hold duration in ms (derived from the next note; see computeLyricHolds).
+  holdMs?: number;
   directionPinned?: boolean;
   newCombo?: boolean;
   flowPrevIndex?: number;
@@ -93,12 +100,15 @@ export interface SpawnSpec {
   y: number;
   direction: number;
   lyricChar?: string;
+  holdMs?: number;
   flowPrevIndex?: number;
 }
 
 export interface GameHandle {
   setChart(notes: Note[]): void;
-  setCharLookup(findClosestChar: (timeMs: number) => { text: string; distMs: number } | null): void;
+  // Supplies the sung characters whose start time falls in [startMs, endMs), concatenated
+  // in order (empty when none); used to auto-fill a lyric note's text from its hold window.
+  setCharLookup(charsInRange: (startMs: number, endMs: number) => string): void;
   reset(): void;
   start(): void;
   setPlaying(playing: boolean): void;
@@ -290,7 +300,7 @@ export function createGame(deps: GameDeps): GameHandle {
   let reportedCursorError = false;
   let debugDrawOnce = true;
 
-  let lyricCharLookup: ((timeMs: number) => { text: string; distMs: number } | null) | null = null;
+  let lyricCharLookup: ((startMs: number, endMs: number) => string) | null = null;
 
   // After reset(), skip expiry until the song confirms it has rewound to the lead-in window,
   // preventing stale mid-song positions from triggering immediate misses.
@@ -305,20 +315,47 @@ export function createGame(deps: GameDeps): GameHandle {
       songMs,
       wallMs: performance.now(),
     });
-    while (pointerSamples.length > 64) pointerSamples.shift();
+    // Keep enough history to span a lyric hold plus the metric windows even at high
+    // refresh rates, since a held lyric is judged across its whole duration.
+    while (pointerSamples.length > 256) pointerSamples.shift();
   };
 
+  // A lyric is a hold lasting until the next note (any kind) — no default, no cap; the
+  // charter places the following note where the hold should end. A lyric with no
+  // following note cannot be bounded: it is an invalid chart (left holdMs undefined and
+  // logged), and the engine judges it as a miss. Notes are time-sorted, so notes[i+1]
+  // is the bound. See LYRIC_HOLD_PLAN.md / wiki.
+  const computeLyricHolds = (): void => {
+    for (let i = 0; i < notes.length; i++) {
+      const n = notes[i];
+      if (n.kind !== "lyric") continue;
+      const next = notes[i + 1];
+      if (next) {
+        n.holdMs = next.time - n.time;
+      } else {
+        n.holdMs = undefined;
+        console.error(`[mimi] lyric note at ${n.time}ms is the final note: a lyric hold needs a following note to bound it (invalid chart).`);
+      }
+    }
+  };
+
+  // A lyric's note row resolves once its hold window plus the metric grace has passed.
+  // An invalid (unbounded) lyric has no hold, so it resolves at its note time like a tap.
+  const noteEndMs = (n: Note): number =>
+    n.time + (n.kind === "lyric" ? (n.holdMs ?? 0) : 0);
+
+  // Auto-fill each lyric's text with every sung character in its hold window (typically
+  // 1–4 chars). Runs after computeLyricHolds, so holdMs is set. An explicit chart
+  // override (lyricChar already present) and invalid (unbounded) lyrics are skipped.
   const populateLyricChars = (): void => {
     if (!lyricCharLookup) return;
     for (const note of notes) {
-      if (note.kind !== "lyric") continue;
-      if (note.lyricChar !== undefined) continue;
-      const result = lyricCharLookup(note.time);
-      if (result && result.distMs <= LYRIC_CHAR_MAX_DIST_MS) {
-        note.lyricChar = result.text;
-      } else {
-        note.lyricChar = "";
-        console.warn(`[mimi] lyric note at ${note.time}ms: no vocal char within ${LYRIC_CHAR_MAX_DIST_MS}ms`);
+      if (note.kind !== "lyric" || note.lyricChar !== undefined || note.holdMs === undefined) continue;
+      const start = note.time - LYRIC_CHAR_WINDOW_TOL_MS;
+      const text = lyricCharLookup(start, start + note.holdMs);
+      note.lyricChar = text;
+      if (text === "") {
+        console.warn(`[mimi] lyric note at ${note.time}ms: no vocal characters in its hold window`);
       }
     }
   };
@@ -501,11 +538,14 @@ export function createGame(deps: GameDeps): GameHandle {
   };
 
   const expireMisses = (songMs: number): void => {
-    // Notes are time-sorted: break as soon as a pending note can still finalize.
+    // Notes are time-sorted by start: once a note's start is recent enough that even a
+    // zero-length note isn't expirable, nothing after it can be either. A lyric hold
+    // expires off its end (start + holdMs), so it survives until its hold has elapsed.
     for (let i = pendingStart; i < notes.length; i++) {
       const n = notes[i];
+      if (n.time > songMs - CUT_METRIC_WINDOW_MS) break;
       if (n.state !== "pending") continue;
-      if (songMs - n.time <= CUT_METRIC_WINDOW_MS) break;
+      if (songMs - noteEndMs(n) <= CUT_METRIC_WINDOW_MS) continue;
       resolveMiss(n, songMs - n.time, "timing");
     }
   };
@@ -556,11 +596,19 @@ export function createGame(deps: GameDeps): GameHandle {
       if (note.state !== "pending") continue;
       const dt = note.time - songMs;
       if (dt > approachMs) break;
-      if (dt < -TIER1_MS) continue;
-      const appearProgress = clamp(1 - dt / approachMs, 0, 1);
       if (note.kind === "lyric") {
-        drawLyricNote(ctx, note, appearProgress, scale, hiddenMod);
+        const holdMs = note.holdMs ?? 0;
+        // Keep the lyric (with its progress ring) on screen through the whole hold; an
+        // invalid (unbounded) lyric has no hold, so it uses the standard note window.
+        if (dt < -(holdMs + TIER1_MS)) continue;
+        const appearProgress = clamp(1 - dt / approachMs, 0, 1);
+        const holdProgress = holdMs > 0 ? clamp((songMs - note.time) / holdMs, 0, 1) : 0;
+        const holding = holdMs > 0 && songMs >= note.time && songMs <= note.time + holdMs &&
+          Math.hypot(pointer.x - note.x, pointer.y - note.y) <= LYRIC_HOLD_RADIUS;
+        drawLyricNote(ctx, note, appearProgress, scale, hiddenMod, holdProgress, holding);
       } else {
+        if (dt < -TIER1_MS) continue;
+        const appearProgress = clamp(1 - dt / approachMs, 0, 1);
         drawArrow(ctx, note, appearProgress, scale, hiddenMod);
       }
     }
@@ -579,11 +627,12 @@ export function createGame(deps: GameDeps): GameHandle {
       pendingStart = 0;
       debugDrawOnce = true;
       linkFlowPhrases();
+      computeLyricHolds();
       populateLyricChars();
     },
 
-    setCharLookup(findClosestChar): void {
-      lyricCharLookup = findClosestChar;
+    setCharLookup(charsInRange): void {
+      lyricCharLookup = charsInRange;
       populateLyricChars();
     },
 
@@ -649,6 +698,9 @@ export function createGame(deps: GameDeps): GameHandle {
         direction: spec.direction,
         state: "pending",
         lyricChar: spec.lyricChar,
+        // Spawned lyrics have no chart timeline to derive a bound from, so the caller
+        // (the testplay surface) supplies an explicit preview hold length.
+        holdMs: spec.kind === "lyric" ? spec.holdMs : undefined,
       };
       const index = notes.length;
       notes.push(note);

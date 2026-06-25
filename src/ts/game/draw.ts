@@ -3,7 +3,8 @@ import type { TrailShape } from "../core/settings";
 import { withPath } from "../core/sitePath";
 
 export const NOTE_RADIUS  = 52;
-export const LYRIC_RADIUS = 34;
+// Lyric notes are held targets, drawn as a larger circle than the old brush dot.
+export const LYRIC_RADIUS = 48;
 
 interface NoteColors {
   base: string;
@@ -226,12 +227,16 @@ export function drawArrow(
 
 // appearProgress: 0 = faint outline just appearing, 1 = fully visible at hit time
 // hidden: suppresses the lyric char (circle outline remains)
+// holdProgress: 0..1 fraction of the hold elapsed (drives the progress ring)
+// holding: whether the cursor is currently inside the hold radius (tints the ring)
 export function drawLyricNote(
   ctx: CanvasRenderingContext2D,
   note: Note,
   appearProgress: number,
   scale: number,
   hidden = false,
+  holdProgress = 0,
+  holding = false,
 ): void {
   if (!note.lyricChar) return;
 
@@ -258,7 +263,9 @@ export function drawLyricNote(
   ctx.restore();
 
   ctx.save();
-  ctx.font = `bold ${(r * 0.9).toFixed(1)}px sans-serif`;
+  // A lyric can carry several syllables; shrink the glyph so 1–4 chars stay inside.
+  const fontPx = r * 0.9 * Math.min(1, 1.4 / Math.max(1, note.lyricChar.length));
+  ctx.font = `bold ${fontPx.toFixed(1)}px sans-serif`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
 
@@ -277,6 +284,27 @@ export function drawLyricNote(
   ctx.strokeText(note.lyricChar, cx, cy);
 
   ctx.restore();
+
+  // Hold-progress ring: sweeps clockwise from the top as the hold elapses; bright
+  // (held) while the cursor is inside the circle, dim white when the hold is lapsing
+  // without the cursor present.
+  if (holdProgress > 0) {
+    const ringR = r * 0.92;
+    const start = -Math.PI / 2;
+    ctx.save();
+    ctx.lineCap = "round";
+    ctx.beginPath();
+    ctx.arc(cx, cy, ringR, 0, Math.PI * 2);
+    ctx.strokeStyle = "rgba(255, 255, 255, 0.12)";
+    ctx.lineWidth = 3 * scale;
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(cx, cy, ringR, start, start + holdProgress * Math.PI * 2);
+    ctx.strokeStyle = holding ? "rgba(120, 230, 150, 0.95)" : "rgba(255, 255, 255, 0.5)";
+    ctx.lineWidth = 3.5 * scale;
+    ctx.stroke();
+    ctx.restore();
+  }
 }
 
 export function drawFlowRibbon(

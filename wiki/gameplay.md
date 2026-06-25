@@ -10,11 +10,11 @@ The game uses one ruleset for every difficulty. Difficulty comes from chart dens
 |------|---------|---------|
 | Cut | A directional slash target | Move through the target in the shown direction |
 | Flow | A connected phrase of timed anchors | Keep a continuous motion through the phrase path |
-| Lyric | A sung character or vocal accent | Brush through the lyric target; direction does not matter |
+| Lyric | A sung character or vocal accent | Hold the cursor inside the larger circle for the lyric's duration |
 
-No ordinary note requires holding a mouse button or key. If a future note requires a press, it should be a distinct note type with its own visual language.
+No note requires holding a mouse button or key. The lyric hold is a *position* hold — keep the pointer inside the circle — not a button press. If a future note requires a press, it should be a distinct note type with its own visual language.
 
-All note types gradually appear as the song approaches their hit time. Cut and flow notes start as faint outlines and fill with color as the hit time approaches. Lyric notes show a dotted circle; the character stroke appears early and fills inward from a growing radial clip as the hit time approaches.
+All note types gradually appear as the song approaches their hit time. Cut and flow notes start as faint outlines and fill with color as the hit time approaches. Lyric notes show a dotted circle; the character stroke appears early and fills inward from a growing radial clip as the hit time approaches. While a lyric is being held, a progress ring sweeps around it, bright while the cursor is inside and dim while the hold lapses without it.
 
 ## Note Eligibility
 
@@ -71,7 +71,7 @@ Unlike a cut, a flow anchor has no single authored direction. The ribbon between
 | Travel | >= 24 logical px | >= 12 logical px | >= 4 logical px | < 4 logical px |
 | Shape error | <= 60 degrees | <= 75 degrees | <= 100 degrees | > 100 degrees |
 
-Shape error compares the gesture and the ribbon as **heading sequences**: each is resampled along its length into a fixed number of segments, and the error is the average angle between the matching segments. Because it uses only headings, it measures the *shape* of the motion (its direction and how it bends) and is independent of position — staying near the anchor is the separate contact metric. The perfect threshold stays generous (a following motion keeps full credit through curves and corners), but the great/good boundaries are deliberately tight: a roughly perpendicular sweep (~90 degrees off) lands in Tier 1, not Tier 2, and motion past ~100 degrees off (sideways or backward) misses, so flailing across anchors cannot farm Greats. A lone flow anchor with no linked neighbours has no ribbon shape, so it is judged on motion alone, like a lyric. The shape error depends only on the player's own motion, never on how a neighbouring anchor was judged, so one weak anchor does not cap the rest of the phrase.
+Shape error compares the gesture and the ribbon as **heading sequences**: each is resampled along its length into a fixed number of segments, and the error is the average angle between the matching segments. Because it uses only headings, it measures the *shape* of the motion (its direction and how it bends) and is independent of position — staying near the anchor is the separate contact metric. The perfect threshold stays generous (a following motion keeps full credit through curves and corners), but the great/good boundaries are deliberately tight: a sweep ~60 degrees off the ribbon lands in Tier 1, not Tier 2, and motion further off (~70+ degrees, including a perpendicular or backward trace) misses, so flailing across anchors cannot farm Greats. A lone flow anchor with no linked neighbours has no ribbon shape, so it is judged on its own motion alone, free of any heading constraint. The shape error depends only on the player's own motion, never on how a neighbouring anchor was judged, so one weak anchor does not cap the rest of the phrase.
 
 Contact currently uses the same thresholds as cut while flow contact is being tuned. Travel still requires real motion through the anchor.
 
@@ -79,9 +79,21 @@ The ribbon between anchors is a smooth curve whose heading at each anchor is the
 
 ## Lyric Judgement
 
-Lyric notes use the same timing tiers and score weights. The player must move through the lyric interaction circle. Direction does not matter, but meaningful motion still matters; resting on the character should not earn a high result.
+A lyric note is a **hold**: the player keeps the cursor inside the (larger) lyric circle for the duration of the note. A single lyric note can stand in for multiple sung syllables; they should not be charted for very short durations.
 
-Lyric notes display the Japanese character from the TextAlive lyrics closest to the note time, within +/- 80 ms unless the chart provides an explicit character override. If no vocal character is close enough, the note is hidden and a warning is logged before play.
+The hold lasts from the note time **until the next note in the chart** (any kind) — there is no default and no cap. The next note bounds the hold; charts control hold length by where the following note sits. A lyric with no following note cannot be bounded and is an invalid chart: it is logged and judged as a miss rather than given a fabricated duration. Because the hold ends where a note can be charted on the same beat, the required hold is slightly shorter than the nominal duration (an early-release grace), so the player has time to leave for that next note without losing the hold.
+
+Lyric notes use the same timing tiers and score weights as cut. They have no direction. The three remaining metrics map onto the shared issue buckets:
+
+| Gesture metric | Issue | Meaning |
+|----------------|-------|---------|
+| Enter timing | `timing` | When the cursor enters the circle, relative to the note time. Being present at or before the note start is on time; only a late entry is penalized. |
+| Contact distance | `contact` | The closest the pointer gets to the center over the hold window (did you reach the note, not just its edge). Same thresholds as cut: <= 45 / <= 75 / <= 110 logical px. |
+| Hold completeness | `gesture` | The fraction of the required hold actually sustained, measured as the longest contiguous span the cursor stays inside the hold radius. Tier 3 >= 95%, Tier 2 >= 80%, Tier 1 >= 55%. Releasing early caps the result here. |
+
+The final result is the lowest tier allowed by the three metrics, and the reported issue is the binding one in the shared priority order. A clean hold is Tier 3 with no issue. The hold finalizes (for feedback) as soon as the outcome can no longer improve — the moment the cursor leaves the circle, the full hold completes, or the window elapses — so feedback lands on the beat the hold ends rather than waiting out the duration.
+
+Lyric notes display the Japanese characters sung during the hold: every TextAlive character whose start time falls in the note's hold window (so one note shows the 1–4 syllables it covers), unless the chart provides an explicit character override. The window starts a small tolerance before the note time so a note charted just after a syllable's onset still picks up its first character. If no vocal character falls in the window, the note shows nothing and a warning is logged before play.
 
 ## Scoring
 
@@ -172,8 +184,8 @@ The breakdown accounts for every imperfect hit (Great, Good, Miss) across three 
 | Timing | Timing was the limiting factor (the hit landed outside the higher tier's window) |
 | Contact | The pointer path did not pass close enough to the note |
 | Direction | The slash angle was too far from the note's arrow |
-| Gesture | The stroke itself was the limit: a cut's travel/slash distance or a flow's traced shape |
+| Gesture | The stroke itself was the limit: a cut's travel/slash distance, a flow's traced shape, or a lyric's hold completeness |
 
-Every note kind can produce a Timing, Contact, or Gesture issue. Direction applies to cut only — lyric notes have no direction, and a flow anchor's heading is folded into its shape, which reports as a Gesture issue. There is no separate travel, flow, or continuity issue; cut travel and flow shape both surface as Gesture.
+Every note kind can produce a Timing, Contact, or Gesture issue. Direction applies to cut only — lyric notes have no direction, and a flow anchor's heading is folded into its shape, which reports as a Gesture issue. There is no separate travel, flow, continuity, or hold issue; cut travel, flow shape, and lyric hold completeness all surface as Gesture.
 
 The three dimensions are cross-linked: hovering any cell scopes the other two dimensions to the hits matching it.

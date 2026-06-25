@@ -10,7 +10,7 @@ title: tutorial
 
 <mark class="flow">[フロー](spawn:flow)</mark>：つながったノーツをなめらかにスワイプして。
 
-<mark class="lyric">[歌詞](spawn:lyric)</mark>：ミクの歌に合わせ、ビートに乗って歌詞ノーツをなぞろう！
+<mark class="lyric">[歌詞](spawn:lyric)</mark>：ミクの歌に合わせ、歌が続く間はカーソルを歌詞サークルの中でキープして！
 
 各ノーツをクリックして、右のゲームエリアで試してみてください。
 

@@ -7,10 +7,10 @@
 //   DOING RIGHT     -- behaviour the judge gets correct (after the coherent-gesture
 //                      + commit-gate fixes). Hard-asserts; must stay green.
 //
-//   REMAINING (#74) -- leniency the cut fix does NOT address (flow shape / lyric
-//                      motion-only, plus axis-aligned oscillation that is correct
-//                      by design). Each asserts the CURRENT behaviour and prints a
-//                      NOTE line so the next tuning pass has a target.
+//   REMAINING (#74) -- leniency a fix does NOT yet address. Each asserts the CURRENT
+//                      behaviour and prints a NOTE line so the next tuning pass has a
+//                      target. (Empty today: the flow-shape and lyric-hold passes have
+//                      since closed the cases this group tracked.)
 //
 // Gestures are synthesised in the harness style of test/judgement.test.ts; you
 // cannot replay raw pointer paths from the logs, only the summary metrics, so the
@@ -197,13 +197,13 @@ right("backward-contact-plus-far-forward Frankenstein is capped below tier3", ()
 // ---------------------------------------------------------------------------
 
 // FIXED (#74): flow has no direction cap (heading folds into the shape metric), and
-// the shape tiers were pulled in (60/75/100 degrees). A flow gesture ~90 degrees off
+// the shape tiers were pulled in (35/50/70 degrees). A flow gesture ~60 degrees off
 // the ribbon now drops to tier1 instead of tier2 -- in attempt_2 most of the inflated
-// GREATs were flow notes held up by the old wide tiers. A backward (180deg) trace
-// still misses.
-right("flow ~90deg off the ribbon is held to tier1 (not tier2)", () => {
+// GREATs were flow notes held up by the old wide tiers. A sweep further off (>70deg)
+// misses entirely.
+right("flow ~60deg off the ribbon is held to tier1 (not tier2)", () => {
   const flow = note({ kind: "flow", flowShape: [0, 0, 0, 0] });
-  const g = withLatest(lineThroughCenter(Math.PI / 2, 40), WINDOW_END);
+  const g = withLatest(lineThroughCenter(Math.PI / 3, 40), WINDOW_END);
   const j = judged(judgeGesture(flow, g));
   assert.equal(j.result, "tier1");
   assert.equal(j.issue, "gesture");
@@ -216,15 +216,20 @@ right("flow traced backward along the ribbon misses", () => {
   assert.equal(resultFor(judgeGesture(flow, g)), "miss");
 });
 
-// Lyric notes intentionally ignore direction (brush-through), so any motion through
-// the circle scores regardless of heading. Spam therefore clears lyrics freely.
-// This is by design today, but it is part of why a full-chart spam still scores;
-// flagged here so a future pass can decide whether lyrics need a motion-quality bar.
-remaining("lyric scores on any direction of motion through it", () => {
-  const lyric = note({ kind: "lyric" });
-  const j = judged(judgeGesture(lyric, withLatest(lineThroughCenter(Math.PI / 2, 40), WINDOW_END)));
-  assert.equal(j.result, "tier3");
-  note_("lyric brushed in an arbitrary direction", "motion-quality bar TBD", `${j.result}`);
+// FIXED (#39): lyrics are now holds, not brush-throughs. A cursor that merely sweeps
+// through the circle and leaves never accumulates the required hold duration, so spam
+// can no longer farm lyrics -- the hold itself is the motion-quality bar that was TBD.
+right("a lyric brushed through (not held) no longer scores", () => {
+  const lyric = note({ kind: "lyric", holdMs: 300 });
+  const sweep = samples([
+    [960, CENTER_X - 200, CENTER_Y],  // outside the circle
+    [1000, CENTER_X - 40, CENTER_Y],  // brushes in...
+    [1020, CENTER_X + 40, CENTER_Y],  // ...a ~20 ms touch, far short of the hold...
+    [1040, CENTER_X + 200, CENTER_Y], // ...then sweeps back out and stays out
+  ]);
+  const j = judged(judgeGesture(lyric, withLatest(sweep, WINDOW_END)));
+  assert.equal(j.result, "miss");
+  assert.equal(j.issue, "gesture");
 });
 
 // ---------------------------------------------------------------------------

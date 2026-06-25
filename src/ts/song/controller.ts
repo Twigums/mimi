@@ -9,12 +9,11 @@ const GAP_SKIP_MIN_BREAK_MS   = 3000;
 
 export type BreakSkipKind = "gap" | "finish";
 
-function charDist(c: TextAliveChar, timeMs: number): number {
-  if (timeMs >= c.startTime && timeMs <= c.endTime) return 0;
-  return Math.min(Math.abs(c.startTime - timeMs), Math.abs(c.endTime - timeMs));
-}
-
-function makeCharLookup(video: TextAliveVideo): (timeMs: number) => { text: string; distMs: number } | null {
+// Build a range lookup over the song's characters (a fixed, time-ordered list once the
+// video is ready): returns the text of every character whose start time falls in
+// [startMs, endMs), concatenated in order. Used to auto-fill a lyric note from its hold
+// window. Deterministic given the loaded video — the only input is the time range.
+function makeCharLookup(video: TextAliveVideo): (startMs: number, endMs: number) => string {
   const chars: TextAliveChar[] = [];
   let phrase = video.firstPhrase;
   while (phrase) {
@@ -22,15 +21,12 @@ function makeCharLookup(video: TextAliveVideo): (timeMs: number) => { text: stri
     while (c) { chars.push(c); c = c.next; }
     phrase = phrase.next;
   }
-  if (chars.length === 0) return () => null;
-  return (timeMs: number) => {
-    let best = chars[0];
-    let bestDist = charDist(best, timeMs);
-    for (let i = 1; i < chars.length; i++) {
-      const dist = charDist(chars[i], timeMs);
-      if (dist < bestDist) { bestDist = dist; best = chars[i]; }
+  return (startMs: number, endMs: number) => {
+    let text = "";
+    for (const c of chars) {
+      if (c.startTime >= startMs && c.startTime < endMs) text += c.text;
     }
-    return { text: best.text, distMs: bestDist };
+    return text;
   };
 }
 

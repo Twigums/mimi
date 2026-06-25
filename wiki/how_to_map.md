@@ -65,9 +65,11 @@ The compiler emits runtime notes with `kind`, `time`, `x`, `y`, `direction` in r
 |------|----------|
 | `c` Cut | A standalone directional slash |
 | `f` Flow | An anchor in a connected phrase; consecutive flow anchors link until a `break` or a non-flow note ends the phrase |
-| `l` Lyric | A sung character or directionless vocal accent |
+| `l` Lyric | A directionless hold on a sung character (may cover several syllables) |
 
 Cut and flow notes do not require a mouse-button or key hold. Flow notes should be placed so the player can read a continuous path through the phrase.
+
+A lyric is a **hold**: the player keeps the cursor inside the circle from the note's time until the **next note** (any kind) — the following note bounds the hold. There is no default or cap, so **a lyric must not be the final note** (it has nothing to bound it; the engine logs an error and the note misses). Place the next note where the hold should end. Do not chart a lyric with less than roughly 300 ms before the next note, and pick one standout lyric per phrase rather than charting every word. The `degrees` field is unused for lyrics; the hold length is not authored as a row field. The displayed text auto-fills from every sung character in the hold window (use the `char` override only to correct it).
 
 During migration, older charts may still use `f` for cut-style notes. Prefer `c` for new maps.
 

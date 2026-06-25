@@ -154,10 +154,95 @@ check("gestures outside the contact zone are not judged immediately", () => {
   assert.equal(judgement.issue, "contact");
 });
 
-check("lyric notes ignore gesture direction but still require motion", () => {
-  const lyric = note({ kind: "lyric" });
+// ---- Lyric hold judgement -------------------------------------------------
 
-  assert.equal(resultFor(judgeGesture(lyric, lineThroughCenter(Math.PI / 2, 40))), "tier3");
+const HOLD_MS = 300;
+
+function lyric(overrides: Partial<JudgementNote> = {}): JudgementNote {
+  return note({ kind: "lyric", holdMs: HOLD_MS, ...overrides });
+}
+
+// A pointer parked at (x, y) sampled across [startMs, endMs].
+function holdAt(x: number, y: number, startMs: number, endMs: number, stepMs = 20): PointerSample[] {
+  const out: PointerSample[] = [];
+  for (let t = startMs; t <= endMs; t += stepMs) out.push({ songMs: t, x, y });
+  return out;
+}
+
+check("a held lyric kept in the circle for its duration earns tier 3", () => {
+  // Present from before the note and held through the full window.
+  const gesture = holdAt(CENTER_X, CENTER_Y, 960, NOTE_TIME + HOLD_MS);
+  const judgement = judged(judgeGesture(lyric(), gesture));
+
+  assert.equal(judgement.result, "tier3");
+  assert.equal(judgement.issue, undefined);
+  assert.equal(judgement.offsetMs, 0);
+});
+
+check("a lyric released early is capped by the hold (gesture) issue", () => {
+  // Held ~170 ms of the 200 ms required target, then the cursor leaves the circle.
+  const gesture = [
+    ...holdAt(CENTER_X, CENTER_Y, 1000, 1170),
+    { songMs: 1200, x: CENTER_X + 400, y: CENTER_Y },
+  ];
+  const judgement = judged(judgeGesture(lyric(), gesture));
+
+  assert.equal(judgement.result, "tier2");
+  assert.equal(judgement.issue, "gesture");
+});
+
+check("a lyric held off-center is capped by contact", () => {
+  // Inside the hold radius (90 px) for the full duration, but never near the center.
+  const gesture = holdAt(CENTER_X, CENTER_Y + 90, 960, NOTE_TIME + HOLD_MS);
+  const judgement = judged(judgeGesture(lyric(), gesture));
+
+  assert.equal(judgement.result, "tier1");
+  assert.equal(judgement.issue, "contact");
+});
+
+check("a lyric entered late is capped by timing", () => {
+  // Reaches the circle 100 ms late, then holds out the rest of the window.
+  const gesture = holdAt(CENTER_X, CENTER_Y, 1100, NOTE_TIME + HOLD_MS);
+  const judgement = judged(judgeGesture(lyric(), gesture));
+
+  assert.equal(judgement.result, "tier1");
+  assert.equal(judgement.issue, "timing");
+});
+
+check("a lyric the cursor never reaches misses on contact", () => {
+  // Nearest approach is on time but well outside the hold radius the whole time.
+  const gesture = holdAt(CENTER_X, CENTER_Y + 200, 960, NOTE_TIME + 200);
+  const judgement = judged(judgeGesture(lyric(), gesture));
+
+  assert.equal(judgement.result, "miss");
+  assert.equal(judgement.issue, "contact");
+});
+
+check("a lyric stays pending while the hold is still in progress", () => {
+  // Inside the circle but the window has not elapsed and the cursor has not left.
+  const gesture = holdAt(CENTER_X, CENTER_Y, 960, 1100);
+  assert.equal(judgeGesture(lyric(), gesture).status, "pending");
+});
+
+check("a lyric with no hold bound (invalid chart) resolves as a miss", () => {
+  // No holdMs (the engine leaves it undefined for a last-note lyric and logs an error).
+  const invalid = note({ kind: "lyric" });
+  const gesture = holdAt(CENTER_X, CENTER_Y, 960, NOTE_TIME + 200);
+  assert.equal(judged(judgeGesture(invalid, gesture)).result, "miss");
+});
+
+check("an early brush before the note start does not finalize the lyric", () => {
+  // Cursor dips through the circle early, then leaves before the note time. No hold
+  // has been scored yet, so the note must stay pending (the player can still hold).
+  const brush = [
+    { songMs: 900, x: CENTER_X, y: CENTER_Y },
+    { songMs: 940, x: CENTER_X + 400, y: CENTER_Y },
+  ];
+  assert.equal(judgeGesture(lyric(), brush).status, "pending");
+
+  // The same player then returns and holds it out: a clean tier 3.
+  const recovered = [...brush, ...holdAt(CENTER_X, CENTER_Y, 1000, NOTE_TIME + HOLD_MS)];
+  assert.equal(resultFor(judgeGesture(lyric(), recovered)), "tier3");
 });
 
 check("a flow gesture tracing the ribbon shape earns tier 3", () => {
@@ -170,13 +255,14 @@ check("a flow gesture tracing the ribbon shape earns tier 3", () => {
 
 check("a flow gesture off the ribbon shape is capped by the flow metric", () => {
   // Ribbon heads right; the gesture sweeps perpendicular (90 degrees off every bin).
-  // The tightened shape cap (#74) holds a ~90-degree-off sweep to tier 1 — a GREAT
-  // should require actually tracing the ribbon — and reports the gesture issue slot.
+  // The tightened shape cap (#74, FLOW_CONT_TIER1 = 70 degrees) rejects a sweep that
+  // fully ignores the ribbon — a perpendicular stroke exceeds the tier-1 ceiling and
+  // misses — and the gesture issue slot reports it.
   const flow = note({ kind: "flow", flowShape: [0, 0, 0, 0] });
   const gesture = withLatest(lineThroughCenter(Math.PI / 2, 40), NOTE_TIME + CUT_METRIC_WINDOW_MS);
   const judgement = judged(judgeGesture(flow, gesture));
 
-  assert.equal(judgement.result, "tier1");
+  assert.equal(judgement.result, "miss");
   assert.equal(judgement.issue, "gesture");
 });
 
@@ -199,13 +285,13 @@ check("a lone flow anchor (no shape) judges motion only", () => {
 
 check("flow shape match accounts for the ribbon's bend, not just one heading", () => {
   // Ribbon bends hard across its bins (right -> down-left). A straight rightward sweep
-  // matches only the first bin (~84 degrees RMS error), so the whole-shape cap holds
-  // it below tier 3 — proving the metric reads the bend, not a single heading. Under
-  // the tightened tiers (#74) that error lands in tier 1.
+  // matches only the first bin (~84 degrees RMS error), so the whole-shape cap reads
+  // the bend, not a single heading. Under the tightened tiers (#74, 70-degree tier-1
+  // ceiling) that whole-shape error exceeds the cap and misses.
   const curved = note({ kind: "flow", flowShape: [0, Math.PI / 4, Math.PI / 2, (3 * Math.PI) / 4] });
   const straight = withLatest(lineThroughCenter(0, 40), NOTE_TIME + CUT_METRIC_WINDOW_MS);
 
-  assert.equal(judged(judgeGesture(curved, straight)).result, "tier1");
+  assert.equal(judged(judgeGesture(curved, straight)).result, "miss");
 });
 
 check("best sub-gesture is selected when another motion shares the metric window", () => {
