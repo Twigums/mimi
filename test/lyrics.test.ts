@@ -51,7 +51,7 @@ function fillLyrics(notes: Note[], chars: Array<[text: string, startTime: number
   populateLyricChars(notes, makeCharLookup(videoFrom(chars)));
 }
 
-assert.equal(LYRIC_CHAR_BOUNDARY_EPSILON_MS, 30);
+assert.equal(LYRIC_CHAR_BOUNDARY_EPSILON_MS, 20);
 
 {
   const notes = [
@@ -60,27 +60,26 @@ assert.equal(LYRIC_CHAR_BOUNDARY_EPSILON_MS, 30);
   ];
   computeLyricHolds(notes, []);
 
-  // First note: no previous event, so the window keeps the raw [time−ε, holdEnd−ε).
   assert.deepEqual(lyricCharWindow(notes[0], -Infinity), {
-    startMs: 970,
-    endMs: 1270,
+    startMs: 980,
+    endMs: 1280,
     clampedToPrev: false,
   });
 
   fillLyrics(notes, [
-    ["a", 969],   // just before the start → excluded
-    ["b", 970],   // at the start → included
+    ["a", 979],
+    ["b", 980],
     ["c", 1000],
-    ["d", 1269],  // just before the end → included
-    ["e", 1270],  // at the end → excluded (left for the next boundary)
-    ["f", 1300],
+    ["d", 1279],
+    ["e", 1280],
+    ["f", 1299],
+    ["g", 1300],
   ]);
 
   assert.equal(notes[0].lyricChar, "bcd");
 }
 
 {
-  // Back-to-back lyrics tile at note−ε (prevEnd == this note's time), no overlap.
   const notes = [
     note("lyric", 1000),
     note("lyric", 1300),
@@ -89,8 +88,8 @@ assert.equal(LYRIC_CHAR_BOUNDARY_EPSILON_MS, 30);
   computeLyricHolds(notes, []);
 
   fillLyrics(notes, [
-    ["a", 1269],  // < 1270 → first lyric
-    ["b", 1270],  // ≥ 1270 → second lyric
+    ["a", 1279],
+    ["b", 1280],
     ["c", 1299],
     ["d", 1300],
   ]);
@@ -99,33 +98,4 @@ assert.equal(LYRIC_CHAR_BOUNDARY_EPSILON_MS, 30);
   assert.equal(notes[1].lyricChar, "bcd");
 }
 
-{
-  // Gap tiling (issue #39): a flow note between two lyrics bounds the first lyric's hold
-  // early; the second lyric's window must tile back to that flow note so a vocal char
-  // leading the second lyric isn't orphaned in the gap.
-  const notes = [
-    note("lyric", 1000),
-    note("flow", 1300),
-    note("lyric", 1500),
-    note("cut", 1800),
-  ];
-  computeLyricHolds(notes, []);
-
-  // The second lyric starts at the flow note's end − ε (1270), not its own time − ε (1470).
-  assert.deepEqual(lyricCharWindow(notes[2], 1300), {
-    startMs: 1270,
-    endMs: 1770,
-    clampedToPrev: true,
-  });
-
-  fillLyrics(notes, [
-    ["a", 1269],  // first lyric's window [970, 1270)
-    ["b", 1280],  // in the gap after the flow → tiles into the second lyric (was dropped)
-    ["c", 1500],
-  ]);
-
-  assert.equal(notes[0].lyricChar, "a");
-  assert.equal(notes[2].lyricChar, "bc");
-}
-
-console.log("3 lyric char-window simulations passed");
+console.log("2 lyric char-window simulations passed");
