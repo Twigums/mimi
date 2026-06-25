@@ -169,13 +169,14 @@ check("a flow gesture tracing the ribbon shape earns tier 3", () => {
 });
 
 check("a flow gesture off the ribbon shape is capped by the flow metric", () => {
-  // Ribbon heads right; the gesture sweeps perpendicular (90 degrees off every bin),
-  // so the shape cap — reported in the gesture issue slot — holds it to tier 2.
+  // Ribbon heads right; the gesture sweeps perpendicular (90 degrees off every bin).
+  // The tightened shape cap (#74) holds a ~90-degree-off sweep to tier 1 — a GREAT
+  // should require actually tracing the ribbon — and reports the gesture issue slot.
   const flow = note({ kind: "flow", flowShape: [0, 0, 0, 0] });
   const gesture = withLatest(lineThroughCenter(Math.PI / 2, 40), NOTE_TIME + CUT_METRIC_WINDOW_MS);
   const judgement = judged(judgeGesture(flow, gesture));
 
-  assert.equal(judgement.result, "tier2");
+  assert.equal(judgement.result, "tier1");
   assert.equal(judgement.issue, "gesture");
 });
 
@@ -198,12 +199,13 @@ check("a lone flow anchor (no shape) judges motion only", () => {
 
 check("flow shape match accounts for the ribbon's bend, not just one heading", () => {
   // Ribbon bends hard across its bins (right -> down-left). A straight rightward sweep
-  // matches only the first bin, so the whole-shape cap still holds it below tier 3 —
-  // proving the metric reads the bend, not a single heading.
+  // matches only the first bin (~84 degrees RMS error), so the whole-shape cap holds
+  // it below tier 3 — proving the metric reads the bend, not a single heading. Under
+  // the tightened tiers (#74) that error lands in tier 1.
   const curved = note({ kind: "flow", flowShape: [0, Math.PI / 4, Math.PI / 2, (3 * Math.PI) / 4] });
   const straight = withLatest(lineThroughCenter(0, 40), NOTE_TIME + CUT_METRIC_WINDOW_MS);
 
-  assert.equal(judged(judgeGesture(curved, straight)).result, "tier2");
+  assert.equal(judged(judgeGesture(curved, straight)).result, "tier1");
 });
 
 check("best sub-gesture is selected when another motion shares the metric window", () => {

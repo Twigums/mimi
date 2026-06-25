@@ -4,14 +4,15 @@
   "private": true,
   "scripts": {
     "setup": "npm install && stack build --system-ghc",
-    "test": "npm run test:judgement",
+    "test": "npm run test:judgement && npm run test:leniency",
     "setup:dev": "npm run setup && git config core.hooksPath .githooks",
     "build": "[ -f .env ] && . ./.env; stack exec --system-ghc site -- build",
     "rebuild": "[ -f .env ] && . ./.env; stack exec --system-ghc site -- rebuild",
     "watch": "[ -f .env ] && . ./.env; stack exec --system-ghc site -- watch",
     "rebuild:pages": "[ -f .env ] && . ./.env; stack exec --system-ghc site -- rebuild --path /mimi",
     "convert:osu": "npx esbuild src/tools/osu2mimi.ts --bundle --platform=node --outfile=/tmp/osu2mimi.js --log-level=silent && node /tmp/osu2mimi.js",
-    "test:judgement": "npx esbuild test/judgement.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/mimi-judgement.test.cjs --log-level=silent && node /tmp/mimi-judgement.test.cjs"
+    "test:judgement": "npx esbuild test/judgement.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/mimi-judgement.test.cjs --log-level=silent && node /tmp/mimi-judgement.test.cjs",
+    "test:leniency": "npx esbuild test/leniency.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/mimi-leniency.test.cjs --log-level=silent && node /tmp/mimi-leniency.test.cjs"
   },
   "dependencies": {
     "react": "^18.3.1",
