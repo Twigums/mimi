@@ -23,6 +23,7 @@
   --rp-grade-b:   var(--color-grade-b-day);
   --rp-teal:      var(--color-teal-day);
   --rp-purple:    var(--color-purple-day);
+  --rp-record:    #d6418a;
 
   position: absolute;
   inset: 0;
@@ -57,6 +58,7 @@ html.theme-dark .results-overlay {
   --rp-grade-b:   var(--color-grade-b);
   --rp-teal:      var(--miku-teal);
   --rp-purple:    var(--color-purple-night);
+  --rp-record:    #ff7ac0;
 }
 
 @keyframes results-fade-in {
@@ -194,6 +196,10 @@ html.theme-dark .results-overlay {
   &--fullCombo { color: var(--rp-good); }
   &--allPerfect {
     color: var(--rp-perfect);
+    text-shadow: 0 0 12px color-mix(in srgb, currentColor 55%, transparent);
+  }
+  &--record {
+    color: var(--rp-record);
     text-shadow: 0 0 12px color-mix(in srgb, currentColor 55%, transparent);
   }
 }

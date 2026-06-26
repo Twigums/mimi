@@ -251,6 +251,7 @@ export function GameSurface({ onReady, returnHref, onTryAgain }: Props) {
             returnHref={returnHref}
             onTryAgain={handleTryAgain}
             songName={displayName}
+            songId={songInfo.name}
             artist={displayAuthor}
             difficulty={difficulty}
             level={level}

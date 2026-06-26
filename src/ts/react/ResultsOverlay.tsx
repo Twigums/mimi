@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLang } from "./hooks/useLang";
 import { computeGrade, computeAccuracy, JUDGEMENT_LABEL } from "../game/grade";
 import { TIER1_MS } from "../game/judgement";
 import { shareResult } from "../song/share";
 import { withPath } from "../core/sitePath";
+import { commitPersonalBest, type PersonalBest } from "../game/personalBest";
 import type { GameStats, IssueReason, NoteKind } from "../game/engine";
 import type { Grade } from "../game/grade";
 
@@ -47,7 +48,7 @@ const LABELS_EN = {
   timing: "Timing", early: "early", late: "late",
   tendEarly: "Tends early", tendLate: "Tends late",
   to: "to", fullCombo: "Full Mimi", allPerfect: "All Mimi",
-  hoverFilter: "hover to filter",
+  hoverFilter: "hover to filter", best: "Best", newRecord: "New Record!",
   advancedDetails: "Advanced Details", basicDetails: "Basic Details",
   share: "Share", copied: "Copied!", failed: "Failed", tryAgain: "Try Again", back: "Back",
 };
@@ -58,7 +59,7 @@ const LABELS_JP = {
   timing: "タイミング", early: "早", late: "遅",
   tendEarly: "早め", tendLate: "遅め",
   to: "まで", fullCombo: "フルミミ", allPerfect: "オールミミ",
-  hoverFilter: "ホバーで絞り込み",
+  hoverFilter: "ホバーで絞り込み", best: "ベスト", newRecord: "自己ベスト更新！",
   advancedDetails: "詳細表示", basicDetails: "簡易表示",
   share: "シェア", copied: "コピー済み！", failed: "失敗", tryAgain: "やり直す", back: "戻る",
 };
@@ -272,13 +273,16 @@ interface Props {
   returnHref: string;
   onTryAgain: () => void;
   songName: string;
+  // Language-stable English song name; with `difficulty` and the chart hash it
+  // keys this chart's localStorage personal best. Empty disables PB tracking.
+  songId: string;
   artist: string;
   difficulty: string;
   level: number | null;
   bpm: number | null;
 }
 
-export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, artist, difficulty, level, bpm }: Props) {
+export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, songId, artist, difficulty, level, bpm }: Props) {
   const lang = useLang();
   const [shareStatus, setShareStatus] = useState<"idle" | "copied" | "failed">("idle");
   const [focus, setFocus] = useState<Focus>(null);
@@ -286,6 +290,25 @@ export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, artist
   // cross-filtering breakdown, "Basic Details" returns here.
   const [view, setView] = useState<"pie" | "detailed">("pie");
 
+  // Personal best (issue #72). Commit this run against localStorage exactly once on
+  // mount (guarded so it never double-writes), then surface the prior best and a
+  // "New Record!" flag. A run with no judged notes is ignored. The chart hash in
+  // stats invalidates a best left over from before a chart edit.
+  const [pb, setPb] = useState<{ previous: PersonalBest | null; isRecord: boolean } | null>(null);
+  const committed = useRef(false);
+  useEffect(() => {
+    if (committed.current || !songId || stats.total === 0) return;
+    committed.current = true;
+    setPb(commitPersonalBest(songId, difficulty, {
+      score: stats.score,
+      accuracy: computeAccuracy(stats),
+      grade: computeGrade(stats),
+      maxCombo: stats.maxCombo,
+      hash: stats.chartHash,
+    }));
+  }, [songId, difficulty, stats]);
+
+  // Enter retries, Escape returns — the buttons are right there, just wire keys.
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
       if (e.key === "Enter") { e.preventDefault(); onTryAgain(); }
@@ -407,6 +430,9 @@ export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, artist
               {`${((nextStep.min - accuracy) * 100).toFixed(2)}% ${labels.to} ${nextStep.grade}`}
             </div>
           )}
+          {pb?.isRecord && (
+            <div className="results-badge results-badge--record">{labels.newRecord}</div>
+          )}
           {badgeKey && (
             <div className={`results-badge results-badge--${badgeKey}`}>{labels[badgeKey]}</div>
           )}
@@ -419,6 +445,14 @@ export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, artist
               <span className="results-stat__label">{labels.maxCombo}</span>
               <span className="results-stat__value">{stats.maxCombo}x</span>
             </div>
+            {pb && (
+              <div className="results-stat">
+                <span className="results-stat__label">{labels.best}</span>
+                <span className="results-stat__value">
+                  {Math.max(stats.score, pb.previous?.score ?? 0)}
+                </span>
+              </div>
+            )}
           </div>
         </div>
         <div className="results-right">
