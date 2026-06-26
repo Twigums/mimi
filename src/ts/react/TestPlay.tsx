@@ -81,7 +81,7 @@ export const TestPlay = forwardRef<TestPlayHandle, Props>(
         logicalW,
         logicalH,
         hitSoundUrl: withPath("/audio/snare.mp3"),
-        onScore:         () => {},
+        onAccuracy:      () => {},
         onComboChange:   () => {},
         onPlayingChange: () => {},
         onFeedback: (result, x, y) => {

@@ -250,6 +250,34 @@ html.theme-dark .results-overlay {
   color: var(--rp-ink);
 }
 
+// Best accuracy, tucked just under the live accuracy. The delta reads as a gain
+// when the run beats the prior best, else how far it still has "to go".
+.results-accuracy-best {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  font-variant-numeric: tabular-nums;
+
+  &__label {
+    font-size: 0.6rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--rp-ink-dim);
+  }
+
+  &__value {
+    font-size: 0.85rem;
+    font-weight: bold;
+    color: var(--rp-ink-soft);
+  }
+
+  &__hintvalue {
+    font-size: 0.7rem;
+    font-weight: bold;
+    color: var(--rp-ink-dim);
+  }
+}
+
 .results-next {
   font-size: 0.8rem;
   letter-spacing: 0.05em;
@@ -332,11 +360,12 @@ html.theme-dark .results-overlay {
 
 .results-grade {
   position: relative;
-  font-size: 5rem;
+  font-size: 8rem;
   font-family: var(--font-display);
   font-weight: bold;
   line-height: 1;
   letter-spacing: -0.02em;
+  user-select: none;
 
   &::before {
     content: "";
@@ -395,6 +424,11 @@ html.theme-dark .results-overlay {
   align-items: baseline;
   width: 100%;
   gap: 2rem;
+
+  // the "best" line tucked under a stat — pulled tight to read as its subtitle
+  &--hint {
+    margin-top: -0.35rem;
+  }
 
   &__label {
     font-size: 0.84rem;
