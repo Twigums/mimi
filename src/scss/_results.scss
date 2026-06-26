@@ -224,10 +224,21 @@ html.theme-dark .results-overlay {
 
   // Desaturated difficulty hues — one notch muted from the difficulty-button
   // swatches so the thread stays quiet context, never a second focal colour.
-  &--easy { --rp-diff: #5e9c63; }
-  &--medium { --rp-diff: #c4a02e; }
-  &--hard { --rp-diff: #c25a55; }
-  &--expert { --rp-diff: #8a5ba0; }
+  &--easy {
+    --rp-diff: #5e9c63;
+  }
+
+  &--medium {
+    --rp-diff: #c4a02e;
+  }
+
+  &--hard {
+    --rp-diff: #c25a55;
+  }
+
+  &--expert {
+    --rp-diff: #8a5ba0;
+  }
 }
 
 // grade on left, analytics on right
@@ -551,6 +562,8 @@ html.theme-dark .results-overlay {
 
   &__meta {
     display: flex;
+    justify-content: space-between;
+    align-items: center;
     flex-wrap: wrap;
     gap: 0.2rem 1rem;
     font-size: 0.74rem;
