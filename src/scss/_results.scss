@@ -270,6 +270,12 @@ html.theme-dark .results-overlay {
     font-weight: bold;
     color: var(--rp-ink-soft);
   }
+
+  &__hintvalue {
+    font-size: 0.7rem;
+    font-weight: bold;
+    color: var(--rp-ink-dim);
+  }
 }
 
 .results-next {
@@ -354,11 +360,12 @@ html.theme-dark .results-overlay {
 
 .results-grade {
   position: relative;
-  font-size: 5rem;
+  font-size: 8rem;
   font-family: var(--font-display);
   font-weight: bold;
   line-height: 1;
   letter-spacing: -0.02em;
+  user-select: none;
 
   &::before {
     content: "";
