@@ -425,7 +425,7 @@ export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, songId
 
   return (
     <div className="results-overlay">
-      <div className="results-panel">
+      <div className={`results-panel${difficulty ? ` results-panel--${difficulty.toLowerCase()}` : ""}`}>
         <div className="results-head">
           <div className="results-songhead">
             <span className="results-songhead__name">{songName}</span>
@@ -493,35 +493,6 @@ export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, songId
               </div>
             ) : (
               <>
-                <div className="results-chart">
-                  <div className="results-chart__meta">
-                    {difficultyName && (
-                      <span className="results-chart__stat results-chart__diff">
-                        <b>{difficultyName}</b>
-                        {level != null && <span className="results-chart__level"> {labels.level} {level}</span>}
-                      </span>
-                    )}
-                    {bpm != null && (
-                      <span className="results-chart__stat">
-                        {labels.bpm} <b>{bpm}</b>
-                      </span>
-                    )}
-                  </div>
-                  <div className="results-notes">
-                    {NOTE_ORDER.map(note => (
-                      <span
-                        key={note}
-                        className={`results-note results-note--${note}${noteCellState(note)}`}
-                        onPointerEnter={() => setFocus({ dim: "note", note })}
-                        onPointerLeave={() => setFocus(null)}
-                      >
-                        <span className="results-note__kind">{noteLabels[note]}</span>
-                        <span className="results-note__count">{stats.noteCounts[note]}</span>
-                      </span>
-                    ))}
-                  </div>
-                </div>
-
                 <div className="results-judgement">
                   <span className="results-section__label">{labels.judgement}</span>
                   <div className="results-breakdown">
@@ -574,11 +545,41 @@ export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, songId
                 </div>
 
                 <TimingHistogram offsets={acceptedHits.map(hit => hit.offsetMs)} labels={labels} />
+
+                <div className="results-chart">
+                  <div className="results-chart__meta">
+                    {difficultyName && (
+                      <span className="results-chart__stat results-chart__diff">
+                        <b>{difficultyName}</b>
+                        {level != null && <span className="results-chart__level"> {labels.level} {level}</span>}
+                      </span>
+                    )}
+                    {bpm != null && (
+                      <span className="results-chart__stat">
+                        {labels.bpm} <b>{bpm}</b>
+                      </span>
+                    )}
+                  </div>
+                  <div className="results-notes">
+                    {NOTE_ORDER.map(note => (
+                      <span
+                        key={note}
+                        className={`results-note results-note--${note}${noteCellState(note)}`}
+                        onPointerEnter={() => setFocus({ dim: "note", note })}
+                        onPointerLeave={() => setFocus(null)}
+                      >
+                        <span className="results-note__kind">{noteLabels[note]}</span>
+                        <span className="results-note__count">{stats.noteCounts[note]}</span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
               </>
             )}
           </div>
         </div>
         <div className="results-actions">
+          <a className="results-btn results-btn--back" href={returnHref}>{labels.back}</a>
           <button
             className={`results-btn results-btn--share results-btn--share-${shareStatus}`}
             onClick={handleShare}
@@ -586,7 +587,6 @@ export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, songId
             {shareLabel}
           </button>
           <button className="results-btn results-btn--try-again" onClick={onTryAgain}>{labels.tryAgain}</button>
-          <a className="results-btn results-btn--back" href={returnHref}>{labels.back}</a>
         </div>
       </div>
     </div>
