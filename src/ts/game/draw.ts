@@ -253,7 +253,7 @@ export function drawLyricNote(
   holding = false,
   pulse = 1,
 ): void {
-  if (!note.lyricChar) return;
+  if (note.lyricChar == null) return;
 
   const cx = note.x * scale;
   const cy = note.y * scale;
