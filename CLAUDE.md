@@ -33,6 +33,10 @@ npm run watch
 # Rebuild with sub-path (e.g. for GitHub Pages); also accepts --path /sub-path flag
 SITE_PATH=/mimi npm run rebuild
 # or: npm run rebuild:pages
+
+# Absolute origin for sitemap.xml URLs; defaults to http://localhost when unset.
+# CI sets it to the GitHub Pages host (see .github/workflows/build-and-generate.yml).
+SITE_ORIGIN=https://twigums.github.io SITE_PATH=/mimi npm run rebuild
 ```
 
 ### Haskell
@@ -50,11 +54,12 @@ stack build --system-ghc
 
 | Module | Purpose |
 |--------|---------|
-| `src/Config.hs` | Site-wide constants: `siteRoot`, `templateDir`, `tabPaths`, `textaliveToken` |
+| `src/Config.hs` | Site-wide constants: `templateDir`, `hakyllConfig`, `textaliveToken` |
 | `src/Compilers.hs` | `sassCompiler` (npx sass) and `tsCompiler` (npx esbuild) |
 | `src/ChartCompiler.hs` | `chartCompiler` — compiles `.mimi` chart files into `Note[]` JSON; an `auto` (or empty) `degrees` field compiles with no `directionPinned`, a numeric value emits `"directionPinned": true`; a `break` line sets `"newCombo": true` on the next note (flow phrase boundary) |
 | `src/StoryCompiler.hs` | `storyCompiler` — compiles `.story` storyboard files into JSON arrays of highlight/move/lyric entries |
-| `src/Context.hs` | `postCtx` — adds `root` and `date` fields to Hakyll context |
+
+`site.hs` also generates `sitemap.xml`: its `sitemapLocs` helper emits one absolute `<loc>` per (song, available difficulty) as `<origin><sitePath>/<songId>/?d=<difficulty>` (e.g. `https://twigums.github.io/mimi/kotaete/?d=hard`), plus the site root. Origin comes from `SITE_ORIGIN` (default `http://localhost`); info/tutorial are embedded into the home page, not standalone pages, so they are excluded.
 
 ### Content Structure
 

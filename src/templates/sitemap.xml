@@ -8,14 +8,13 @@
   xmlns:video = "http://www.google.com/schemas/sitemap-video/1.1"
 >
   <url>
-    <loc>$root$$path$</loc>
+    <loc>$root$</loc>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>
-$for(pages)$
+$for(entries)$
   <url>
-    <loc>$root$$path$$url$</loc>
-    <lastmod>$if(updated)$$updated$$else$$if(date)$$date$$endif$$endif$</lastmod>
+    <loc>$loc$</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>

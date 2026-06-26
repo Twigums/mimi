@@ -12,8 +12,7 @@ import Hakyll
 import ChartCompiler  (chartCompiler)
 import StoryCompiler  (storyCompiler)
 import Compilers      (sassCompiler, tsCompiler)
-import Config        (hakyllConfig, siteRoot, tabPaths, templateDir, textaliveToken)
-import Context       (postCtx)
+import Config        (hakyllConfig, templateDir, textaliveToken)
 
 
 --------------------------------------------------------------------------------
@@ -54,6 +53,13 @@ normalizeSitePath path =
     let stripped = dropWhile (== '/') path
         trimmed  = dropWhileEnd (== '/') stripped
     in "/" ++ trimmed
+
+-- Origin (scheme://host) for absolute sitemap URLs, implied by the build
+-- environment via SITE_ORIGIN (set to the GitHub Pages host in CI). Local
+-- builds leave it unset and fall back to http://localhost.
+normalizeOrigin :: String -> String
+normalizeOrigin "" = "http://localhost"
+normalizeOrigin s  = dropWhileEnd (== '/') s
 
 --------------------------------------------------------------------------------
 
@@ -274,6 +280,24 @@ buildManifest sitePath = do
 
         return $ "{\"songs\":[" ++ intercalate "," entries ++ "]}"
 
+-- Absolute sitemap URLs: one per (song, available difficulty), e.g.
+-- https://twigums.github.io/mimi/kotaete/?d=hard. A song needs a tab page and
+-- at least one .mimi to appear (same gate as buildManifest). Info/tutorial are
+-- embedded into the home page, not standalone pages, so they are excluded.
+sitemapLocs :: String -> IO [String]
+sitemapLocs base = do
+    let songsDir = "src/songs"
+    exists <- doesDirectoryExist songsDir
+    if not exists then return [] else do
+        dirs     <- listDirectory songsDir
+        songDirs <- filterM (doesDirectoryExist . (songsDir </>)) dirs
+        fmap concat $ forM songDirs $ \songId -> do
+            let tabPath = "src/tabs/songs" </> songId <.> "md"
+            tabExists <- doesFileExist tabPath
+            if not tabExists then return [] else do
+                avail <- filterM (\d -> doesFileExist $ songsDir </> songId </> d ++ ".mimi") difficultyIds
+                return [ base ++ "/" ++ songId ++ "/?d=" ++ d | d <- avail ]
+
 --------------------------------------------------------------------------------
 
 main :: IO ()
@@ -282,6 +306,8 @@ main = do
     let (pathArg, remainingArgs) = extractSitePath args
     pathEnv        <- fromMaybe "" <$> lookupEnv "SITE_PATH"
     let sitePath = normalizeSitePath (if null pathArg then pathEnv else pathArg)
+    originEnv      <- fromMaybe "" <$> lookupEnv "SITE_ORIGIN"
+    let origin = normalizeOrigin originEnv
     host           <- lookupEnv "PREVIEW_HOST"
     let baseCfg = case host of
                     Just h  -> hakyllConfig { previewHost = h }
@@ -289,10 +315,10 @@ main = do
         cfg = if null sitePath
                 then baseCfg
                 else baseCfg { destinationDirectory = "docs" ++ sitePath }
-    withArgs remainingArgs $ hakyllWith cfg (rules sitePath)
+    withArgs remainingArgs $ hakyllWith cfg (rules sitePath origin)
 
-rules :: String -> Rules ()
-rules sitePath = do
+rules :: String -> String -> Rules ()
+rules sitePath origin = do
     let baseCtx = constField "path" sitePath <> defaultContext
 
     match (makePattern templateDir "*") $ compile templateBodyCompiler
@@ -392,10 +418,11 @@ rules sitePath = do
     create ["sitemap.xml"] $ do
         route idRoute
         compile $ do
-            pages <- loadAll (fromList $ map (makeIdentifier "") tabPaths)
-            let sitemapCtx =
-                    constField "root" siteRoot <>
-                    constField "path" sitePath <>
-                    listField "pages" postCtx (return pages)
+            let base = origin ++ sitePath
+            locs  <- unsafeCompiler $ sitemapLocs base
+            items <- mapM makeItem locs
+            let entryCtx   = field "loc" (return . itemBody)
+                sitemapCtx = constField "root" (base ++ "/")
+                          <> listField "entries" entryCtx (return items)
             makeItem ""
                 >>= loadAndApplyTemplate (makeIdentifier templateDir "sitemap.xml") sitemapCtx
