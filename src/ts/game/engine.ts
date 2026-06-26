@@ -3,6 +3,7 @@ import { drawArrow, drawLyricNote, drawFireworks, drawFlowRibbon } from "./draw"
 import { arToMs, loadAr, loadHitsoundVolume, subscribeHitsoundVolume, volToFactor, loadHiddenMod, subscribeHiddenMod } from "../core/settings";
 import { createCursorRenderer, type CursorRenderer } from "./cursor";
 import { computeLyricHolds, noteEndMs, populateLyricChars } from "./lyrics";
+import { hashChart } from "./personalBest";
 import {
   CUT_METRIC_WINDOW_MS,
   FLOW_SHAPE_BINS,
@@ -86,6 +87,9 @@ export interface GameStats {
   // Total notes of each kind in the chart (independent of how they were judged),
   // surfaced as chart composition in the results screen.
   noteCounts: Record<NoteKind, number>;
+  // Content hash of the live chart (independent of the run), so the results screen
+  // can key personal-best tracking to this exact note set (see personalBest.ts).
+  chartHash: string;
 }
 
 export interface SpawnSpec {
@@ -646,6 +650,7 @@ export function createGame(deps: GameDeps): GameHandle {
         maxCombo,
         hits:    hitDetails.slice(),
         noteCounts,
+        chartHash: hashChart(notes),
       };
     },
 

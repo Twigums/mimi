@@ -582,7 +582,7 @@ function buildHoldJudgement(note: JudgementNote, samples: PointerSample[], holdM
     : 0;
   // Reuse the shared issue priority (timing -> contact -> direction -> gesture). The
   // held fraction is the `gesture` slot; lyrics have no direction.
-  const issue = issueFor(result, timingCap, contactCap, "tier3", holdCap, "tier3");
+  const issue = issueFor(result, timingCap, contactCap, "tier3", holdCap, "tier3", "tier3");
 
   return {
     judgement: {
