@@ -32,6 +32,25 @@ readDouble name s = case reads (trim s) of
     [(v, "")] -> Right v
     _         -> Left $ "Invalid number for '" ++ name ++ "': " ++ s
 
+-- The optional 6th lyric field holds whitespace-separated tokens: `span=<int>`
+-- (auto-take that many TextAlive chars into one note), `src=<ms>` (source the funnel
+-- character from the TextAlive char at that timestamp instead of the note's own time),
+-- and/or a literal character override string. Returns (lyricChar, lyricSpan, lyricSrcMs).
+parseLyricField :: String -> Either String (Maybe String, Maybe Int, Maybe Double)
+parseLyricField raw = go (words (trim raw)) (Nothing, Nothing, Nothing)
+  where
+    go [] acc = Right acc
+    go (t:ts) (mc, ms, mt)
+        | "span=" `isPrefixOf` map toLower t =
+            case reads (drop 5 t) of
+                [(n, "")] | n > 0 -> go ts (mc, Just (n :: Int), mt)
+                _                 -> Left $ "Invalid span (need positive integer): " ++ t
+        | "src=" `isPrefixOf` map toLower t =
+            case reads (drop 4 t) of
+                [(d, "")] -> go ts (mc, ms, Just (d :: Double))
+                _         -> Left $ "Invalid src (need a timestamp in ms): " ++ t
+        | otherwise = go ts (Just (maybe t (\c -> c ++ " " ++ t) mc), ms, mt)
+
 data NoteEntry = NoteEntry
     { neKind            :: String
     , neTimeMs          :: Double
@@ -41,6 +60,8 @@ data NoteEntry = NoteEntry
     , neDirectionPinned :: Bool
     , neNewCombo        :: Bool
     , neLyricChar       :: Maybe String
+    , neLyricSpan       :: Maybe Int
+    , neLyricSrcTime    :: Maybe Double
     }
 
 parseNote :: (Double -> Double) -> String -> Either String NoteEntry
@@ -50,10 +71,11 @@ parseNote toMs line =
         [k, t, d, x, y, c] -> go k t d x y (Just c)
         _                   -> Left $ "Expected 5 or 6 comma-separated fields: " ++ line
   where
-    go k t d x y mChar = do
+    go k t d x y mLyric = do
         t'  <- readDouble "time" t
         nx  <- readDouble "x"    x
         ny  <- readDouble "y"    y
+        (mChar, mSpan, mSrcTime) <- maybe (Right (Nothing, Nothing, Nothing)) parseLyricField mLyric
         -- "auto" (or an empty field) means "no authored direction": flow anchors then
         -- derive it from the ribbon tangent. A numeric value pins the direction.
         (radians, pinned) <- case map toLower (trim d) of
@@ -72,7 +94,7 @@ parseNote toMs line =
                 _       -> map toLower k
         let timeMs  = toMs t'
         -- newCombo is set later by `parseEntries` when a `break` precedes this note.
-        Right $ NoteEntry kind timeMs nx ny radians pinned False mChar
+        Right $ NoteEntry kind timeMs nx ny radians pinned False mChar mSpan mSrcTime
 
 -- Fold the data lines into notes, treating a `break` line as a phrase boundary: it
 -- sets newCombo on the next note so the engine starts a fresh flow phrase there.
@@ -109,6 +131,8 @@ renderNote n =
     (if neDirectionPinned n then ", \"directionPinned\": true" else "") ++
     (if neNewCombo n then ", \"newCombo\": true" else "") ++
     maybe "" (\c -> ", \"lyricChar\": \"" ++ c ++ "\"") (neLyricChar n) ++
+    maybe "" (\sp -> ", \"lyricSpan\": " ++ show sp) (neLyricSpan n) ++
+    maybe "" (\st -> ", \"lyricSrcTime\": " ++ showNum st) (neLyricSrcTime n) ++
     ", \"state\": \"pending\" }"
 
 compileChart :: String -> Either String String

@@ -20,7 +20,7 @@ export { MAX_POINTS, TIER1_POINTS, TIER2_POINTS, TIER3_POINTS } from "./judgemen
 export const LOGICAL_W = 800;
 export const LOGICAL_H = 600;
 
-const LYRIC_CHAR_MAX_DIST_MS = 80;
+export const LYRIC_CHAR_MAX_DIST_MS = 80;
 
 // How far the ribbon bows through each flow anchor, as a fraction of the shorter
 // adjacent chord. Higher = rounder curves (less kinking at the waypoint) at the cost
@@ -39,6 +39,8 @@ export interface Note {
   state: NoteState;
   hitResult?: HitResult;
   lyricChar?: string;
+  lyricSpan?: number;
+  lyricSrcTime?: number;
   directionPinned?: boolean;
   newCombo?: boolean;
   flowPrevIndex?: number;
@@ -93,12 +95,12 @@ export interface SpawnSpec {
   y: number;
   direction: number;
   lyricChar?: string;
+  lyricSpan?: number;
   flowPrevIndex?: number;
 }
 
 export interface GameHandle {
   setChart(notes: Note[]): void;
-  setCharLookup(findClosestChar: (timeMs: number) => { text: string; distMs: number } | null): void;
   reset(): void;
   start(): void;
   setPlaying(playing: boolean): void;
@@ -290,8 +292,6 @@ export function createGame(deps: GameDeps): GameHandle {
   let reportedCursorError = false;
   let debugDrawOnce = true;
 
-  let lyricCharLookup: ((timeMs: number) => { text: string; distMs: number } | null) | null = null;
-
   // After reset(), skip expiry until the song confirms it has rewound to the lead-in window,
   // preventing stale mid-song positions from triggering immediate misses.
   let skipExpiry = false;
@@ -306,21 +306,6 @@ export function createGame(deps: GameDeps): GameHandle {
       wallMs: performance.now(),
     });
     while (pointerSamples.length > 64) pointerSamples.shift();
-  };
-
-  const populateLyricChars = (): void => {
-    if (!lyricCharLookup) return;
-    for (const note of notes) {
-      if (note.kind !== "lyric") continue;
-      if (note.lyricChar !== undefined) continue;
-      const result = lyricCharLookup(note.time);
-      if (result && result.distMs <= LYRIC_CHAR_MAX_DIST_MS) {
-        note.lyricChar = result.text;
-      } else {
-        note.lyricChar = "";
-        console.warn(`[mimi] lyric note at ${note.time}ms: no vocal char within ${LYRIC_CHAR_MAX_DIST_MS}ms`);
-      }
-    }
   };
 
   // Flow anchors take their direction from the ribbon they trace. By default the
@@ -559,7 +544,7 @@ export function createGame(deps: GameDeps): GameHandle {
       if (dt < -TIER1_MS) continue;
       const appearProgress = clamp(1 - dt / approachMs, 0, 1);
       if (note.kind === "lyric") {
-        drawLyricNote(ctx, note, appearProgress, scale, hiddenMod);
+        drawLyricNote(ctx, note, appearProgress, scale);
       } else {
         drawArrow(ctx, note, appearProgress, scale, hiddenMod);
       }
@@ -579,12 +564,6 @@ export function createGame(deps: GameDeps): GameHandle {
       pendingStart = 0;
       debugDrawOnce = true;
       linkFlowPhrases();
-      populateLyricChars();
-    },
-
-    setCharLookup(findClosestChar): void {
-      lyricCharLookup = findClosestChar;
-      populateLyricChars();
     },
 
     reset(): void {
@@ -649,6 +628,7 @@ export function createGame(deps: GameDeps): GameHandle {
         direction: spec.direction,
         state: "pending",
         lyricChar: spec.lyricChar,
+        lyricSpan: spec.lyricSpan,
       };
       const index = notes.length;
       notes.push(note);

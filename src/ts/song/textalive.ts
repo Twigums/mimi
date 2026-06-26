@@ -8,11 +8,19 @@ export interface TextAlivePlayerOptions {
   mediaBannerPosition?: string;
 }
 
+export interface TextAliveWord {
+  firstChar: TextAliveChar | null;
+  lastChar: TextAliveChar | null;
+}
+
 export interface TextAliveChar {
   text: string;
   startTime: number;
   endTime: number;
   next: TextAliveChar | null;
+  // The word this character belongs to (TextAlive Phrase → Word → Char). Used to
+  // shine a whole word once all its mapped lyric notes are hit.
+  parent: TextAliveWord | null;
 }
 
 export interface TextAlivePhrase {
@@ -35,6 +43,23 @@ interface TextAliveTimer {
   position: number;
 }
 
+export interface TextAliveBeat {
+  startTime: number;
+  endTime: number;
+  // 0..1 progress through this beat at the given song position.
+  progress(time: number): number;
+}
+
+export interface TextAliveChorusSegment {
+  startTime: number;
+  endTime: number;
+}
+
+export interface TextAliveValenceArousal {
+  v: number;
+  a: number;
+}
+
 export interface TextAlivePlayer {
   timer: TextAliveTimer;
   video: TextAliveVideo | null;
@@ -47,6 +72,12 @@ export interface TextAlivePlayer {
   requestPause(): void;
   requestStop(): void;
   requestMediaSeek(ms: number): void;
+  // Song-map analysis accessors used by the reactive storyboard directives.
+  getVocalAmplitude(time: number): number;
+  getMaxVocalAmplitude(): number;
+  getValenceArousal(time: number): TextAliveValenceArousal;
+  findBeat(time: number): TextAliveBeat | null;
+  getChoruses(): TextAliveChorusSegment[];
 }
 
 interface TextAliveListener {

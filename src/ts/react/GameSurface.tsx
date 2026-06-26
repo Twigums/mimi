@@ -38,6 +38,7 @@ interface Props {
     setPlayerReady: () => void,
     setBreakSkipKind: (kind: BreakSkipKind | null) => void,
     setPreparing: () => void,
+    registerLyricOutcome: (fn: (result: HitResult, x: number, y: number) => void) => void,
   ) => void;
   returnHref: string;
   onTryAgain: () => void;
@@ -52,6 +53,7 @@ export function GameSurface({ onReady, returnHref, onTryAgain }: Props) {
   const fadeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const startRef = useRef<(() => void) | null>(null);
   const skipBreakRef = useRef<(() => void) | null>(null);
+  const lyricOutcomeRef = useRef<((result: HitResult, x: number, y: number) => void) | null>(null);
 
   const [score, setScore] = useState(0);
   const [combo, setCombo] = useState(0);
@@ -119,6 +121,9 @@ export function GameSurface({ onReady, returnHref, onTryAgain }: Props) {
         const id = ++_toastId;
         setFeedbacks(prev => [...prev, { id, result: res, x, y }]);
         setTimeout(() => setFeedbacks(prev => prev.filter(f => f.id !== id)), 700);
+        // Route to the storyboard so the displayed lyric mapped to this note fills
+        // (hit) or stays empty (miss). Non-lyric notes match nothing and no-op.
+        lyricOutcomeRef.current?.(res, x, y);
       },
     });
 
@@ -133,6 +138,7 @@ export function GameSurface({ onReady, returnHref, onTryAgain }: Props) {
       () => setPlayerReady(true),
       setBreakSkipKind,
       () => setPreparing(true),
+      (fn) => { lyricOutcomeRef.current = fn; },
     );
     return () => game.destroy();
   }, []);
@@ -182,6 +188,7 @@ export function GameSurface({ onReady, returnHref, onTryAgain }: Props) {
       <div className={`game-area${playing ? " playing" : ""}`} ref={gameAreaRef}>
         <div id="song-storyboard" className="song-storyboard" />
         <canvas className="game-canvas" ref={canvasRef} />
+        <div id="song-funnel" className="song-funnel" />
 
         {showStartPrompt && (
           <button

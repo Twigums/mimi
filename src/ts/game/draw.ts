@@ -224,14 +224,15 @@ export function drawArrow(
   ctx.restore();
 }
 
-// appearProgress: 0 = faint outline just appearing, 1 = fully visible at hit time
-// hidden: suppresses the lyric char (circle outline remains)
+// appearProgress: 0 = faint outline just appearing, 1 = fully visible at hit time.
+// The lyric character itself is delivered by the storyboard's DOM funnel (it flies
+// from the source lyric onto the note); the canvas draws only the dashed target
+// circle and the glyph's stroke outline so the note's position and text are legible.
 export function drawLyricNote(
   ctx: CanvasRenderingContext2D,
   note: Note,
   appearProgress: number,
   scale: number,
-  hidden = false,
 ): void {
   if (!note.lyricChar) return;
 
@@ -240,11 +241,9 @@ export function drawLyricNote(
   const r  = LYRIC_RADIUS * scale;
 
   const OUTLINE_SNAP = 0.12;
-  const FILL_START   = 0.62;
   const outlineAlpha = Math.min(appearProgress / OUTLINE_SNAP, 1);
-  const fillProgress = Math.max(0, (appearProgress - FILL_START) / (1 - FILL_START));
 
-  const { base, darkBase } = NOTE_STYLE.lyric.colors;
+  const { darkBase } = NOTE_STYLE.lyric.colors;
 
   const dotR = r * 0.62;
   ctx.save();
@@ -258,18 +257,17 @@ export function drawLyricNote(
   ctx.restore();
 
   ctx.save();
-  ctx.font = `bold ${(r * 0.9).toFixed(1)}px sans-serif`;
+  const baseSize = r * 0.9;
+  ctx.font = `bold ${baseSize.toFixed(1)}px sans-serif`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
 
-  if (!hidden && fillProgress > 0) {
-    ctx.save();
-    ctx.beginPath();
-    ctx.arc(cx, cy, fillProgress * r, 0, Math.PI * 2);
-    ctx.clip();
-    ctx.fillStyle = `rgba(${base}, 1.0)`;
-    ctx.fillText(note.lyricChar, cx, cy);
-    ctx.restore();
+  // Multi-char lyrics (e.g. a whole word or 自分) must fit inside the circle; shrink
+  // the font when the measured width exceeds the dot's usable span.
+  const maxWidth = dotR * 1.9;
+  const measured = ctx.measureText(note.lyricChar).width;
+  if (measured > maxWidth) {
+    ctx.font = `bold ${(baseSize * (maxWidth / measured)).toFixed(1)}px sans-serif`;
   }
 
   ctx.strokeStyle = `rgba(${darkBase}, ${0.9 * outlineAlpha})`;

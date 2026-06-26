@@ -1,38 +1,14 @@
-import type { GameHandle, GameStats, Note } from "../game/engine";
+import type { GameHandle, GameStats, HitResult, Note } from "../game/engine";
 import { arToMs, loadAr, loadVolume, subscribeVolume, loadMusicOffset, subscribeMusicOffset } from "../core/settings";
-import { createStoryboardRenderer, type StoryEntry } from "./storyboard";
-import type { TextAliveChar, TextAlivePlayer, TextAlivePlayerOptions, TextAliveVideo } from "./textalive";
+import { createStoryboardRenderer, type StoryEntry, type ReactiveFrame } from "./storyboard";
+import { matchLyrics, flattenChars, type ExcludeRange } from "./lyricMatch";
+import type { TextAlivePlayer, TextAlivePlayerOptions, TextAliveVideo } from "./textalive";
 
 const JUDGEMENT_WINDOW_MS      = 100;
 const GAP_SKIP_SAFETY_MS      = 120;
 const GAP_SKIP_MIN_BREAK_MS   = 3000;
 
 export type BreakSkipKind = "gap" | "finish";
-
-function charDist(c: TextAliveChar, timeMs: number): number {
-  if (timeMs >= c.startTime && timeMs <= c.endTime) return 0;
-  return Math.min(Math.abs(c.startTime - timeMs), Math.abs(c.endTime - timeMs));
-}
-
-function makeCharLookup(video: TextAliveVideo): (timeMs: number) => { text: string; distMs: number } | null {
-  const chars: TextAliveChar[] = [];
-  let phrase = video.firstPhrase;
-  while (phrase) {
-    let c = phrase.firstChar;
-    while (c) { chars.push(c); c = c.next; }
-    phrase = phrase.next;
-  }
-  if (chars.length === 0) return () => null;
-  return (timeMs: number) => {
-    let best = chars[0];
-    let bestDist = charDist(best, timeMs);
-    for (let i = 1; i < chars.length; i++) {
-      const dist = charDist(chars[i], timeMs);
-      if (dist < bestDist) { bestDist = dist; best = chars[i]; }
-    }
-    return { text: best.text, distMs: bestDist };
-  };
-}
 
 interface SongPageDeps {
   game: GameHandle;
@@ -48,6 +24,9 @@ interface SongPageHandle {
   stop(): void;
   start(): void;
   skipBreak(): void;
+  // Routed from the game's hit/miss feedback so the storyboard can fill (hit) or
+  // leave empty (miss) the displayed lyric mapped to that note.
+  onLyricOutcome(result: HitResult, x: number, y: number): void;
 }
 
 interface BreakSkipTarget {
@@ -75,7 +54,7 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPre
   const progressFill = document.getElementById("progress-fill")   as HTMLElement       | null;
   const storyboardEl = document.getElementById("song-storyboard") as HTMLElement       | null;
 
-  if (!progressFill) return { stop() { /* no-op */ }, start() { /* no-op */ }, skipBreak() { /* no-op */ } };
+  if (!progressFill) return { stop() { /* no-op */ }, start() { /* no-op */ }, skipBreak() { /* no-op */ }, onLyricOutcome() { /* no-op */ } };
 
   if (btnHudToggle && songHud) {
     btnHudToggle.addEventListener("click", (e) => {
@@ -87,7 +66,10 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPre
     });
   }
 
-  const storyboard = storyboardEl ? createStoryboardRenderer(storyboardEl) : null;
+  const funnelEl = document.getElementById("song-funnel") as HTMLElement | null;
+  const storyboard = storyboardEl ? createStoryboardRenderer(storyboardEl, funnelEl ?? storyboardEl) : null;
+  // Funnel timing tracks the approach rate so flights land by the note's hit time.
+  storyboard?.setApproachMs(arToMs(loadAr()));
 
   const loadingScreen = document.getElementById("loading-screen");
   const loadingBar    = document.getElementById("loading-bar-fill") as HTMLElement | null;
@@ -143,6 +125,68 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPre
   let breakSkipTarget: BreakSkipTarget | null = null;
   let publishedBreakSkipKind: BreakSkipKind | null = null;
   let reportedLoopError = false;
+
+  // Lyric matching is gated on three async inputs: the TextAlive video (chars),
+  // the chart (notes), and the story (exclude ranges). Once all are ready, run the
+  // matcher once (mutating note.lyricChar before the engine clones the notes), hand
+  // the char->note map to the storyboard, then set the chart.
+  let videoForMatch: TextAliveVideo | null = null;
+  let loadedNotes: Note[] | null = null;
+  let excludeRanges: ExcludeRange[] = [];
+  let storyPending = !!(storyboard && chartDir);
+  let chartApplied = false;
+
+  const tryApplyChart = (): void => {
+    if (chartApplied || !loadedNotes || storyPending) return;
+    // When the song has a TextAlive video, wait for it before applying the chart so
+    // lyric matching runs — otherwise the (fast) local chart/story fetches would set
+    // the chart first and the matcher (which needs the video chars) would be skipped.
+    // Playback can't start before the video is ready anyway, so this never stalls.
+    if (hasVideoIds && !videoForMatch) return;
+    if (videoForMatch) {
+      const { charToNote } = matchLyrics(flattenChars(videoForMatch), loadedNotes, excludeRanges);
+      storyboard?.setLyricMap(charToNote);
+    }
+    game.setChart(loadedNotes);
+    chartApplied = true;
+  };
+
+  // Reactive storyboard directives. `reactiveModes` and `hasPulse` come from the
+  // story file; the per-frame `ReactiveFrame` is computed from the TextAlive Player's
+  // song-map analysis (amplitude/valence-arousal/beat/choruses).
+  let reactiveModes = new Set<string>();
+  let hasPulse = false;
+  let maxAmplitude = 1;
+  let choruses: { startTime: number; endTime: number }[] = [];
+
+  const moodToColor = (v: number, a: number): string => {
+    const valence = (v + 1) / 2;
+    const arousal = (a + 1) / 2;
+    const r = (1.1 - valence) * 2;
+    const b = (0.85 - arousal) * 2;
+    const g = -0.5 * (Math.hypot(r, b) - 2);
+    const ch = (x: number): number => Math.round(Math.max(0, Math.min(1, x)) * 255);
+    return `rgb(${ch(r)}, ${ch(g)}, ${ch(b)})`;
+  };
+
+  const computeReactive = (songMs: number): ReactiveFrame | undefined => {
+    if (!player || (reactiveModes.size === 0 && !hasPulse)) return undefined;
+    const beat = player.findBeat(songMs);
+    const beatProgress = beat ? Math.max(0, Math.min(1, beat.progress(songMs))) : 0;
+    let ampScale = 1;
+    if (reactiveModes.has("amplitude")) {
+      const ratio = Math.max(0, Math.min(1, player.getVocalAmplitude(songMs) / maxAmplitude));
+      ampScale = 1 + 0.5 * ratio;
+    }
+    let moodColor: string | null = null;
+    if (reactiveModes.has("mood")) {
+      const va = player.getValenceArousal(songMs);
+      moodColor = moodToColor(va.v, va.a);
+    }
+    const chorus = reactiveModes.has("chorus")
+      && choruses.some(c => songMs >= c.startTime && songMs <= c.endTime);
+    return { beatProgress, ampScale, moodColor, chorus };
+  };
 
   let isPlaying = false;
   // Mirrors the engine's `skipExpiry`: after a play/restart request the player's
@@ -231,7 +275,11 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPre
       },
       onVideoReady(video) {
         storyboard?.setVideo(video);
-        game.setCharLookup(makeCharLookup(video));
+        videoForMatch = video;
+        tryApplyChart();
+        // Cache song-map analysis used by the reactive directives.
+        maxAmplitude = player?.getMaxVocalAmplitude() || 1;
+        choruses = player?.getChoruses() ?? [];
         songLengthMs = video.duration;
         if (player?.data.song) {
           const { name, artist } = player.data.song;
@@ -281,7 +329,8 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPre
       const notes = (await res.json() as Note[]).slice().sort((a, b) => a.time - b.time);
       noteTimes = notes.map(note => note.time);
       chartLoaded = true;
-      game.setChart(notes);
+      loadedNotes = notes;
+      tryApplyChart();
     } catch (err) {
       console.error("[mimi] chart load failed:", err);
     }
@@ -291,11 +340,23 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPre
     (async () => {
       try {
         const res = await fetch(`${chartDir}${difficulty}.story.json`);
-        if (!res.ok) return;
-        const entries = await res.json() as StoryEntry[];
-        storyboard.setStoryData(entries);
+        if (res.ok) {
+          const entries = await res.json() as StoryEntry[];
+          excludeRanges = entries
+            .filter((e): e is Extract<StoryEntry, { type: "exclude" }> => e.type === "exclude")
+            .map(e => ({ from: e.from, to: e.to }));
+          const reactiveEntry = entries.find((e): e is Extract<StoryEntry, { type: "reactive" }> => e.type === "reactive");
+          reactiveModes = new Set(reactiveEntry?.modes ?? []);
+          hasPulse = entries.some(e => (e.type === "move" || e.type === "lyric") && !!e.style?.pulse);
+          storyboard.setStoryData(entries);
+        }
       } catch (err) {
         console.error("[mimi] story load failed:", err);
+      } finally {
+        // Resolve the gate on every path (success, 404, error) so a missing or
+        // broken story never blocks the chart from being applied.
+        storyPending = false;
+        tryApplyChart();
       }
     })();
   }
@@ -373,7 +434,7 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPre
       const songMs = player?.timer.position ?? 0;
       if (songMs > 0) lastSongMs = songMs;
       game.tick(songMs - musicOffsetMs);
-      if (songMs > 0) storyboard?.update(songMs);
+      if (songMs > 0) storyboard?.update(songMs, computeReactive(songMs));
       setBreakSkipTarget(findBreakSkipTarget(songMs, songMs - musicOffsetMs));
 
       if (songLengthMs > 0) {
@@ -426,6 +487,9 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPre
       setBreakSkipTarget(null);
       player.requestMediaSeek(target.targetSongMs);
       if (target.kind === "finish") triggerFinish();
+    },
+    onLyricOutcome(result, x, y): void {
+      storyboard?.markLyricOutcome(x, y, result);
     },
   };
 }

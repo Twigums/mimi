@@ -104,6 +104,28 @@ html.theme-dark .song-page .bg-overlay::before {
   to   { filter: hue-rotate(360deg); }
 }
 
+// Storyboard directive effects (P1.5): one-shot entrance, continuous motion, exit.
+@keyframes sb-grow {
+  from { transform: scale(0.6); opacity: 0; }
+  to   { transform: scale(1);   opacity: 1; }
+}
+@keyframes sb-sway {
+  0%, 100% { transform: rotate(-3deg); }
+  50%      { transform: rotate(3deg); }
+}
+@keyframes sb-drift {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-8px); }
+}
+@keyframes sb-rotate {
+  from { transform: rotate(0deg); }
+  to   { transform: rotate(360deg); }
+}
+@keyframes sb-rise {
+  from { transform: translateY(0);     opacity: 1; }
+  to   { transform: translateY(-24px); opacity: 0; }
+}
+
 .song-storyboard {
   position: absolute;
   inset: 0;
@@ -169,6 +191,44 @@ html.theme-dark .song-page .bg-overlay::before {
         text-shadow: 0 0 10px currentColor;
         animation: technicolor-hue 0.5s linear infinite;
       }
+
+      // A lyric mapped to a note shows as a hollow outline until the note resolves;
+      // hitting it fills the glyph and lights it with the perfect-hit yellow, while
+      // a miss leaves it empty.
+      &.note-empty {
+        opacity: 0.6;
+        color: transparent;
+        -webkit-text-stroke: 1px var(--song-text-dim);
+      }
+
+      &.note-filled {
+        opacity: 1;
+        color: var(--color-perfect);
+        -webkit-text-stroke: 0;
+        text-shadow: 0 0 12px var(--color-perfect);
+        transition: opacity 0.2s ease, color 0.2s ease, text-shadow 0.2s ease;
+      }
+  }
+
+  // Directive effect layers (P1.5). Each owns one transform so entrance, motion, and
+  // per-char pulse/amplitude never fight; they inherit the vertical writing mode.
+  .sb-fx, .sb-enter { display: inline-block; }
+
+  .sb-in-grow      { animation: sb-grow 0.45s var(--motion-ease-bouncy, ease) both; }
+  .sb-motion-sway   { animation: sb-sway 2.4s ease-in-out infinite; }
+  .sb-motion-drift  { animation: sb-drift 2.8s ease-in-out infinite; }
+  .sb-motion-rotate { animation: sb-rotate 6s linear infinite; }
+  .sb-out-rise      { animation: sb-rise 0.3s ease both; }
+
+  // Reactive chorus emphasis (brightness only, so it never clashes with the per-char
+  // scale transforms applied inline).
+  &.sb-chorus .storyboard-char.active,
+  &.sb-chorus .storyboard-char.approach { filter: brightness(1.35); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sb-in-grow, .sb-motion-sway, .sb-motion-drift, .sb-motion-rotate, .sb-out-rise {
+      animation: none;
+    }
   }
 }
 
@@ -382,6 +442,26 @@ html.theme-dark .game-frame .frame-star {
     height: 100%;
     display: block;
     cursor: none;
+  }
+
+  // Funnel layer: lyric characters that fly from the storyboard onto the notes. Sits
+  // above the canvas (the storyboard itself is behind it) and never blocks pointers.
+  .song-funnel {
+    position: absolute;
+    inset: 0;
+    z-index: 1;
+    pointer-events: none;
+    overflow: hidden;
+    font-family: var(--font-display);
+
+    .sb-fly {
+      position: absolute;
+      transform: translate(-50%, -50%);
+      font-weight: bold;
+      color: #eafffb;
+      text-shadow: 0 0 8px var(--miku-teal, #39c5bb);
+      will-change: left, top, transform, opacity;
+    }
   }
 }
 

@@ -14,7 +14,7 @@ The game uses one ruleset for every difficulty. Difficulty comes from chart dens
 
 No ordinary note requires holding a mouse button or key. If a future note requires a press, it should be a distinct note type with its own visual language.
 
-All note types gradually appear as the song approaches their hit time. Cut and flow notes start as faint outlines and fill with color as the hit time approaches. Lyric notes show a dotted circle; the character stroke appears early and fills inward from a growing radial clip as the hit time approaches.
+All note types gradually appear as the song approaches their hit time. Cut and flow notes start as faint outlines and fill with color as the hit time approaches. Lyric notes show a dotted circle with the glyph's stroke outline; the coloured character is delivered by the storyboard funnel — during the approach each mapped character detaches from the displayed lyric it belongs to and flies onto the note, arriving by the hit time (multi-character notes funnel their characters in sequence).
 
 ## Note Eligibility
 
@@ -81,7 +81,9 @@ The ribbon between anchors is a smooth curve whose heading at each anchor is the
 
 Lyric notes use the same timing tiers and score weights. The player must move through the lyric interaction circle. Direction does not matter, but meaningful motion still matters; resting on the character should not earn a high result.
 
-Lyric notes display the Japanese character from the TextAlive lyrics closest to the note time, within +/- 80 ms unless the chart provides an explicit character override. If no vocal character is close enough, the note is hidden and a warning is logged before play.
+Lyric notes display the character(s) from the TextAlive lyrics matched to the note, within +/- 80 ms unless the chart provides an explicit override. Matching is **containment-first**: a note whose time falls inside a character's sung span sources that character and shares it, so several notes placed over one long-held character (for example か, が, やき all over 輝) all funnel from the same glyph. When no character contains the note time, the note falls back to the nearest *unclaimed* character and claims it, so notes that land between characters spread out instead of duplicating (自分 → 自 then 分, not 自 twice). A note's `span` field takes the source character plus the next consecutive characters into one note (for example a whole word), a literal override sets the displayed text directly, and `src=<ms>` pins the source character by timestamp when the note's own time doesn't line up with the desired character. Characters inside a `.story` exclude range are skipped by matching. If no vocal character is close enough, the note is hidden and a warning is logged before play.
+
+Lyric notes that are tied to a displayed storyboard lyric drive that lyric's appearance. The mapped characters detach from the shown lyric and funnel onto the note during its approach. A character renders as an empty outline until resolved: it fills with the perfect-hit yellow when its own note is hit, and the **entire TextAlive word** it belongs to — including any unmapped characters — shines once every note mapped into that word has been hit. Missing any of a word's notes leaves the word un-shone. Lyrics with no note mapped to them animate normally.
 
 ## Scoring
 
@@ -157,7 +159,11 @@ Each non-blank, non-comment line is one entry:
 |--------|---------|
 | `h, time1, time2` | Highlight the storyboard character whose time falls within `[time1, time2]` with the technicolor effect while the song position is also in that range |
 | `m, time, x, y` | Within the current phrase, move characters at time >= `time` into a separate vertical segment at logical coordinates `(x, y)` |
+| `x, time1, time2` | Exclude any TextAlive character whose `startTime` falls within `[time1, time2]` from lyric-note matching, so backing or unwanted lyrics are never claimed by a note |
 | `l, from, to, x, y, text[, char_time1, char_time2, ...]` | A self-contained manual lyric segment, independent of TextAlive: appears at `from` ms, fades out at `to` ms, positioned at logical `(x, y)`; `text` is the lyric string and each optional `char_time` is the ms when the next character activates |
+| `reactive: <modes>` | Header line enabling live song-map effects (space-separated `amplitude`, `mood`, `chorus`): amplitude scales the sung characters with vocal loudness, mood tints the lyrics by the song's valence/arousal, and chorus brightens lyrics during detected chorus sections |
+
+Both `m` and `l` accept optional trailing `key=value` style directives (all default-off): `color=#rrggbb`, `font=<display|handwriting>`, `scale=<multiplier>`, `in=<grow|fade>` / `out=<rise|fade>` entrance/exit, `motion=<sway|drift|rotate>`, `pulse=beat` (chars pulse on the beat), and on `l` the `autotime` flag (derive per-character timing from the TextAlive characters instead of a manual `char_time` list). On `l`, numeric trailing tokens remain `char_time`s; tokens with `=` or bare flags are style.
 
 Times are in milliseconds. `x` and `y` use the 800 x 600 logical play area.
 
