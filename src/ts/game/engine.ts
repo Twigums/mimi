@@ -1,5 +1,5 @@
 import { clamp } from "../core/utils";
-import { drawArrow, drawLyricNote, drawFireworks, drawFlowRibbon } from "./draw";
+import { drawArrow, drawLyricNote, drawFireworks, drawFlowRibbon, notePulseScale } from "./draw";
 import { arToMs, loadAr, loadHitsoundVolume, subscribeHitsoundVolume, volToFactor, loadHiddenMod, subscribeHiddenMod } from "../core/settings";
 import { createCursorRenderer, type CursorRenderer } from "./cursor";
 import { computeLyricHolds, noteEndMs, populateLyricChars } from "./lyrics";
@@ -572,11 +572,11 @@ export function createGame(deps: GameDeps): GameHandle {
         const holdProgress = holdMs > 0 ? clamp((songMs - note.time) / holdMs, 0, 1) : 0;
         const holding = holdMs > 0 && songMs >= note.time && songMs <= note.time + holdMs &&
           Math.hypot(pointer.x - note.x, pointer.y - note.y) <= LYRIC_HOLD_RADIUS;
-        drawLyricNote(ctx, note, appearProgress, scale, hiddenMod, holdProgress, holding);
+        drawLyricNote(ctx, note, appearProgress, scale, hiddenMod, holdProgress, holding, notePulseScale(dt));
       } else {
         if (dt < -TIER1_MS) continue;
         const appearProgress = clamp(1 - dt / approachMs, 0, 1);
-        drawArrow(ctx, note, appearProgress, scale, hiddenMod);
+        drawArrow(ctx, note, appearProgress, scale, hiddenMod, notePulseScale(dt));
       }
     }
     for (let i = animStart; i < animations.length; i++) {

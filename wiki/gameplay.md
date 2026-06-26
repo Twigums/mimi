@@ -14,7 +14,7 @@ The game uses one ruleset for every difficulty. Difficulty comes from chart dens
 
 No note requires holding a mouse button or key. The lyric hold is a *position* hold — keep the pointer inside the circle — not a button press. If a future note requires a press, it should be a distinct note type with its own visual language.
 
-All note types gradually appear as the song approaches their hit time. Cut and flow notes start as faint outlines and fill with color as the hit time approaches. Lyric notes show a dotted circle; the character stroke appears early and fills inward from a growing radial clip as the hit time approaches. While a lyric is being held, a progress ring sweeps around it, bright while the cursor is inside and dim while the hold lapses without it.
+All note types gradually appear as the song approaches their hit time. Cut and flow notes start as faint outlines and fill with color as the hit time approaches. Lyric notes show a dotted circle; the character stroke appears early and fills inward from a growing radial clip as the hit time approaches. Every note also gives a brief size swell that peaks right at its hit time, a subtle visual cue for the beat. While a lyric is being held, a progress ring sweeps around it, bright while the cursor is inside and dim while the hold lapses without it.
 
 ## Note Eligibility
 
