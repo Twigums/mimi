@@ -1746,33 +1746,34 @@ html.theme-dark .game-frame .frame-star {
   opacity: 0.75;
 }
 
-.score-display {
+.accuracy-display {
   position: absolute;
   bottom: 0.75rem;
   right: 1rem;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 0.15rem;
+  gap: 0;
   color: var(--song-text);
   pointer-events: none;
   text-shadow: var(--song-text-shadow);
   opacity: 0;
   transition: opacity 0.3s ease;
 }
-.score-display .score-label {
-  font-size: 0.75rem;
-  font-family: var(--font-display);
-  letter-spacing: 0.12em;
-  opacity: 0.75;
-  text-transform: uppercase;
-}
-.score-display .score-value {
+.accuracy-display .accuracy-value {
   font-size: 1.6rem;
   font-weight: bold;
   font-variant-numeric: tabular-nums;
+  line-height: 1;
 }
-.game-area.playing .score-display {
+.accuracy-display .accuracy-label {
+  font-size: 0.65rem;
+  font-family: var(--font-display);
+  letter-spacing: 0.12em;
+  opacity: 0.6;
+  text-transform: uppercase;
+}
+.game-area.playing .accuracy-display {
   opacity: 1;
 }
 
@@ -2251,6 +2252,29 @@ html.theme-dark .results-overlay {
   color: var(--rp-ink);
 }
 
+.results-accuracy-best {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+  font-variant-numeric: tabular-nums;
+}
+.results-accuracy-best__label {
+  font-size: 0.6rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--rp-ink-dim);
+}
+.results-accuracy-best__value {
+  font-size: 0.85rem;
+  font-weight: bold;
+  color: var(--rp-ink-soft);
+}
+.results-accuracy-best__hintvalue {
+  font-size: 0.7rem;
+  font-weight: bold;
+  color: var(--rp-ink-dim);
+}
+
 .results-next {
   font-size: 0.8rem;
   letter-spacing: 0.05em;
@@ -2326,11 +2350,12 @@ html.theme-dark .results-overlay {
 
 .results-grade {
   position: relative;
-  font-size: 5rem;
+  font-size: 8rem;
   font-family: var(--font-display);
   font-weight: bold;
   line-height: 1;
   letter-spacing: -0.02em;
+  user-select: none;
 }
 .results-grade::before {
   content: "";
@@ -2376,6 +2401,9 @@ html.theme-dark .results-overlay {
   align-items: baseline;
   width: 100%;
   gap: 2rem;
+}
+.results-stat--hint {
+  margin-top: -0.35rem;
 }
 .results-stat__label {
   font-size: 0.84rem;
