@@ -6,6 +6,19 @@ export const NOTE_RADIUS  = 52;
 // Lyric notes are held targets, drawn as a larger circle than the old brush dot.
 export const LYRIC_RADIUS = 48;
 
+// Notes give a brief size swell centered on their hit time as a timing cue.
+const PULSE_WINDOW_MS = 110;
+const PULSE_AMOUNT    = 0.14;
+
+// Size multiplier for a note `dt` ms from its hit time (dt = note.time - songMs):
+// peaks at (1 + PULSE_AMOUNT) when dt = 0 and eases back to 1 outside the window.
+export function notePulseScale(dt: number): number {
+  const t = 1 - Math.min(Math.abs(dt), PULSE_WINDOW_MS) / PULSE_WINDOW_MS;
+  // Smoothstep for a soft swell rather than a linear spike.
+  const eased = t * t * (3 - 2 * t);
+  return 1 + PULSE_AMOUNT * eased;
+}
+
 interface NoteColors {
   base: string;
   darkBase: string;
@@ -159,10 +172,11 @@ export function drawArrow(
   appearProgress: number,
   scale: number,
   hidden = false,
+  pulse = 1,
 ): void {
   const cx = note.x * scale;
   const cy = note.y * scale;
-  const r  = NOTE_RADIUS * scale;
+  const r  = NOTE_RADIUS * scale * pulse;
 
   if (!note.kind) {
     console.error("[mimi] drawArrow: note has no kind", { note, appearProgress });
@@ -237,12 +251,13 @@ export function drawLyricNote(
   hidden = false,
   holdProgress = 0,
   holding = false,
+  pulse = 1,
 ): void {
   if (!note.lyricChar) return;
 
   const cx = note.x * scale;
   const cy = note.y * scale;
-  const r  = LYRIC_RADIUS * scale;
+  const r  = LYRIC_RADIUS * scale * pulse;
 
   const OUTLINE_SNAP = 0.12;
   const FILL_START   = 0.62;
