@@ -14,16 +14,16 @@
   --rp-ink-dim: rgba(28, 78, 87, 0.5);
   --rp-ink-faint: rgba(28, 78, 87, 0.34);
 
-  --rp-perfect:   var(--color-perfect-day);
-  --rp-good:      var(--color-good-day);
-  --rp-miss:      var(--color-miss-day);
-  --rp-late:      var(--color-late-day);
+  --rp-perfect: var(--color-perfect-day);
+  --rp-good: var(--color-good-day);
+  --rp-miss: var(--color-miss-day);
+  --rp-late: var(--color-late-day);
   --rp-grade-sss: var(--color-grade-sss-day);
-  --rp-grade-s:   var(--color-grade-s-day);
-  --rp-grade-b:   var(--color-grade-b-day);
-  --rp-teal:      var(--color-teal-day);
-  --rp-purple:    var(--color-purple-day);
-  --rp-record:    #d6418a;
+  --rp-grade-s: var(--color-grade-s-day);
+  --rp-grade-b: var(--color-grade-b-day);
+  --rp-teal: var(--color-teal-day);
+  --rp-purple: var(--color-purple-day);
+  --rp-record: #d6418a;
 
   position: absolute;
   inset: 0;
@@ -49,32 +49,54 @@ html.theme-dark .results-overlay {
   --rp-ink-dim: rgba(255, 255, 255, 0.52);
   --rp-ink-faint: rgba(255, 255, 255, 0.35);
 
-  --rp-perfect:   var(--color-perfect);
-  --rp-good:      var(--color-good);
-  --rp-miss:      var(--color-miss);
-  --rp-late:      var(--color-late);
+  --rp-perfect: var(--color-perfect);
+  --rp-good: var(--color-good);
+  --rp-miss: var(--color-miss);
+  --rp-late: var(--color-late);
   --rp-grade-sss: var(--color-grade-sss);
-  --rp-grade-s:   var(--color-grade-s);
-  --rp-grade-b:   var(--color-grade-b);
-  --rp-teal:      var(--miku-teal);
-  --rp-purple:    var(--color-purple-night);
-  --rp-record:    #ff7ac0;
+  --rp-grade-s: var(--color-grade-s);
+  --rp-grade-b: var(--color-grade-b);
+  --rp-teal: var(--miku-teal);
+  --rp-purple: var(--color-purple-night);
+  --rp-record: #ff7ac0;
 }
 
 @keyframes results-fade-in {
-  from { opacity: 0; }
-  to   { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
 
 @keyframes results-grade-in {
-  from { opacity: 0; transform: scale(1.5); }
-  60%  { opacity: 1; }
-  to   { opacity: 1; transform: scale(1); }
+  from {
+    opacity: 0;
+    transform: scale(1.5);
+  }
+
+  60% {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 @keyframes results-rise {
-  from { opacity: 0; transform: translateY(8px); }
-  to   { opacity: 1; transform: none; }
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }
 
 // Both miku loops start and end at an extreme (not centre), so a paused or
@@ -82,44 +104,97 @@ html.theme-dark .results-overlay {
 // pendulum rotating about Miku's centre: ease-in-out so it's fastest through
 // the centre of the swing and slowest at the extremes.
 @keyframes results-miku-clock {
-  0%   { transform: rotate(7deg); }
-  50%  { transform: rotate(-7deg); }
-  100% { transform: rotate(7deg); }
+  0% {
+    transform: rotate(7deg);
+  }
+
+  50% {
+    transform: rotate(-7deg);
+  }
+
+  100% {
+    transform: rotate(7deg);
+  }
 }
 
 @keyframes results-miku-sway {
-  0%   { transform: rotate(3deg); }
-  50%  { transform: rotate(-3deg); }
-  100% { transform: rotate(3deg); }
+  0% {
+    transform: rotate(3deg);
+  }
+
+  50% {
+    transform: rotate(-3deg);
+  }
+
+  100% {
+    transform: rotate(3deg);
+  }
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  .results-grade      { animation: results-grade-in 0.5s var(--motion-ease-bouncy) 0.75s both; }
-  .results-pie__miku        { animation: results-rise 0.45s ease 0.2s both; }
+  .results-grade {
+    animation: results-grade-in 0.5s var(--motion-ease-bouncy) 0.75s both;
+  }
+
+  .results-pie__miku {
+    animation: results-rise 0.45s ease 0.2s both;
+  }
+
   .results-pie__miku--bounce {
     animation: results-rise 0.45s ease 0.2s both, results-miku-clock 2.4s ease-in-out 0.7s infinite;
   }
-  .results-pie__miku--sway   { animation: results-rise 0.45s ease 0.2s both, results-miku-sway 2.8s ease-in-out 0.7s infinite; }
+
+  .results-pie__miku--sway {
+    animation: results-rise 0.45s ease 0.2s both, results-miku-sway 2.8s ease-in-out 0.7s infinite;
+  }
 
   .results-accuracy,
   .results-next,
   .results-badge,
   .results-headline,
-  .results-right > *,
-  .results-hist { animation: results-rise 0.45s ease both; }
+  .results-right>*,
+  .results-hist {
+    animation: results-rise 0.45s ease both;
+  }
 
-  .results-accuracy { animation-delay: 0.1s; }
-  .results-next     { animation-delay: 0.16s; }
-  .results-badge    { animation-delay: 0.22s; }
-  .results-headline { animation-delay: 0.26s; }
+  .results-accuracy {
+    animation-delay: 0.1s;
+  }
+
+  .results-next {
+    animation-delay: 0.16s;
+  }
+
+  .results-badge {
+    animation-delay: 0.22s;
+  }
+
+  .results-headline {
+    animation-delay: 0.26s;
+  }
+
   // Advanced view children: toggle, breakdown, chart, issues, histogram —
   // an even 0.08s step keeps the cascade seamless so issues rise in just
   // after the chart, never before it.
-  .results-right > *:nth-child(1) { animation-delay: 0.2s; }
-  .results-right > *:nth-child(2) { animation-delay: 0.28s; }
-  .results-right > *:nth-child(3) { animation-delay: 0.36s; }
-  .results-right > *:nth-child(4) { animation-delay: 0.44s; }
-  .results-right > *:nth-child(5) { animation-delay: 0.52s; }
+  .results-right>*:nth-child(1) {
+    animation-delay: 0.2s;
+  }
+
+  .results-right>*:nth-child(2) {
+    animation-delay: 0.28s;
+  }
+
+  .results-right>*:nth-child(3) {
+    animation-delay: 0.36s;
+  }
+
+  .results-right>*:nth-child(4) {
+    animation-delay: 0.44s;
+  }
+
+  .results-right>*:nth-child(5) {
+    animation-delay: 0.52s;
+  }
 }
 
 .results-panel {
@@ -193,11 +268,15 @@ html.theme-dark .results-overlay {
   background: color-mix(in srgb, currentColor 14%, transparent);
   box-shadow: 0 0 14px color-mix(in srgb, currentColor 35%, transparent);
 
-  &--fullCombo { color: var(--rp-good); }
+  &--fullCombo {
+    color: var(--rp-good);
+  }
+
   &--allPerfect {
     color: var(--rp-perfect);
     text-shadow: 0 0 12px color-mix(in srgb, currentColor 55%, transparent);
   }
+
   &--record {
     color: var(--rp-record);
     text-shadow: 0 0 12px color-mix(in srgb, currentColor 55%, transparent);
@@ -217,6 +296,7 @@ html.theme-dark .results-overlay {
     grid-template-columns: minmax(0, 1fr);
     row-gap: 1.2rem;
   }
+
   .results-right {
     padding-left: 0;
     border-left: none;
@@ -272,16 +352,41 @@ html.theme-dark .results-overlay {
     pointer-events: none;
   }
 
-  &--sss, &--ss, &--s, &--a, &--f {
+  &--sss,
+  &--ss,
+  &--s,
+  &--a,
+  &--f {
     text-shadow: 0 0 18px color-mix(in srgb, currentColor 55%, transparent);
   }
-  &--sss { color: var(--rp-grade-sss); }
-  &--ss  { color: var(--rp-perfect); }
-  &--s   { color: var(--rp-grade-s); }
-  &--a   { color: var(--rp-good); }
-  &--b   { color: var(--rp-grade-b); }
-  &--c   { color: var(--rp-ink); }
-  &--f   { color: var(--rp-miss); }
+
+  &--sss {
+    color: var(--rp-grade-sss);
+  }
+
+  &--ss {
+    color: var(--rp-perfect);
+  }
+
+  &--s {
+    color: var(--rp-grade-s);
+  }
+
+  &--a {
+    color: var(--rp-good);
+  }
+
+  &--b {
+    color: var(--rp-grade-b);
+  }
+
+  &--c {
+    color: var(--rp-ink);
+  }
+
+  &--f {
+    color: var(--rp-miss);
+  }
 }
 
 .results-stat {
@@ -304,6 +409,20 @@ html.theme-dark .results-overlay {
     font-variant-numeric: tabular-nums;
     color: var(--rp-ink);
   }
+
+  &__hintlabel {
+    font-size: 0.6rem;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--rp-ink-dim);
+  }
+
+  &__hintvalue {
+    font-size: 0.8rem;
+    font-weight: bold;
+    font-variant-numeric: tabular-nums;
+    color: var(--rp-ink);
+  }
 }
 
 .results-judgement {
@@ -322,15 +441,30 @@ html.theme-dark .results-overlay {
   font-variant-numeric: tabular-nums;
   width: 100%;
 
-  span { transition: opacity 0.15s ease, text-shadow 0.15s ease; }
+  span {
+    transition: opacity 0.15s ease, text-shadow 0.15s ease;
+  }
 
-  &__tier3 { color: var(--rp-perfect); }
-  &__tier2 { color: var(--rp-good); }
-  &__tier1 { color: var(--rp-ink-soft); }
-  &__miss  { color: var(--rp-miss); }
+  &__tier3 {
+    color: var(--rp-perfect);
+  }
+
+  &__tier2 {
+    color: var(--rp-good);
+  }
+
+  &__tier1 {
+    color: var(--rp-ink-soft);
+  }
+
+  &__miss {
+    color: var(--rp-miss);
+  }
 }
 
-.results-tierbtn { cursor: default; }
+.results-tierbtn {
+  cursor: default;
+}
 
 .results-breakdown .is-active {
   opacity: 1;
@@ -389,7 +523,9 @@ html.theme-dark .results-overlay {
   gap: 0.4rem;
   width: 100%;
 
-  &__label { display: block; }
+  &__label {
+    display: block;
+  }
 
   &__filter {
     text-transform: none;
@@ -409,8 +545,14 @@ html.theme-dark .results-overlay {
   width: 100%;
   gap: 0.4rem;
 }
-.results-notes { grid-template-columns: repeat(3, 1fr); }
-.results-issues__list { grid-template-columns: repeat(2, 1fr); }
+
+.results-notes {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.results-issues__list {
+  grid-template-columns: repeat(2, 1fr);
+}
 
 .results-note,
 .results-issue {
@@ -446,17 +588,38 @@ html.theme-dark .results-overlay {
     box-shadow: 0 0 10px color-mix(in srgb, var(--accent, var(--rp-ink)) 32%, transparent);
   }
 
-  &.is-dim { opacity: 0.32; }
+  &.is-dim {
+    opacity: 0.32;
+  }
 }
 
-.results-note--cut   { --accent: var(--rp-miss); }
-.results-note--flow  { --accent: var(--rp-good); }
-.results-note--lyric { --accent: var(--rp-ink-soft); }
+.results-note--cut {
+  --accent: var(--rp-miss);
+}
 
-.results-issue--timing    { --accent: var(--rp-good); }
-.results-issue--contact   { --accent: var(--rp-purple); }
-.results-issue--direction { --accent: var(--rp-late); }
-.results-issue--gesture   { --accent: var(--rp-grade-sss); }
+.results-note--flow {
+  --accent: var(--rp-good);
+}
+
+.results-note--lyric {
+  --accent: var(--rp-ink-soft);
+}
+
+.results-issue--timing {
+  --accent: var(--rp-good);
+}
+
+.results-issue--contact {
+  --accent: var(--rp-purple);
+}
+
+.results-issue--direction {
+  --accent: var(--rp-late);
+}
+
+.results-issue--gesture {
+  --accent: var(--rp-grade-sss);
+}
 
 // basic / advanced view toggle — underlined text link with a nudging caret
 .results-viewtoggle {
@@ -473,7 +636,10 @@ html.theme-dark .results-overlay {
   color: color-mix(in srgb, var(--rp-teal) 55%, var(--rp-ink));
   cursor: pointer;
 
-  &__text { text-decoration: underline; text-underline-offset: 3px; }
+  &__text {
+    text-decoration: underline;
+    text-underline-offset: 3px;
+  }
 
   &__caret {
     display: inline-block;
@@ -481,13 +647,26 @@ html.theme-dark .results-overlay {
     animation: results-caret-nudge 1.1s ease-in-out infinite;
   }
 
-  &:hover { color: var(--rp-teal); }
-  &:hover .results-viewtoggle__caret { animation-play-state: paused; transform: translateX(2px); }
+  &:hover {
+    color: var(--rp-teal);
+  }
+
+  &:hover .results-viewtoggle__caret {
+    animation-play-state: paused;
+    transform: translateX(2px);
+  }
 }
 
 @keyframes results-caret-nudge {
-  0%, 100% { transform: translateX(0); }
-  50%      { transform: translateX(3px); }
+
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  50% {
+    transform: translateX(3px);
+  }
 }
 
 // judgement donut (basic view)
@@ -505,21 +684,41 @@ html.theme-dark .results-overlay {
   max-width: $results-pie-size;
   aspect-ratio: 1;
 
-  &__chart { width: 100%; height: 100%; display: block; }
+  &__chart {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
 
-  &__track { stroke: var(--rp-line); }
+  &__track {
+    stroke: var(--rp-line);
+  }
 
   &__seg {
     stroke-linecap: butt;
     cursor: pointer;
     transition: stroke 0.3s ease, opacity 0.18s ease;
 
-    &.is-dim { opacity: 0.32; }
+    &.is-dim {
+      opacity: 0.32;
+    }
   }
-  &__seg--perfect { stroke: var(--rp-perfect); }
-  &__seg--good    { stroke: var(--rp-good); }
-  &__seg--ok      { stroke: var(--rp-ink-soft); }
-  &__seg--miss    { stroke: var(--rp-miss); }
+
+  &__seg--perfect {
+    stroke: var(--rp-perfect);
+  }
+
+  &__seg--good {
+    stroke: var(--rp-good);
+  }
+
+  &__seg--ok {
+    stroke: var(--rp-ink-soft);
+  }
+
+  &__seg--miss {
+    stroke: var(--rp-miss);
+  }
 
   // start/end marker; --rp-ink flips dark↔light with the theme so it stays
   // legible on the coloured arc beneath it
@@ -557,12 +756,21 @@ html.theme-dark .results-overlay {
     height: 100%;
 
     // inline SVG fills the wrapper (preserveAspectRatio gives contain-like fit)
-    svg { display: block; width: 100%; height: 100%; }
+    svg {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
 
     // miku_B sleep "zzz": black by day, white at night — driven by the in-app
     // theme class now that the SVG is inlined
-    .miku-zzz { stroke: #000; }
-    html.theme-dark & .miku-zzz { stroke: #fff; }
+    .miku-zzz {
+      stroke: #000;
+    }
+
+    html.theme-dark & .miku-zzz {
+      stroke: #fff;
+    }
   }
 
   // tier "LABEL: count" revealed on segment hover, in that tier's breakdown
@@ -580,12 +788,25 @@ html.theme-dark .results-overlay {
     opacity: 0;
     transition: opacity 0.15s ease;
 
-    &.is-shown { opacity: 1; }
+    &.is-shown {
+      opacity: 1;
+    }
 
-    &--perfect { color: var(--rp-perfect); }
-    &--good    { color: var(--rp-good); }
-    &--ok      { color: var(--rp-ink-soft); }
-    &--miss    { color: var(--rp-miss); }
+    &--perfect {
+      color: var(--rp-perfect);
+    }
+
+    &--good {
+      color: var(--rp-good);
+    }
+
+    &--ok {
+      color: var(--rp-ink-soft);
+    }
+
+    &--miss {
+      color: var(--rp-miss);
+    }
   }
 }
 
@@ -615,7 +836,9 @@ html.theme-dark .results-overlay {
     font-variant-numeric: tabular-nums;
   }
 
-  &__avg { color: var(--rp-ink-dim); }
+  &__avg {
+    color: var(--rp-ink-dim);
+  }
 
   &__chart {
     width: 100%;
@@ -624,12 +847,27 @@ html.theme-dark .results-overlay {
     border-bottom: 1px solid var(--rp-line);
   }
 
-  &__bar--early { fill: var(--rp-good); }
-  &__bar--late  { fill: var(--rp-late); }
-  &__bar--on    { fill: var(--rp-perfect); }
+  &__bar--early {
+    fill: var(--rp-good);
+  }
 
-  &__center { stroke: var(--rp-ink-faint); stroke-dasharray: 3 3; }
-  &__mean   { stroke: var(--rp-ink); stroke-width: 1.5; }
+  &__bar--late {
+    fill: var(--rp-late);
+  }
+
+  &__bar--on {
+    fill: var(--rp-perfect);
+  }
+
+  &__center {
+    stroke: var(--rp-ink-faint);
+    stroke-dasharray: 3 3;
+  }
+
+  &__mean {
+    stroke: var(--rp-ink);
+    stroke-width: 1.5;
+  }
 
   &__axis {
     display: grid;
@@ -638,9 +876,17 @@ html.theme-dark .results-overlay {
     color: var(--rp-ink-dim);
     font-variant-numeric: tabular-nums;
 
-    span:nth-child(1) { text-align: left; }
-    span:nth-child(2) { text-align: center; }
-    span:nth-child(3) { text-align: right; }
+    span:nth-child(1) {
+      text-align: left;
+    }
+
+    span:nth-child(2) {
+      text-align: center;
+    }
+
+    span:nth-child(3) {
+      text-align: right;
+    }
   }
 }
 
@@ -675,7 +921,9 @@ html.theme-dark .results-overlay {
     border: 1px solid color-mix(in srgb, var(--rp-teal) 55%, transparent);
     color: color-mix(in srgb, var(--rp-teal) 62%, var(--rp-ink));
 
-    &:hover { background: color-mix(in srgb, var(--rp-teal) 32%, transparent); }
+    &:hover {
+      background: color-mix(in srgb, var(--rp-teal) 32%, transparent);
+    }
   }
 
   &--share {
@@ -683,7 +931,9 @@ html.theme-dark .results-overlay {
     border: 1px solid color-mix(in srgb, var(--rp-purple) 45%, transparent);
     color: color-mix(in srgb, var(--rp-purple) 60%, var(--rp-ink));
 
-    &:hover { background: color-mix(in srgb, var(--rp-purple) 28%, transparent); }
+    &:hover {
+      background: color-mix(in srgb, var(--rp-purple) 28%, transparent);
+    }
   }
 
   &--share-copied {
