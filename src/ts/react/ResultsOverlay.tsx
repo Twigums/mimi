@@ -445,7 +445,7 @@ export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, songId
                 <div className="results-stat">
                   <span className="results-stat__hintlabel">{labels.best}</span>
                   <span className="results-stat__hintvalue">
-                    {pb.isRecord
+                    {stats.score >= (pb.previous?.score ?? 0) // don't use isRecord, so tie shows +0 not -0
                       ? `${stats.score} (+${stats.score - (pb.previous?.score ?? 0)})`
                       : `${pb.previous?.score ?? 0} (${stats.score - (pb.previous?.score ?? 0) >= 0 ? "+" : ""}${stats.score - (pb.previous?.score ?? 0)})`}
                   </span>
