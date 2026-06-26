@@ -201,4 +201,63 @@ function parseMimiNote(line: string): Note | { endTime: number } | null {
   console.log(`kotaete hard.mimi fixture: ${checked} lyric notes match expected charsets`);
 }
 
-console.log("4 lyric char-window simulations passed");
+// ── includePrevChar: in-progress syllable prepended when the note's own beat has no onset ─
+{
+  // "大" (onset 800) is still sounding at the window start (900) and is an orphan — the
+  // previous note is a flow, so no earlier lyric claimed it. The note's beat has no onset
+  // ([900, 1100) empty), so the in-progress syllable is pulled in: "大" + window "通".
+  const notes = [note("flow", 700), note("lyric", 1000), note("cut", 1400)];
+  computeLyricHolds(notes, []);
+  populateLyricChars(notes, makeCharLookup(buildVideoFromPhrases([
+    { startTime: 0, endTime: 2000, chars: [
+      { text: "大", startTime: 800, endTime: 1300 },   // sustains across the window start
+      { text: "通", startTime: 1100, endTime: 1250 },
+    ] },
+  ])));
+  assert.equal(notes[1].lyricChar, "大通");
+}
+
+// ── partition gate: a long syllable the previous lyric showed is not repeated ────────────
+{
+  // "紛" spans both lyric notes. The first claims it; the second's beat has no onset, but
+  // the partition gap [prevEnd − ε, startMs) is empty (the previous lyric's hold ends right
+  // here), so "紛" is NOT re-prepended — only the later syllable "れ" shows.
+  const notes = [note("lyric", 1000), note("lyric", 1300), note("cut", 1700)];
+  computeLyricHolds(notes, []);
+  populateLyricChars(notes, makeCharLookup(buildVideoFromPhrases([
+    { startTime: 0, endTime: 2000, chars: [
+      { text: "紛", startTime: 950, endTime: 1550 },   // spans both notes
+      { text: "れ", startTime: 1550, endTime: 1700 },
+    ] },
+  ])));
+  assert.equal(notes[0].lyricChar, "紛");
+  assert.equal(notes[1].lyricChar, "れ");
+}
+
+// ── includeEndChar: the window's end bound extends past the hold end by ε ────────────────
+{
+  const ext = note("lyric", 1000, { includeEndChar: true });
+  const plain = note("lyric", 1000);
+  ext.holdMs = 400;
+  plain.holdMs = 400;
+  assert.equal(lyricCharWindow(plain, -Infinity).endMs, 1300);  // holdEnd 1400 − ε
+  assert.equal(lyricCharWindow(ext, -Infinity).endMs, 1500);    // holdEnd 1400 + ε
+
+  // "ん" onsets at 1350, within ε before the hold end (1400): excluded normally, claimed
+  // with includeEndChar.
+  const chars = [
+    { text: "あ", startTime: 1050, endTime: 1100 },
+    { text: "ん", startTime: 1350, endTime: 1450 },
+  ];
+  const video = buildVideoFromPhrases([{ startTime: 0, endTime: 2000, chars }]);
+  const plainNotes = [note("lyric", 1000), note("cut", 1400)];
+  const extNotes = [note("lyric", 1000, { includeEndChar: true }), note("cut", 1400)];
+  computeLyricHolds(plainNotes, []);
+  computeLyricHolds(extNotes, []);
+  populateLyricChars(plainNotes, makeCharLookup(video));
+  populateLyricChars(extNotes, makeCharLookup(video));
+  assert.equal(plainNotes[0].lyricChar, "あ");
+  assert.equal(extNotes[0].lyricChar, "あん");
+}
+
+console.log("7 lyric char-window simulations passed");

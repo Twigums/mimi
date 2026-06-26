@@ -41,6 +41,7 @@ data NoteEntry = NoteEntry
     , neDirectionPinned :: Bool
     , neNewCombo        :: Bool
     , neLyricChar       :: Maybe String
+    , neIncludeEndChar  :: Bool
     }
 
 parseNote :: (Double -> Double) -> String -> Either String NoteEntry
@@ -50,12 +51,20 @@ parseNote toMs line =
         -- stripped by the engine, so it needs no position/direction.
         [k, t] | map toLower k == "end" -> do
             t' <- readDouble "time" t
-            Right $ NoteEntry "end" (toMs t') 0 0 0 False False Nothing
-        [k, t, d, x, y]    -> go k t d x y Nothing
-        [k, t, d, x, y, c] -> go k t d x y (Just c)
-        _                   -> Left $ "Expected `end, time`, or 5 or 6 comma-separated fields: " ++ line
+            Right $ NoteEntry "end" (toMs t') 0 0 0 False False Nothing False
+        [k, t, d, x, y]    -> go k t d x y Nothing  False
+        -- A trailing `endchar` flag (lyric only) extends the char-fetch window past the
+        -- hold end to claim the closing syllable; otherwise the 6th field is a lyric `char`.
+        [k, t, d, x, y, c]
+            | isEndChar c  -> go k t d x y Nothing      True
+            | otherwise    -> go k t d x y (Just c)     False
+        [k, t, d, x, y, c, f]
+            | isEndChar f  -> go k t d x y (charField c) True
+        _                  -> Left $ "Expected `end, time`, or 5-7 comma-separated fields: " ++ line
   where
-    go k t d x y mChar = do
+    isEndChar s   = map toLower (trim s) == "endchar"
+    charField c   = if null (trim c) then Nothing else Just c
+    go k t d x y mChar incEnd = do
         t'  <- readDouble "time" t
         nx  <- readDouble "x"    x
         ny  <- readDouble "y"    y
@@ -77,7 +86,7 @@ parseNote toMs line =
                 _       -> map toLower k
         let timeMs  = toMs t'
         -- newCombo is set later by `parseEntries` when a `break` precedes this note.
-        Right $ NoteEntry kind timeMs nx ny radians pinned False mChar
+        Right $ NoteEntry kind timeMs nx ny radians pinned False mChar incEnd
 
 -- Fold the data lines into notes, treating a `break` line as a phrase boundary: it
 -- sets newCombo on the next note so the engine starts a fresh flow phrase there.
@@ -117,6 +126,7 @@ renderNote n =
     (if neDirectionPinned n then ", \"directionPinned\": true" else "") ++
     (if neNewCombo n then ", \"newCombo\": true" else "") ++
     maybe "" (\c -> ", \"lyricChar\": \"" ++ c ++ "\"") (neLyricChar n) ++
+    (if neIncludeEndChar n then ", \"includeEndChar\": true" else "") ++
     ", \"state\": \"pending\" }"
 
 compileChart :: String -> Either String String

@@ -55,6 +55,7 @@ lyric, 5100, auto, 360, 310
 | `x` | Horizontal position in the 800 x 600 logical play area |
 | `y` | Vertical position in the 800 x 600 logical play area |
 | `char` | Optional lyric character override |
+| `endchar` | Optional trailing flag on a lyric row (`lyric, …, x, y, endchar`, or after a `char` override). Extends the auto-fill text window past the hold end to include the closing syllable. Emitted by osu2mimi from a `finish` hitsound on the clap |
 | `break` | A standalone line (not a note) that ends the current flow phrase; the next flow anchor starts a new phrase |
 | `end` | An `end, time` line (no other fields): an inert lyric-end marker. It bounds a preceding lyric's hold at `time` without placing a playable note there, then is discarded. Use it to end a lyric where no note is charted |
 
@@ -70,7 +71,7 @@ The compiler emits runtime notes with `kind`, `time`, `x`, `y`, `direction` in r
 
 Cut and flow notes do not require a mouse-button or key hold. Flow notes should be placed so the player can read a continuous path through the phrase.
 
-A lyric is a **hold**: the player keeps the cursor inside the circle from the note's time until the **next event strictly after it** — whichever comes first, the next note (any kind) or an explicit `end` marker. There is no default or cap, so **a lyric must not be the last event** (with nothing to bound it the engine logs an error and the note misses). Place the next note, or an `end, time` line, where the hold should end. Do not chart a lyric with less than roughly 300 ms before its bound, and pick one standout lyric per phrase rather than charting every word. The `degrees` field is unused for lyrics; the hold length is not authored as a row field. The displayed text auto-fills from every sung character in the hold window (use the `char` override only to correct it).
+A lyric is a **hold**: the player keeps the cursor inside the circle from the note's time until the **next event strictly after it** — whichever comes first, the next note (any kind) or an explicit `end` marker. There is no default or cap, so **a lyric must not be the last event** (with nothing to bound it the engine logs an error and the note misses). Place the next note, or an `end, time` line, where the hold should end. Do not chart a lyric with less than roughly 300 ms before its bound, and pick one standout lyric per phrase rather than charting every word. The `degrees` field is unused for lyrics; the hold length is not authored as a row field. The displayed text auto-fills from every sung character in the hold window (use the `char` override only to correct it). A trailing `endchar` flag on the row extends the text window past the hold end to include the closing syllable sung as the hold finishes.
 
 During migration, older charts may still use `f` for cut-style notes. Prefer `c` for new maps.
 
@@ -145,7 +146,7 @@ The osu play area is scaled into mimi's 800 x 600 play area (spinners and holds 
 | **hitcircle** with **clap** | lyric (hold runs to the next note — no end override) |
 | **slider** with **clap** | lyric **+ an `end` marker at the slider tail** (the slider duration sets the hold end) |
 
-Cut and pinned flow take their direction from the slider, so use a slider for those; a whistle on a bare hitcircle has no direction and is imported as auto flow with a warning. **Cut and flow slider notes are positioned at the midpoint of the head and the first curve point** (sliders are expected to be linear), so author short linear sliders. A **clap slider** is how you author a lyric's hold end in osu: only its head time and duration matter (the body shape is ignored), so give it a distinctive shape or a low-SV inherited timing point to make it easy to spot. The `finish` hitsound is unused. Consecutive flow anchors link into flowing phrases automatically.
+Cut and pinned flow take their direction from the slider, so use a slider for those; a whistle on a bare hitcircle has no direction and is imported as auto flow with a warning. **Cut and flow slider notes are positioned at the midpoint of the head and the first curve point** (sliders are expected to be linear), so author short linear sliders. A **clap slider** is how you author a lyric's hold end in osu: only its head time and duration matter (the body shape is ignored), so give it a distinctive shape or a low-SV inherited timing point to make it easy to spot. Adding the `finish` hitsound to a clap marks the lyric `endchar`, extending its text window past the hold end to include the closing syllable; `finish` on a non-clap object is ignored. Consecutive flow anchors link into flowing phrases automatically.
 
 ## Minimal Example
 
