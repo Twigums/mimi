@@ -2062,6 +2062,7 @@ html body.overlay-page {
   --rp-grade-b: var(--color-grade-b-day);
   --rp-teal: var(--color-teal-day);
   --rp-purple: var(--color-purple-day);
+  --rp-record: #d6418a;
   position: absolute;
   inset: 0;
   z-index: var(--z-results);
@@ -2093,6 +2094,7 @@ html.theme-dark .results-overlay {
   --rp-grade-b: var(--color-grade-b);
   --rp-teal: var(--miku-teal);
   --rp-purple: var(--color-purple-night);
+  --rp-record: #ff7ac0;
 }
 
 @keyframes results-fade-in {
@@ -2274,6 +2276,10 @@ html.theme-dark .results-overlay {
   color: var(--rp-perfect);
   text-shadow: 0 0 12px color-mix(in srgb, currentColor 55%, transparent);
 }
+.results-badge--record {
+  color: var(--rp-record);
+  text-shadow: 0 0 12px color-mix(in srgb, currentColor 55%, transparent);
+}
 
 .results-headline {
   display: flex;
@@ -2379,6 +2385,18 @@ html.theme-dark .results-overlay {
 }
 .results-stat__value {
   font-size: 1.3rem;
+  font-weight: bold;
+  font-variant-numeric: tabular-nums;
+  color: var(--rp-ink);
+}
+.results-stat__hintlabel {
+  font-size: 0.6rem;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--rp-ink-dim);
+}
+.results-stat__hintvalue {
+  font-size: 0.8rem;
   font-weight: bold;
   font-variant-numeric: tabular-nums;
   color: var(--rp-ink);
