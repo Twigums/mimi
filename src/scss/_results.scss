@@ -25,6 +25,12 @@
   --rp-purple: var(--color-purple-day);
   --rp-record: #d6418a;
 
+  // Difficulty hue — a quiet context thread (panel top border, chart caption
+  // accent, histogram baseline). Always one notch desaturated and kept far from
+  // the grade so a warm difficulty never bleeds into the grade halo. Defaults to
+  // ink; a .results-panel--<difficulty> modifier supplies the real hue.
+  --rp-diff: var(--rp-ink-soft);
+
   position: absolute;
   inset: 0;
   z-index: var(--z-results);
@@ -206,12 +212,22 @@ html.theme-dark .results-overlay {
   padding: 2rem 2.6rem;
   background: var(--rp-fill);
   border: 1px solid var(--rp-line);
+  // Thin difficulty-coloured top accent — the one place the difficulty hue
+  // touches the panel chrome (DDR/Phigros convention: small, contained, muted).
+  border-top: 3px solid var(--rp-diff);
   border-radius: var(--radius-card);
   box-shadow: var(--rp-shadow), var(--rp-highlight);
   box-sizing: border-box;
   width: $results-panel-width;
   max-width: 100%;
   color: var(--rp-ink);
+
+  // Desaturated difficulty hues — one notch muted from the difficulty-button
+  // swatches so the thread stays quiet context, never a second focal colour.
+  &--easy { --rp-diff: #5e9c63; }
+  &--medium { --rp-diff: #c4a02e; }
+  &--hard { --rp-diff: #c25a55; }
+  &--expert { --rp-diff: #8a5ba0; }
 }
 
 // grade on left, analytics on right
@@ -466,12 +482,18 @@ html.theme-dark .results-overlay {
   width: 100%;
 }
 
+// The tier breakdown is the "why" behind the grade — the boldest block in the
+// column. Tiers read as a single brightness ramp (PERFECT brightest →
+// muted-ink GOOD) with saturated red reserved for MISS so it pops, rather than
+// four unrelated hues.
 .results-breakdown {
   display: flex;
   flex-wrap: wrap;
   justify-content: space-between;
   gap: 0.5rem 1rem;
-  font-size: 0.96rem;
+  font-size: 1.12rem;
+  font-weight: bold;
+  letter-spacing: 0.01em;
   font-variant-numeric: tabular-nums;
   width: 100%;
 
@@ -480,15 +502,15 @@ html.theme-dark .results-overlay {
   }
 
   &__tier3 {
-    color: var(--rp-perfect);
+    color: var(--rp-ink);
   }
 
   &__tier2 {
-    color: var(--rp-good);
+    color: var(--rp-ink-soft);
   }
 
   &__tier1 {
-    color: var(--rp-ink-soft);
+    color: var(--rp-ink-dim);
   }
 
   &__miss {
@@ -517,35 +539,42 @@ html.theme-dark .results-overlay {
   color: var(--rp-ink-dim);
 }
 
+// Chart composition is demoted into a context caption at the foot of the
+// column — quiet, smaller, set off by a hairline divider above.
 .results-chart {
   display: flex;
   flex-direction: column;
-  gap: 0.4rem;
+  gap: 0.35rem;
   width: 100%;
+  padding-top: 0.7rem;
+  border-top: 1px solid var(--rp-line);
 
   &__meta {
     display: flex;
     flex-wrap: wrap;
-    gap: 0.3rem 1.2rem;
-    font-size: 0.82rem;
-    color: var(--rp-ink-soft);
+    gap: 0.2rem 1rem;
+    font-size: 0.74rem;
+    color: var(--rp-ink-dim);
     font-variant-numeric: tabular-nums;
 
     b {
-      color: var(--rp-ink);
+      color: var(--rp-ink-soft);
       font-weight: bold;
       margin-left: 0.2rem;
     }
   }
 
+  // The difficulty badge carries the difficulty hue — the caption echo of the
+  // panel's top accent.
   &__diff b {
     margin-left: 0;
     font-family: var(--font-display);
     letter-spacing: 0.06em;
+    color: var(--rp-diff);
   }
 
   &__level {
-    color: var(--rp-ink-dim);
+    color: var(--rp-ink-faint);
     font-weight: normal;
   }
 }
@@ -627,32 +656,22 @@ html.theme-dark .results-overlay {
   }
 }
 
-.results-note--cut {
-  --accent: var(--rp-miss);
+// Chart-composition chips ride the quiet difficulty thread (all one muted hue),
+// not three more accent colours.
+.results-note {
+  --accent: var(--rp-diff);
+  padding: 0.12rem 0.5rem;
+  font-size: 0.74rem;
 }
 
-.results-note--flow {
-  --accent: var(--rp-good);
-}
-
-.results-note--lyric {
+// Issue chips lean neutral; the count carries the emphasis (size + weight)
+// rather than four accent colours.
+.results-issue {
   --accent: var(--rp-ink-soft);
-}
 
-.results-issue--timing {
-  --accent: var(--rp-good);
-}
-
-.results-issue--contact {
-  --accent: var(--rp-purple);
-}
-
-.results-issue--direction {
-  --accent: var(--rp-late);
-}
-
-.results-issue--gesture {
-  --accent: var(--rp-grade-sss);
+  .results-issue__count {
+    font-size: 1.02rem;
+  }
 }
 
 // basic / advanced view toggle — underlined text link with a nudging caret
@@ -878,19 +897,23 @@ html.theme-dark .results-overlay {
     width: 100%;
     height: 46px;
     display: block;
-    border-bottom: 1px solid var(--rp-line);
+    // Baseline carries the difficulty hue — the diagnostics echo of the panel's
+    // top accent.
+    border-bottom: 1px solid var(--rp-diff);
   }
 
+  // The one early/late colour pair in the whole panel — muted cool vs. warm,
+  // used nowhere else. The on-time bin reads neutral.
   &__bar--early {
-    fill: var(--rp-good);
+    fill: #6f93b8;
   }
 
   &__bar--late {
-    fill: var(--rp-late);
+    fill: #c98a52;
   }
 
   &__bar--on {
-    fill: var(--rp-perfect);
+    fill: var(--rp-ink-soft);
   }
 
   &__center {
@@ -950,38 +973,22 @@ html.theme-dark .results-overlay {
     transform: translateY(0) scale(0.96);
   }
 
+  // Try Again is the primary action at the eye's Z-terminus (bottom-right):
+  // filled and weighted, the only solid button so it reads as the default.
   &--try-again {
-    background: color-mix(in srgb, var(--rp-teal) 18%, transparent);
-    border: 1px solid color-mix(in srgb, var(--rp-teal) 55%, transparent);
-    color: color-mix(in srgb, var(--rp-teal) 62%, var(--rp-ink));
+    background: var(--rp-teal);
+    border: 1px solid var(--rp-teal);
+    color: #06302d;
+    font-weight: bold;
+    box-shadow: 0 0 16px color-mix(in srgb, var(--rp-teal) 40%, transparent);
 
     &:hover {
-      background: color-mix(in srgb, var(--rp-teal) 32%, transparent);
+      background: color-mix(in srgb, var(--rp-teal) 88%, #fff);
     }
   }
 
-  &--share {
-    background: color-mix(in srgb, var(--rp-purple) 16%, transparent);
-    border: 1px solid color-mix(in srgb, var(--rp-purple) 45%, transparent);
-    color: color-mix(in srgb, var(--rp-purple) 60%, var(--rp-ink));
-
-    &:hover {
-      background: color-mix(in srgb, var(--rp-purple) 28%, transparent);
-    }
-  }
-
-  &--share-copied {
-    background: color-mix(in srgb, var(--rp-grade-b) 16%, transparent);
-    border-color: color-mix(in srgb, var(--rp-grade-b) 45%, transparent);
-    color: color-mix(in srgb, var(--rp-grade-b) 60%, var(--rp-ink));
-  }
-
-  &--share-failed {
-    background: color-mix(in srgb, var(--rp-miss) 16%, transparent);
-    border-color: color-mix(in srgb, var(--rp-miss) 45%, transparent);
-    color: color-mix(in srgb, var(--rp-miss) 64%, var(--rp-ink));
-  }
-
+  // Share and Back are ghost secondaries, subordinate to Try Again.
+  &--share,
   &--back {
     background: transparent;
     border: 1px solid var(--rp-line);
@@ -991,5 +998,15 @@ html.theme-dark .results-overlay {
       background: color-mix(in srgb, var(--rp-ink) 10%, transparent);
       color: var(--rp-ink);
     }
+  }
+
+  &--share-copied {
+    border-color: color-mix(in srgb, var(--rp-grade-b) 50%, transparent);
+    color: color-mix(in srgb, var(--rp-grade-b) 64%, var(--rp-ink));
+  }
+
+  &--share-failed {
+    border-color: color-mix(in srgb, var(--rp-miss) 50%, transparent);
+    color: color-mix(in srgb, var(--rp-miss) 66%, var(--rp-ink));
   }
 }
