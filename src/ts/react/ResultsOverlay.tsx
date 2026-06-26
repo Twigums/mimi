@@ -470,7 +470,7 @@ export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, songId
                   <span className="results-stat__hintvalue">
                     {`${Math.max(stats.maxCombo, pb.previous?.maxCombo ?? 0)}x`}
                     {stats.maxCombo > (pb.previous?.maxCombo ?? 0) && (
-                      ` (+${stats.maxCombo - (pb.previous?.maxCombo ?? 0)}x)`
+                      ` (+${stats.maxCombo - (pb.previous?.maxCombo ?? 0)})`
                     )}
                   </span>
                 </div>
