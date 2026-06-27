@@ -32,24 +32,28 @@ function parseSections(text: string): Map<string, string[]> {
 
 // Hit objects map to mimi kinds explicitly via object type + hitsound:
 //   clap                  -> lyric (hold); a clap SLIDER also emits an `end` marker at
-//                            its tail so the slider duration becomes the lyric hold end
+//                            its tail so the slider duration becomes the lyric hold end.
+//                            A finish on the clap adds the `endchar` lyric option (the char-fetch
+//                            window then extends past the hold end to claim the closing syllable)
 //   whistle (on a slider) -> cut, direction from the slider
 //   plain slider          -> flow, pinned to the slider's direction
 //   plain hitcircle       -> flow, direction "auto" (the ribbon tangent at runtime)
 // Cut and pinned flow need a direction, which only a slider provides; a whistle on a
-// bare circle has no direction and is warned + imported as auto flow. finish is unused.
+// bare circle has no direction and is warned + imported as auto flow. finish marks a
+// lyric's closing syllable (see above) and is otherwise unused.
 // Cut/flow sliders are positioned at the MIDPOINT of head -> first curve point (sliders
 // are expected to be linear), so the note sits on the slider body, not its head.
 type NoteKind  = "cut" | "flow" | "lyric";
 type EntryKind = NoteKind | "end";
 
 interface Note {
-    time:     number;
-    x:        number;
-    y:        number;
-    kind:     EntryKind;
-    degrees:  number | null;
-    newCombo: boolean;
+    time:           number;
+    x:              number;
+    y:              number;
+    kind:           EntryKind;
+    degrees:        number | null;
+    newCombo:       boolean;
+    includeEndChar?: boolean;  // lyric only: emits the `endchar` option (osu finish hitsound)
 }
 
 const OSU_TYPE_SLIDER   = 1 << 1;
@@ -57,6 +61,7 @@ const OSU_TYPE_NEWCOMBO = 1 << 2;
 const OSU_TYPE_SPINNER  = 1 << 3;
 const OSU_TYPE_HOLD     = 1 << 7;
 const OSU_HIT_WHISTLE   = 1 << 1;
+const OSU_HIT_FINISH    = 1 << 2;
 const OSU_HIT_CLAP      = 1 << 3;
 
 // Same-time emit order so the engine reads simultaneous events sensibly: an `end` marker
@@ -204,9 +209,11 @@ function parseHitObject(line: string, ctx: MapContext): Note[] {
     const headY    = toMimiY(osuY);
 
     // clap -> lyric (held). The lyric sits at the head; a clap SLIDER's body shape is
-    // ignored except for its duration, which becomes the hold end via an `end` marker.
+    // ignored except for its duration, which becomes the hold end via an `end` marker. A
+    // finish on the clap flags the lyric to claim its closing syllable (the `endchar` option).
     if (hitSound & OSU_HIT_CLAP) {
-        const notes: Note[] = [{ time, x: headX, y: headY, kind: "lyric", degrees: null, newCombo }];
+        const includeEndChar = !!(hitSound & OSU_HIT_FINISH);
+        const notes: Note[] = [{ time, x: headX, y: headY, kind: "lyric", degrees: null, newCombo, includeEndChar }];
         if (isSlider) {
             const slides = parseInt(parts[6] ?? "1", 10) || 1;
             const length = parseFloat(parts[7] ?? "");
@@ -288,7 +295,7 @@ function main(): void {
     out.push(`beats_per_measure: ${beatsPerMeasure}`);
     out.push(
         "",
-        "# kind, time_ms, degrees, x, y",
+        "# kind, time_ms, degrees, x, y[, lyric_option...]",
     );
 
     // A `break` ends a flow phrase only between consecutive flow notes; `end` markers are
@@ -301,7 +308,8 @@ function main(): void {
         }
         if (note.newCombo && note.kind === "flow" && prevKind === "flow") out.push("break");
         const deg = note.degrees === null ? "auto" : note.degrees;
-        out.push(`${note.kind}, ${note.time}, ${deg}, ${note.x}, ${note.y}`);
+        const lyricOptions = note.includeEndChar ? ", endchar" : "";
+        out.push(`${note.kind}, ${note.time}, ${deg}, ${note.x}, ${note.y}${lyricOptions}`);
         prevKind = note.kind;
     }
 

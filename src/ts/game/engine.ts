@@ -2,7 +2,7 @@ import { clamp } from "../core/utils";
 import { drawArrow, drawLyricNote, drawFireworks, drawFlowRibbon, notePulseScale } from "./draw";
 import { arToMs, loadAr, loadHitsoundVolume, subscribeHitsoundVolume, volToFactor, loadHiddenMod, subscribeHiddenMod } from "../core/settings";
 import { createCursorRenderer, type CursorRenderer } from "./cursor";
-import { computeLyricHolds, noteEndMs, populateLyricChars } from "./lyrics";
+import { computeLyricHolds, noteEndMs, populateLyricChars, type CharLookup } from "./lyrics";
 import { hashChart } from "./personalBest";
 import {
   CUT_METRIC_WINDOW_MS,
@@ -43,6 +43,9 @@ export interface Note {
   lyricChar?: string;
   // Lyric only: hold duration in ms (derived from the next note; see computeLyricHolds).
   holdMs?: number;
+  // Lyric only: extend the char-fetch window past the hold end by epsilon to include the
+  // closing syllable (the `endchar` chart option / osu `finish` hitsound; see lyricCharWindow).
+  includeEndChar?: boolean;
   directionPinned?: boolean;
   newCombo?: boolean;
   flowPrevIndex?: number;
@@ -108,7 +111,7 @@ export interface GameHandle {
   setChart(notes: Note[]): void;
   // Supplies the sung characters whose start time falls in [startMs, endMs), concatenated
   // in order (empty when none); used to auto-fill a lyric note's text from its hold window.
-  setCharLookup(charsInRange: (startMs: number, endMs: number) => string): void;
+  setCharLookup(charsInRange: CharLookup): void;
   reset(): void;
   start(): void;
   setPlaying(playing: boolean): void;
@@ -300,7 +303,7 @@ export function createGame(deps: GameDeps): GameHandle {
   let reportedCursorError = false;
   let debugDrawOnce = true;
 
-  let lyricCharLookup: ((startMs: number, endMs: number) => string) | null = null;
+  let lyricCharLookup: CharLookup | null = null;
 
   // After reset(), skip expiry until the song confirms it has rewound to the lead-in window,
   // preventing stale mid-song positions from triggering immediate misses.

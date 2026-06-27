@@ -1,11 +1,17 @@
 import type { Note } from "./engine";
 
+// Range lookup over the song's sung characters: the text of every character whose start
+// time falls in [startMs, endMs), concatenated in order. With `includePrevChar`, the
+// character in progress at startMs (the latest onset before it) is prepended. Implemented
+// by makeCharLookup over a TextAlive video; the engine stays TextAlive-agnostic.
+export type CharLookup = (startMs: number, endMs: number, includePrevChar?: boolean) => string;
+
 // A vocal character's TextAlive onset commonly leads its authored lyric note, by up to
 // roughly this many ms. The epsilon is the lead tolerance at a lyric boundary: a char
 // within epsilon before a lyric's note counts as that lyric's, and a char within epsilon
 // before its hold end is left for the following boundary. A syllable that leads by more
 // than epsilon is recovered by the previous-char fallback in populateLyricChars.
-export const LYRIC_CHAR_BOUNDARY_EPSILON_MS = 100;
+export const LYRIC_CHAR_BOUNDARY_EPSILON_MS = 80;
 
 // A lyric's note row resolves once its hold window plus the metric grace has passed.
 // An invalid (unbounded) lyric has no hold, so it resolves at its note time like a tap.
@@ -33,15 +39,20 @@ export function computeLyricHolds(notes: Note[], endTimes: number[]): void {
   }
 }
 
+// The end bound normally trims epsilon off the hold end, leaving a char within epsilon of
+// the bounding event for the next boundary. An `includeEndChar` lyric (a `finish`-marked
+// clap in osu) instead *extends* the bound by epsilon to claim that closing syllable — its
+// window is (note − epsilon, holdEnd + epsilon).
 export function lyricCharWindow(
   note: Note,
   prevEnd: number,
 ): { startMs: number; endMs: number; clampedToPrev: boolean } {
   const rawStart = note.time - LYRIC_CHAR_BOUNDARY_EPSILON_MS;
   const prevBoundaryStart = prevEnd - LYRIC_CHAR_BOUNDARY_EPSILON_MS;
+  const endEpsilon = note.includeEndChar ? LYRIC_CHAR_BOUNDARY_EPSILON_MS : -LYRIC_CHAR_BOUNDARY_EPSILON_MS;
   return {
     startMs: Math.max(rawStart, prevBoundaryStart),
-    endMs: note.time + (note.holdMs ?? 0) - LYRIC_CHAR_BOUNDARY_EPSILON_MS,
+    endMs: note.time + (note.holdMs ?? 0) + endEpsilon,
     clampedToPrev: prevBoundaryStart > rawStart,
   };
 }
@@ -61,8 +72,12 @@ const lastChar = (s: string): string => {
 // end (it belongs to the next boundary). The lower bound is clamped to the previous
 // boundary minus epsilon, so adjacent lyric windows don't overlap.
 //
-// If the window is empty — the syllable leads the note by more than epsilon, so its onset
-// never landed inside — fall back to the last char between the previous note and the
+// When no character onsets near the note time — nothing in [note − epsilon, note + epsilon]
+// — the syllable the note sits on began earlier and is still in progress, so the lookup is
+// asked to include that previous (in-progress) character.
+//
+// If the window is still empty — the syllable leads the note by more than epsilon, so its
+// onset never landed inside — fall back to the last char between the previous note and the
 // window start, so the note still shows the syllable it sits on. The lookback is bounded
 // below by prevEnd, so it can only pick up a char orphaned in the gap before this note,
 // never one already claimed by a previous lyric's window.
@@ -71,14 +86,22 @@ const lastChar = (s: string): string => {
 // [startMs, endMs), concatenated in order (empty when none).
 export function populateLyricChars(
   notes: Note[],
-  charsInRange: (startMs: number, endMs: number) => string,
+  charsInRange: CharLookup,
 ): void {
+  const eps = LYRIC_CHAR_BOUNDARY_EPSILON_MS;
   for (let i = 0; i < notes.length; i++) {
     const note = notes[i];
     if (note.kind !== "lyric" || note.lyricChar !== undefined || note.holdMs === undefined) continue;
     const prevEnd = i > 0 ? noteEndMs(notes[i - 1]) : -Infinity;
     const { startMs, endMs } = lyricCharWindow(note, prevEnd);
-    const text = charsInRange(startMs, endMs) || lastChar(charsInRange(prevEnd, startMs));
+    // When no character onsets near the note time, the syllable it sits on began earlier and
+    // is still in progress, so ask the lookup to prepend it. Gate this on the partition gap
+    // [prevEnd − eps, startMs) being non-empty: that bounds the in-progress char to this
+    // lyric's side, so a long syllable the previous lyric already showed is not repeated.
+    const includePrev =
+      charsInRange(note.time - eps, note.time + eps) === "" &&
+      charsInRange(prevEnd - eps, startMs) !== "";
+    const text = charsInRange(startMs, endMs, includePrev) || lastChar(charsInRange(prevEnd, startMs));
     note.lyricChar = text;
     if (text === "") {
       console.warn(`[mimi] lyric note at ${note.time}ms: no vocal characters in its hold window`);

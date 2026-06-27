@@ -1,5 +1,6 @@
 module ChartCompiler (chartCompiler) where
 
+import Control.Monad (foldM)
 import Data.Char (toLower)
 import Data.List (intercalate, isPrefixOf)
 import Hakyll
@@ -41,7 +42,54 @@ data NoteEntry = NoteEntry
     , neDirectionPinned :: Bool
     , neNewCombo        :: Bool
     , neLyricChar       :: Maybe String
+    , neIncludeEndChar  :: Bool
     }
+
+data LyricOptions = LyricOptions
+    { loChar           :: Maybe String
+    , loIncludeEndChar :: Bool
+    }
+
+emptyLyricOptions :: LyricOptions
+emptyLyricOptions = LyricOptions Nothing False
+
+normalizeKind :: String -> String
+normalizeKind k = case map toLower (trim k) of
+    "c"     -> "cut"
+    "cut"   -> "cut"
+    "f"     -> "flow"
+    "flow"  -> "flow"
+    "l"     -> "lyric"
+    "lyric" -> "lyric"
+    other   -> other
+
+parseLyricOptions :: String -> String -> [String] -> Either String LyricOptions
+parseLyricOptions _ _ [] = Right emptyLyricOptions
+parseLyricOptions line k opts
+    | normalizeKind k /= "lyric" =
+        Left $ "Lyric options are only valid on lyric rows: " ++ line
+    | otherwise = foldM parseOpt emptyLyricOptions opts
+  where
+    parseOpt acc raw
+        | null opt = Right acc
+        | isEndChar opt = Right acc { loIncludeEndChar = True }
+        | otherwise =
+            case break (== '=') opt of
+                (key, '=':value)
+                    | map toLower (trim key) == "char" -> setChar acc (trim value)
+                    | otherwise -> Left $ "Unknown lyric option '" ++ trim key ++ "' in: " ++ line
+                _ -> setChar acc opt
+      where
+        opt = trim raw
+
+    isEndChar s = map toLower (trim s) == "endchar"
+
+    -- Legacy charts used a bare sixth field for the lyric override. Keep accepting that,
+    -- but new charts should spell it as `char=...` so flags and overrides do not collide.
+    setChar acc c
+        | null (trim c) = Right acc
+        | loChar acc == Nothing = Right acc { loChar = Just (trim c) }
+        | otherwise = Left $ "Duplicate lyric char override in: " ++ line
 
 parseNote :: (Double -> Double) -> String -> Either String NoteEntry
 parseNote toMs line =
@@ -50,12 +98,13 @@ parseNote toMs line =
         -- stripped by the engine, so it needs no position/direction.
         [k, t] | map toLower k == "end" -> do
             t' <- readDouble "time" t
-            Right $ NoteEntry "end" (toMs t') 0 0 0 False False Nothing
-        [k, t, d, x, y]    -> go k t d x y Nothing
-        [k, t, d, x, y, c] -> go k t d x y (Just c)
-        _                   -> Left $ "Expected `end, time`, or 5 or 6 comma-separated fields: " ++ line
+            Right $ NoteEntry "end" (toMs t') 0 0 0 False False Nothing False
+        (k:t:d:x:y:opts) -> do
+            lyricOpts <- parseLyricOptions line k opts
+            go k t d x y (loChar lyricOpts) (loIncludeEndChar lyricOpts)
+        _ -> Left $ "Expected `end, time`, or at least 5 comma-separated fields: " ++ line
   where
-    go k t d x y mChar = do
+    go k t d x y mChar incEnd = do
         t'  <- readDouble "time" t
         nx  <- readDouble "x"    x
         ny  <- readDouble "y"    y
@@ -67,17 +116,10 @@ parseNote toMs line =
             ds     -> do
                 deg <- readDouble "degrees" ds
                 Right (normalizeAngle (-(deg * pi / 180.0)), True)
-        let kind = case map toLower k of
-                "c"     -> "cut"
-                "cut"   -> "cut"
-                "f"     -> "flow"
-                "flow"  -> "flow"
-                "l"     -> "lyric"
-                "lyric" -> "lyric"
-                _       -> map toLower k
+        let kind = normalizeKind k
         let timeMs  = toMs t'
         -- newCombo is set later by `parseEntries` when a `break` precedes this note.
-        Right $ NoteEntry kind timeMs nx ny radians pinned False mChar
+        Right $ NoteEntry kind timeMs nx ny radians pinned False mChar incEnd
 
 -- Fold the data lines into notes, treating a `break` line as a phrase boundary: it
 -- sets newCombo on the next note so the engine starts a fresh flow phrase there.
@@ -117,6 +159,7 @@ renderNote n =
     (if neDirectionPinned n then ", \"directionPinned\": true" else "") ++
     (if neNewCombo n then ", \"newCombo\": true" else "") ++
     maybe "" (\c -> ", \"lyricChar\": \"" ++ c ++ "\"") (neLyricChar n) ++
+    (if neIncludeEndChar n then ", \"includeEndChar\": true" else "") ++
     ", \"state\": \"pending\" }"
 
 compileChart :: String -> Either String String

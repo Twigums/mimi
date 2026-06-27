@@ -20,7 +20,7 @@ import {
   lyricCharWindow,
   LYRIC_CHAR_BOUNDARY_EPSILON_MS,
 } from "../ts/game/lyrics";
-import { makeCharLookup } from "../ts/song/charLookup";
+import { collectTextAliveChars, makeCharLookup } from "../ts/song/charLookup";
 import type { Note } from "../ts/game/engine";
 import type { TextAliveChar, TextAlivePhrase, TextAliveVideo } from "../ts/song/textalive";
 
@@ -146,9 +146,10 @@ interface LyricTrace {
   windowStart: number;
   windowEnd: number;
   clampedToPrev: boolean;
+  includeEndChar: boolean;
   bound: string;
   override?: string;
-  newText: string;
+  populatedText: string;
   oldText: string;
   selected: { startTime: number; text: string }[];
   before: { startTime: number; text: string }[];
@@ -159,7 +160,6 @@ function buildTraces(
   notes: Note[],
   endTimes: number[],
   chars: TextAliveChar[],
-  newLookup: (s: number, e: number) => string,
   oldLookup: (s: number, e: number) => string,
   overrides: Set<number>,
 ): LyricTrace[] {
@@ -209,9 +209,10 @@ function buildTraces(
       windowStart,
       windowEnd,
       clampedToPrev,
+      includeEndChar: !!note.includeEndChar,
       bound,
       override: overrides.has(i) ? note.lyricChar : undefined,
-      newText: holdMs !== undefined ? newLookup(windowStart, windowEnd) : "",
+      populatedText: note.lyricChar ?? "",
       oldText: holdMs !== undefined ? oldLookup(windowStart, windowEnd) : "",
       selected,
       before,
@@ -234,9 +235,13 @@ function printTrace(t: LyricTrace, ordinal: number): void {
   }
   console.log(`  hold    : holdMs=${t.holdMs}  bound=${t.bound}`);
   const clampNote = t.clampedToPrev ? `  (lower clamped to prev boundary minus ${LYRIC_CHAR_BOUNDARY_EPSILON_MS}ms)` : "";
-  console.log(`  window  : [${t.windowStart}, ${t.windowEnd})  = [note−${LYRIC_CHAR_BOUNDARY_EPSILON_MS} .. holdEnd−${LYRIC_CHAR_BOUNDARY_EPSILON_MS}), end epsilon EXCLUDED${clampNote}`);
-  console.log(`  result  : ${q(t.newText)}`);
-  if (t.oldText !== t.newText) {
+  const endExpr = t.includeEndChar
+    ? `holdEnd+${LYRIC_CHAR_BOUNDARY_EPSILON_MS}`
+    : `holdEnd−${LYRIC_CHAR_BOUNDARY_EPSILON_MS}`;
+  const endNote = t.includeEndChar ? "endchar claims closing syllable" : "end epsilon excluded";
+  console.log(`  window  : [${t.windowStart}, ${t.windowEnd})  = [note−${LYRIC_CHAR_BOUNDARY_EPSILON_MS} .. ${endExpr}), ${endNote}${clampNote}`);
+  console.log(`  result  : ${q(t.populatedText)}`);
+  if (t.oldText !== t.populatedText) {
     console.log(`  was(BUG): ${q(t.oldText)}   ⚠ old cross-phrase walk differed here`);
   }
   if (t.selected.length > 0) {
@@ -269,11 +274,13 @@ Usage:
   --chars FILE   real TextAlive timings to reconcile against the chart. Either:
                    phrase-grouped: [{ "startTime", "endTime", "chars":[{ "text","startTime","endTime" }] }]
                    or a flat list:  [{ "text","startTime","endTime" }]
-                 Capture real data from the song page browser console:
+                 Capture a flat song-wide char list from the song page browser console:
 
-  copy(JSON.stringify((()=>{const o=[];let p=player.video.firstPhrase;while(p){const ch=[];
-  let c=p.firstChar;while(c&&c.startTime<=p.endTime){ch.push({text:c.text,startTime:c.startTime,
-  endTime:c.endTime});c=c.next;}o.push({startTime:p.startTime,endTime:p.endTime,chars:ch});p=p.next;}return o;})()))
+  copy(JSON.stringify((()=>{const o=[],sn=new Set(),sk=new Set();let p=player.video.firstPhrase;
+  while(p){let c=p.firstChar;while(c&&!sn.has(c)){sn.add(c);const k=[c.startTime,c.endTime,c.text].join("|");
+  if(!sk.has(k)){sk.add(k);o.push({text:c.text,startTime:c.startTime,endTime:c.endTime});}c=c.next;}p=p.next;}
+  return o.map((c,i)=>({...c,i})).sort((a,b)=>a.startTime-b.startTime||a.endTime-b.endTime||a.i-b.i)
+  .map(({i,...c})=>c);})()))
 
   --json         emit the per-lyric trace as JSON instead of the readable report
 `);
@@ -306,9 +313,9 @@ function main(): void {
   populateLyricChars(notes, newLookup);
 
   // Ground-truth set of distinct chars (unique nodes, in song order) for neighbour display.
-  const uniqueChars = Array.from(new Set(collectCharsBuggy(video)));
+  const uniqueChars = collectTextAliveChars(video);
   const oldLookup = lookupFrom(collectCharsBuggy(video));   // what the buggy walk yielded
-  const traces = buildTraces(notes, endTimes, uniqueChars, newLookup, oldLookup, overrides);
+  const traces = buildTraces(notes, endTimes, uniqueChars, oldLookup, overrides);
 
   if (asJson) {
     console.log(JSON.stringify(traces, null, 2));
