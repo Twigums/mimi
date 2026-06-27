@@ -28,9 +28,6 @@ escapeJson = concatMap esc
     esc '\\' = "\\\\"
     esc c    = [c]
 
--- Optional per-segment style directives carried as a key/value map (e.g.
--- color=#fff, font=handwriting, scale=1.6, in=grow, motion=sway, pulse=beat).
--- A bare flag (no '=') becomes key="true" (e.g. `autotime`).
 type Style = [(String, String)]
 
 parseStyleTok :: String -> (String, String)
@@ -80,8 +77,6 @@ parseEntry line
             to   <- readDouble "to"        toS
             nx   <- readDouble "x"         xS
             ny   <- readDouble "y"         yS
-            -- Numeric trailing tokens are per-char activation times; the rest
-            -- (k=v or bare flags like `autotime`) are style directives.
             let (numToks, styleToks) = partition isNumericTok rest
             cs   <- mapM (readDouble "char_time") numToks
             Right $ LyricEntry from to nx ny (trim textS) cs (map parseStyleTok styleToks)

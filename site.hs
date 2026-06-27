@@ -54,9 +54,6 @@ normalizeSitePath path =
         trimmed  = dropWhileEnd (== '/') stripped
     in "/" ++ trimmed
 
--- Origin (scheme://host) for absolute sitemap URLs, implied by the build
--- environment via SITE_ORIGIN (set to the GitHub Pages host in CI). Local
--- builds leave it unset and fall back to http://localhost.
 normalizeOrigin :: String -> String
 normalizeOrigin "" = "http://localhost"
 normalizeOrigin s  = dropWhileEnd (== '/') s
@@ -280,10 +277,6 @@ buildManifest sitePath = do
 
         return $ "{\"songs\":[" ++ intercalate "," entries ++ "]}"
 
--- Absolute sitemap URLs: one per (song, available difficulty), e.g.
--- https://twigums.github.io/mimi/kotaete/?d=hard. A song needs a tab page and
--- at least one .mimi to appear (same gate as buildManifest). Info/tutorial are
--- embedded into the home page, not standalone pages, so they are excluded.
 sitemapLocs :: String -> IO [String]
 sitemapLocs base = do
     let songsDir = "src/songs"
@@ -390,10 +383,6 @@ rules sitePath origin = do
         compile $ do
             ident  <- getUnderlying
             let songId = takeBaseName (toFilePath ident)
-            -- Chart metadata for the results screen, read from the .mimi headers:
-            -- song tempo (song-level, from the first available difficulty, like
-            -- buildManifest) and a per-difficulty level map (the active difficulty
-            -- is chosen at runtime via ?d=, so all levels ship and JS picks one).
             (bpm, levels) <- unsafeCompiler $ do
                 let songDir = "src/songs" </> songId
                 avail    <- filterM (\d -> doesFileExist $ songDir </> d ++ ".mimi") difficultyIds

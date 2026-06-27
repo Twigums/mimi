@@ -32,10 +32,6 @@ readDouble name s = case reads (trim s) of
     [(v, "")] -> Right v
     _         -> Left $ "Invalid number for '" ++ name ++ "': " ++ s
 
--- The optional 6th lyric field holds whitespace-separated tokens: `span=<int>`
--- (auto-take that many TextAlive chars into one note), `src=<ms>` (source the funnel
--- character from the TextAlive char at that timestamp instead of the note's own time),
--- and/or a literal character override string. Returns (lyricChar, lyricSpan, lyricSrcMs).
 parseLyricField :: String -> Either String (Maybe String, Maybe Int, Maybe Double)
 parseLyricField raw = go (words (trim raw)) (Nothing, Nothing, Nothing)
   where
@@ -76,8 +72,6 @@ parseNote toMs line =
         nx  <- readDouble "x"    x
         ny  <- readDouble "y"    y
         (mChar, mSpan, mSrcTime) <- maybe (Right (Nothing, Nothing, Nothing)) parseLyricField mLyric
-        -- "auto" (or an empty field) means "no authored direction": flow anchors then
-        -- derive it from the ribbon tangent. A numeric value pins the direction.
         (radians, pinned) <- case map toLower (trim d) of
             ""     -> Right (0.0, False)
             "auto" -> Right (0.0, False)
@@ -93,11 +87,9 @@ parseNote toMs line =
                 "lyric" -> "lyric"
                 _       -> map toLower k
         let timeMs  = toMs t'
-        -- newCombo is set later by `parseEntries` when a `break` precedes this note.
         Right $ NoteEntry kind timeMs nx ny radians pinned False mChar mSpan mSrcTime
 
--- Fold the data lines into notes, treating a `break` line as a phrase boundary: it
--- sets newCombo on the next note so the engine starts a fresh flow phrase there.
+-- Fold the data lines into notes, treating a `break` line as a phrase boundary
 parseEntries :: (Double -> Double) -> [String] -> Either String [NoteEntry]
 parseEntries toMs = go False
   where
