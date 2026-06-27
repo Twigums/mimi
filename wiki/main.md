@@ -14,4 +14,4 @@ This file serves as a summary/directory of all information in the `/wiki` direct
 
 - `imie - Answer Me (IOException).osu`: Sample `.osu` file for translating `.osu` to `.mimi`.
 
-- `6W2N_chorus_timings.jsonc`: Official information presented by the Magical Mirai/TextAlive staff regarding the TextAlive song information.
+- `6W2N_chorus_timings.jsonc`: Official Magical Mirai/TextAlive staff chorus timing data for こたえて (ms char slots without text; phrase lines are in `//` comments). Songs opt in via the `lyric-chorus-timings` frontmatter field; the build copies `wiki/**` verbatim into the site output.

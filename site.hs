@@ -322,6 +322,10 @@ rules sitePath origin = do
         route   $ gsubRoute "static/" (const "")
         compile copyFileCompiler
 
+    match "wiki/**" $ do
+        route   idRoute
+        compile copyFileCompiler
+
     -- chart files: compile .mimi -> .json
     match "src/songs/**/*.mimi" $ do
         route   $ gsubRoute "src/" (const "") `composeRoutes` setExtension "json"

@@ -1,7 +1,9 @@
 import type { GameHandle, GameStats, HitResult, Note } from "../game/engine";
 import { computeLyricHolds } from "../game/lyrics";
 import { arToMs, loadAr, loadVolume, subscribeVolume, loadMusicOffset, subscribeMusicOffset } from "../core/settings";
+import { withPath } from "../core/sitePath";
 import { createStoryboardRenderer, type StoryEntry, type ReactiveFrame } from "./storyboard";
+import { loadChorusTimingsJsonc, mergeChorusTimings } from "./chorusTimings";
 import { matchLyrics, flattenChars, type ExcludeRange } from "./lyricMatch";
 import type { TextAlivePlayer, TextAlivePlayerOptions, TextAliveVideo } from "./textalive";
 
@@ -49,6 +51,7 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPre
   const lyricId              = parseInt(body.dataset.textaliveLyricId ?? "");
   const lyricDiffId          = parseInt(body.dataset.textaliveLyricDiffId ?? "");
   const hasVideoIds = !isNaN(beatId) && !isNaN(chordId) && !isNaN(repetitiveSegmentId) && !isNaN(lyricId) && !isNaN(lyricDiffId);
+  const chorusTimingsPath = body.dataset.lyricChorusTimings ?? "";
 
   const btnHudToggle = document.getElementById("btn-hud-toggle")  as HTMLButtonElement | null;
   const songHud      = document.querySelector<HTMLElement>(".song-hud");
@@ -132,10 +135,41 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPre
   // matcher once (mutating note.lyricChar before the engine clones the notes), hand
   // the char->note map to the storyboard, then set the chart.
   let videoForMatch: TextAliveVideo | null = null;
+  let rawVideo: TextAliveVideo | null = null;
+  let chorusOverlay: { phrases: ReturnType<typeof loadChorusTimingsJsonc>["phrases"]; wordSizes: number[][] } | null = null;
   let loadedNotes: Note[] | null = null;
   let excludeRanges: ExcludeRange[] = [];
   let storyPending = !!(storyboard && chartDir);
   let chartApplied = false;
+  let chorusTimingsReady = !chorusTimingsPath;
+
+  const publishVideoForMatch = (): void => {
+    if (!rawVideo) return;
+    if (chorusTimingsPath && !chorusTimingsReady) return;
+    const merged = chorusOverlay
+      ? mergeChorusTimings(rawVideo, chorusOverlay.phrases, chorusOverlay.wordSizes)
+      : rawVideo;
+    videoForMatch = merged;
+    storyboard?.setVideo(merged);
+    tryApplyChart();
+  };
+
+  if (chorusTimingsPath) {
+    (async () => {
+      try {
+        const res = await fetch(withPath(`/${chorusTimingsPath.replace(/^\//, "")}`));
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const loaded = loadChorusTimingsJsonc(await res.text());
+        chorusOverlay = loaded;
+        publishVideoForMatch();
+      } catch (err) {
+        console.error("[mimi] chorus timings load failed:", err);
+      } finally {
+        chorusTimingsReady = true;
+        tryApplyChart();
+      }
+    })();
+  }
 
   const isEndMarker = (note: Note): boolean => (note.kind as string).toLowerCase() === "end";
   const playableNotes = (notes: Note[]): Note[] => notes.filter(note => !isEndMarker(note));
@@ -149,6 +183,7 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPre
     // the chart first and the matcher (which needs the video chars) would be skipped.
     // Playback can't start before the video is ready anyway, so this never stalls.
     if (hasVideoIds && !videoForMatch) return;
+    if (chorusTimingsPath && !chorusTimingsReady) return;
     const playable = playableNotes(loadedNotes);
     computeLyricHolds(playable, endMarkerTimes(loadedNotes));
     if (videoForMatch) {
@@ -282,9 +317,8 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPre
         }
       },
       onVideoReady(video) {
-        storyboard?.setVideo(video);
-        videoForMatch = video;
-        tryApplyChart();
+        rawVideo = video;
+        publishVideoForMatch();
         // Cache song-map analysis used by the reactive directives.
         maxAmplitude = player?.getMaxVocalAmplitude() || 1;
         choruses = player?.getChoruses() ?? [];
