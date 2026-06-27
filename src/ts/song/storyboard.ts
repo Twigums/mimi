@@ -205,7 +205,6 @@ export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElem
     const active = video.findActivePhrases?.(songMs)
       ?? (video.findPhrase(songMs) ? [video.findPhrase(songMs)!] : []);
     const activeSet = new Set(active);
-    root.classList.toggle("sb-stacked", active.length > 1);
 
     for (const [phrase, els] of [...mountedPhrases]) {
       if (!activeSet.has(phrase)) clearPhrase(phrase, els);
