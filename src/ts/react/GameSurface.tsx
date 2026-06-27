@@ -55,7 +55,7 @@ export function GameSurface({ onReady, returnHref, onTryAgain }: Props) {
   const skipBreakRef = useRef<(() => void) | null>(null);
   const lyricOutcomeRef = useRef<((result: HitResult, x: number, y: number) => void) | null>(null);
 
-  const [score, setScore] = useState(0);
+  const [accuracy, setAccuracy] = useState(0);
   const [combo, setCombo] = useState(0);
   const [playing, setPlaying] = useState(false);
   const [playerReady, setPlayerReady] = useState(false);
@@ -112,7 +112,7 @@ export function GameSurface({ onReady, returnHref, onTryAgain }: Props) {
       canvas,
       gameArea,
       hitSoundUrl,
-      onScore: setScore,
+      onAccuracy: setAccuracy,
       onComboChange: setCombo,
       onPlayingChange: setPlaying,
       onFeedback: (res, x, y) => {
@@ -225,9 +225,9 @@ export function GameSurface({ onReady, returnHref, onTryAgain }: Props) {
           {songInfo.mapper && <span className="game-song-mapper">{songInfo.mapper}</span>}
         </div>
 
-        <div className="score-display">
-          <span className="score-label">{lang === "jp" ? "スコア" : "Score"}</span>
-          <span className="score-value">{score}</span>
+        <div className="accuracy-display">
+          <span className="accuracy-value">{(accuracy * 100).toFixed(2)}%</span>
+          <span className="accuracy-label">{lang === "jp" ? "精度" : "Accuracy"}</span>
         </div>
 
         <div className="combo-display">
@@ -254,6 +254,7 @@ export function GameSurface({ onReady, returnHref, onTryAgain }: Props) {
             returnHref={returnHref}
             onTryAgain={handleTryAgain}
             songName={displayName}
+            songId={songInfo.name}
             artist={displayAuthor}
             difficulty={difficulty}
             level={level}

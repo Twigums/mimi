@@ -10,11 +10,11 @@ The game uses one ruleset for every difficulty. Difficulty comes from chart dens
 |------|---------|---------|
 | Cut | A directional slash target | Move through the target in the shown direction |
 | Flow | A connected phrase of timed anchors | Keep a continuous motion through the phrase path |
-| Lyric | A sung character or vocal accent | Brush through the lyric target; direction does not matter |
+| Lyric | A sung character or vocal accent | Hold the cursor inside the larger circle for the lyric's duration |
 
-No ordinary note requires holding a mouse button or key. If a future note requires a press, it should be a distinct note type with its own visual language.
+No note requires holding a mouse button or key. The lyric hold is a *position* hold — keep the pointer inside the circle — not a button press. If a future note requires a press, it should be a distinct note type with its own visual language.
 
-All note types gradually appear as the song approaches their hit time. Cut and flow notes start as faint outlines and fill with color as the hit time approaches. Lyric notes show a dotted circle with the glyph's stroke outline; the coloured character is delivered by the storyboard funnel — during the approach each mapped character detaches from the displayed lyric it belongs to and flies onto the note, arriving by the hit time (multi-character notes funnel their characters in sequence).
+All note types gradually appear as the song approaches their hit time. Cut and flow notes start as faint outlines and fill with color as the hit time approaches. Every note gives a brief size swell that peaks right at its hit time, a subtle visual cue for the beat. Lyric notes show a dotted circle with the glyph's stroke outline; the coloured character is delivered by the storyboard funnel — during the approach each mapped character detaches from the displayed lyric it belongs to and flies onto the note, arriving by the hit time (multi-character notes funnel their characters in sequence). While a lyric is being held, a progress ring sweeps around it, bright while the cursor is inside and dim while the hold lapses without it.
 
 ## Note Eligibility
 
@@ -71,7 +71,7 @@ Unlike a cut, a flow anchor has no single authored direction. The ribbon between
 | Travel | >= 24 logical px | >= 12 logical px | >= 4 logical px | < 4 logical px |
 | Shape error | <= 60 degrees | <= 75 degrees | <= 100 degrees | > 100 degrees |
 
-Shape error compares the gesture and the ribbon as **heading sequences**: each is resampled along its length into a fixed number of segments, and the error is the average angle between the matching segments. Because it uses only headings, it measures the *shape* of the motion (its direction and how it bends) and is independent of position — staying near the anchor is the separate contact metric. The perfect threshold stays generous (a following motion keeps full credit through curves and corners), but the great/good boundaries are deliberately tight: a roughly perpendicular sweep (~90 degrees off) lands in Tier 1, not Tier 2, and motion past ~100 degrees off (sideways or backward) misses, so flailing across anchors cannot farm Greats. A lone flow anchor with no linked neighbours has no ribbon shape, so it is judged on motion alone, like a lyric. The shape error depends only on the player's own motion, never on how a neighbouring anchor was judged, so one weak anchor does not cap the rest of the phrase.
+Shape error compares the gesture and the ribbon as **heading sequences**: each is resampled along its length into a fixed number of segments, and the error is the average angle between the matching segments. Because it uses only headings, it measures the *shape* of the motion (its direction and how it bends) and is independent of position — staying near the anchor is the separate contact metric. The perfect threshold stays generous (a following motion keeps full credit through curves and corners), but the great/good boundaries are deliberately tight: a sweep ~90 degrees off the ribbon lands in Tier 1, not Tier 2, and motion further off (>100 degrees) misses, so flailing across anchors cannot farm Greats. A lone flow anchor with no linked neighbours has no ribbon shape, so it is judged on its own motion alone, free of any heading constraint. The shape error depends only on the player's own motion, never on how a neighbouring anchor was judged, so one weak anchor does not cap the rest of the phrase.
 
 Contact currently uses the same thresholds as cut while flow contact is being tuned. Travel still requires real motion through the anchor.
 
@@ -79,9 +79,23 @@ The ribbon between anchors is a smooth curve whose heading at each anchor is the
 
 ## Lyric Judgement
 
-Lyric notes use the same timing tiers and score weights. The player must move through the lyric interaction circle. Direction does not matter, but meaningful motion still matters; resting on the character should not earn a high result.
+A lyric note is a **hold**: the player keeps the cursor inside the (larger) lyric circle for the duration of the note. A single lyric note can stand in for multiple sung syllables; they should not be charted for very short durations.
 
-Lyric notes display the character(s) from the TextAlive lyrics matched to the note, within +/- 80 ms unless the chart provides an explicit override. Matching is **containment-first**: a note whose time falls inside a character's sung span sources that character and shares it, so several notes placed over one long-held character (for example か, が, やき all over 輝) all funnel from the same glyph. When no character contains the note time, the note falls back to the nearest *unclaimed* character and claims it, so notes that land between characters spread out instead of duplicating (自分 → 自 then 分, not 自 twice). A note's `span` field takes the source character plus the next consecutive characters into one note (for example a whole word), a literal override sets the displayed text directly, and `src=<ms>` pins the source character by timestamp when the note's own time doesn't line up with the desired character. Characters inside a `.story` exclude range are skipped by matching. If no vocal character is close enough, the note is hidden and a warning is logged before play.
+The hold lasts from the note time **until the next event in the chart strictly after it** — there is no default and no cap. That bounding event is whichever comes first: the **next note** (any kind) or an explicit **lyric-end marker** (the `end` chart line, which lets a hold end where no playable note sits). Charts control hold length by where that following event sits. "Strictly after" means a note charted on the lyric's own beat (for instance a cut leading into it) does not collapse the hold to zero. A lyric with no later note or marker cannot be bounded and is an invalid chart: it is logged and judged as a miss rather than given a fabricated duration. Because the hold ends where a note can be charted on the same beat, the required hold is slightly shorter than the nominal duration (an early-release grace), so the player has time to leave for that next note without losing the hold.
+
+Lyric notes use the same timing tiers and score weights as cut. They have no direction. The three remaining metrics map onto the shared issue buckets:
+
+| Gesture metric | Issue | Meaning |
+|----------------|-------|---------|
+| Enter timing | `timing` | When the cursor enters the circle, relative to the note time. Being present at or before the note start is on time; only a late entry is penalized. |
+| Contact distance | `contact` | The closest the pointer gets to the center over the hold window (did you reach the note, not just its edge). Same thresholds as cut: <= 45 / <= 75 / <= 110 logical px. |
+| Hold completeness | `gesture` | The fraction of the required hold actually sustained, measured as the longest contiguous span the cursor stays inside the hold radius. Tier 3 >= 95%, Tier 2 >= 80%, Tier 1 >= 55%. Releasing early caps the result here. |
+
+The final result is the lowest tier allowed by the three metrics, and the reported issue is the binding one in the shared priority order. A clean hold is Tier 3 with no issue. The hold finalizes (for feedback) as soon as the outcome can no longer improve — the moment the cursor leaves the circle, the full hold completes, or the window elapses — so feedback lands on the beat the hold ends rather than waiting out the duration.
+
+Lyric notes display the Japanese characters sung during the hold: charting picks out the most important syllable(s) per note rather than every character, so some characters between emphasized lyrics may go unshown. By default, each lyric shows every TextAlive character whose start time falls in its epsilon-adjusted hold window (typically the 1–4 syllables it covers), unless the chart provides an explicit `char=<text>` override. A sung character's onset commonly leads its note, so the window starts 80 ms before the note time to admit a leading character. It ends 80 ms before the hold end, so a character within 80 ms of the bounding event (the next note or `end` marker) is excluded and belongs to the next boundary — unless the lyric has the `endchar` option (osu's `finish` hitsound on the clap), which instead extends the end bound to 80 ms *past* the hold end to claim that closing syllable. Adjacent lyric windows therefore partition the syllables with no overlap. When a character begins in the unclaimed gap after the previous chart event and is still sounding at this lyric's window start, that in-progress character is prepended — but only from this lyric's side of the partition, so a long syllable the previous lyric already showed is not repeated. If the window is still empty — the syllable leads its note by more than 80 ms, so no onset landed inside — the note falls back to the character immediately before the window, taken only from the gap after the previous note so it never borrows a previous lyric's character. If even that finds nothing, the note shows nothing and a warning is logged before play.
+
+Authored lyric-source options are still available for special cases. A note's `span` field takes the source character plus the next consecutive characters into one note, and `src=<ms>` pins the source character by timestamp when the note's own time doesn't line up with the desired character; those authored source options use containment-first matching, where a note whose time falls inside a character's sung span sources that character and shares it, and otherwise falls back to the nearest unclaimed character. Characters inside a `.story` exclude range are skipped by matching.
 
 Lyric notes that are tied to a displayed storyboard lyric drive that lyric's appearance. The mapped characters detach from the shown lyric and funnel onto the note during its approach. A character renders as an empty outline until resolved: it fills with the perfect-hit yellow when its own note is hit, and the **entire TextAlive word** it belongs to — including any unmapped characters — shines once every note mapped into that word has been hit. Missing any of a word's notes leaves the word un-shone. Lyrics with no note mapped to them animate normally.
 
@@ -108,6 +122,8 @@ Grade thresholds:
 ## Combo
 
 Tier 3 and Tier 2 results preserve combo. Tier 1 and Miss break combo.
+
+The completion screen awards a **Full Combo** badge only when the combo is never broken across the whole song — every note resolves Tier 2 or better (no Goods and no Misses), so the max combo equals the note count. An all-Tier-3 run earns the stronger **All Perfect** badge instead.
 
 ## Feedback
 
@@ -169,7 +185,7 @@ Times are in milliseconds. `x` and `y` use the 800 x 600 logical play area.
 
 ## Completion Screen
 
-When the song ends, a results overlay appears inside the game area. It displays grade, score, accuracy, a judgement breakdown, and actions for Share, Try Again, and Back.
+When the song ends, a results overlay appears inside the game area. It displays grade, accuracy, max combo, a judgement breakdown, and actions for Share, Try Again, and Back. There is no numeric score.
 
 The breakdown accounts for every imperfect hit (Great, Good, Miss) across three linked dimensions: by tier, by note kind (cut / flow / lyric), and by issue. The **issue** is the single binding constraint that held the hit below Tier 3 — the lowest-scoring gesture metric for that hit. There are four issue buckets:
 
@@ -178,8 +194,8 @@ The breakdown accounts for every imperfect hit (Great, Good, Miss) across three 
 | Timing | Timing was the limiting factor (the hit landed outside the higher tier's window) |
 | Contact | The pointer path did not pass close enough to the note |
 | Direction | The slash angle was too far from the note's arrow |
-| Gesture | The stroke itself was the limit: a cut's travel/slash distance or a flow's traced shape |
+| Gesture | The stroke itself was the limit: a cut's travel/slash distance, a flow's traced shape, or a lyric's hold completeness |
 
-Every note kind can produce a Timing, Contact, or Gesture issue. Direction applies to cut only — lyric notes have no direction, and a flow anchor's heading is folded into its shape, which reports as a Gesture issue. There is no separate travel, flow, or continuity issue; cut travel and flow shape both surface as Gesture.
+Every note kind can produce a Timing, Contact, or Gesture issue. Direction applies to cut only — lyric notes have no direction, and a flow anchor's heading is folded into its shape, which reports as a Gesture issue. There is no separate travel, flow, continuity, or hold issue; cut travel, flow shape, and lyric hold completeness all surface as Gesture.
 
 The three dimensions are cross-linked: hovering any cell scopes the other two dimensions to the hits matching it.

@@ -1,10 +1,14 @@
 import { clamp } from "../core/utils";
-import { drawArrow, drawLyricNote, drawFireworks, drawFlowRibbon } from "./draw";
+import { drawArrow, drawLyricNote, drawFireworks, drawFlowRibbon, notePulseScale } from "./draw";
 import { arToMs, loadAr, loadHitsoundVolume, subscribeHitsoundVolume, volToFactor, loadHiddenMod, subscribeHiddenMod } from "../core/settings";
 import { createCursorRenderer, type CursorRenderer } from "./cursor";
+import { computeLyricHolds, noteEndMs } from "./lyrics";
+import { hashChart } from "./personalBest";
 import {
   CUT_METRIC_WINDOW_MS,
   FLOW_SHAPE_BINS,
+  LYRIC_HOLD_RADIUS,
+  MAX_POINTS,
   TIER1_MS,
   type HitResult,
   type HitTiming,
@@ -22,6 +26,9 @@ export const LOGICAL_H = 600;
 
 export const LYRIC_CHAR_MAX_DIST_MS = 80;
 
+// How far the ribbon bows through each flow anchor, as a fraction of the shorter
+// adjacent chord. Higher = rounder curves (less kinking at the waypoint) at the cost
+// of some overshoot risk on very uneven spacing.
 const FLOW_TANGENT_WEIGHT = 0.9;
 
 type NoteState         = "pending" | "hit" | "missed";
@@ -38,6 +45,11 @@ export interface Note {
   lyricChar?: string;
   lyricSpan?: number;
   lyricSrcTime?: number;
+  // Lyric only: hold duration in ms (derived from the next note; see computeLyricHolds).
+  holdMs?: number;
+  // Lyric only: extend the char-fetch window past the hold end by epsilon to include the
+  // closing syllable (the `endchar` chart option / osu `finish` hitsound; see lyricCharWindow).
+  includeEndChar?: boolean;
   directionPinned?: boolean;
   newCombo?: boolean;
   flowPrevIndex?: number;
@@ -81,6 +93,9 @@ export interface GameStats {
   maxCombo: number;
   hits: HitDetail[];
   noteCounts: Record<NoteKind, number>;
+  // Content hash of the live chart (independent of the run), so the results screen
+  // can key personal-best tracking to this exact note set (see personalBest.ts).
+  chartHash: string;
 }
 
 export interface SpawnSpec {
@@ -91,6 +106,7 @@ export interface SpawnSpec {
   direction: number;
   lyricChar?: string;
   lyricSpan?: number;
+  holdMs?: number;
   flowPrevIndex?: number;
 }
 
@@ -109,7 +125,7 @@ export interface GameHandle {
 interface GameDeps {
   canvas:          HTMLCanvasElement;
   gameArea:        HTMLElement;
-  onScore:         (score: number) => void;
+  onAccuracy:      (accuracy: number) => void;
   onFeedback:      (result: HitResult, x: number, y: number) => void;
   onComboChange:   (combo: number) => void;
   onPlayingChange: (playing: boolean) => void;
@@ -161,7 +177,7 @@ function normalizeChartNotes(rawNotes: RawNote[]): Note[] {
 }
 
 export function createGame(deps: GameDeps): GameHandle {
-  const { canvas, gameArea, onScore, onFeedback, onComboChange, onPlayingChange } = deps;
+  const { canvas, gameArea, onAccuracy, onFeedback, onComboChange, onPlayingChange } = deps;
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("2D canvas context unavailable");
 
@@ -283,9 +299,17 @@ export function createGame(deps: GameDeps): GameHandle {
   let reportedDrawError = false;
   let reportedCursorError = false;
   let debugDrawOnce = true;
+
+  // After reset(), skip expiry until the song confirms it has rewound to the lead-in window,
+  // preventing stale mid-song positions from triggering immediate misses.
   let skipExpiry = false;
 
-  const setScore = (v: number): void => { score = v; onScore(v); };
+  // `score` is the internal accuracy accumulator (sum of judged points), never shown
+  // to the player; accuracy = score / (judged notes × MAX_POINTS) is the live readout.
+  const emitAccuracy = (): void => {
+    const total = tier3Count + tier2Count + tier1Count + missCount;
+    onAccuracy(total === 0 ? 0 : score / (total * MAX_POINTS));
+  };
 
   const recordPointerSample = (songMs: number): void => {
     pointerSamples.push({
@@ -294,9 +318,19 @@ export function createGame(deps: GameDeps): GameHandle {
       songMs,
       wallMs: performance.now(),
     });
-    while (pointerSamples.length > 64) pointerSamples.shift();
+    // Keep enough history to span a lyric hold plus the metric windows even at high
+    // refresh rates, since a held lyric is judged across its whole duration.
+    while (pointerSamples.length > 256) pointerSamples.shift();
   };
 
+  // Flow anchors take their direction from the ribbon they trace. By default the
+  // tangent points along the bisector of the incoming (prev->this) and outgoing
+  // (this->next) unit chords; an anchor whose chart row authored a `degrees` value
+  // (`directionPinned`) instead pins that heading. Either way the length is the
+  // tension weight times the shorter adjacent chord, which keeps the cubic Hermite
+  // ribbon from overshooting where spacing is uneven. The arrow and the judged shape
+  // use the angle; `draw` uses the full vector. A lone anchor (no links) or a
+  // 180-degree cusp without a pin returns null and keeps its current direction.
   const flowTangent = (index: number): { x: number; y: number } | null => {
     const n = notes[index];
     let dirX = 0, dirY = 0;
@@ -402,6 +436,7 @@ export function createGame(deps: GameDeps): GameHandle {
     note.state = "missed";
     note.hitResult = "miss";
     missCount++;
+    emitAccuracy();
     comboCount = 0;
     onComboChange(0);
     hitDetails.push({
@@ -434,7 +469,8 @@ export function createGame(deps: GameDeps): GameHandle {
     else if (result === "tier2") tier2Count++;
     else if (result === "tier1") tier1Count++;
     if (points > 0) {
-      setScore(score + points);
+      score += points;
+      emitAccuracy();
       if (result === "tier1") {
         comboCount = 0;
       } else {
@@ -461,10 +497,14 @@ export function createGame(deps: GameDeps): GameHandle {
   };
 
   const expireMisses = (songMs: number): void => {
+    // Notes are time-sorted by start: once a note's start is recent enough that even a
+    // zero-length note isn't expirable, nothing after it can be either. A lyric hold
+    // expires off its end (start + holdMs), so it survives until its hold has elapsed.
     for (let i = pendingStart; i < notes.length; i++) {
       const n = notes[i];
+      if (n.time > songMs - CUT_METRIC_WINDOW_MS) break;
       if (n.state !== "pending") continue;
-      if (songMs - n.time <= CUT_METRIC_WINDOW_MS) break;
+      if (songMs - noteEndMs(n) <= CUT_METRIC_WINDOW_MS) continue;
       resolveMiss(n, songMs - n.time, "timing");
     }
   };
@@ -514,12 +554,20 @@ export function createGame(deps: GameDeps): GameHandle {
       if (note.state !== "pending") continue;
       const dt = note.time - songMs;
       if (dt > approachMs) break;
-      if (dt < -TIER1_MS) continue;
-      const appearProgress = clamp(1 - dt / approachMs, 0, 1);
       if (note.kind === "lyric") {
-        drawLyricNote(ctx, note, appearProgress, scale);
+        const holdMs = note.holdMs ?? 0;
+        // Keep the lyric (with its progress ring) on screen through the whole hold; an
+        // invalid (unbounded) lyric has no hold, so it uses the standard note window.
+        if (dt < -(holdMs + TIER1_MS)) continue;
+        const appearProgress = clamp(1 - dt / approachMs, 0, 1);
+        const holdProgress = holdMs > 0 ? clamp((songMs - note.time) / holdMs, 0, 1) : 0;
+        const holding = holdMs > 0 && songMs >= note.time && songMs <= note.time + holdMs &&
+          Math.hypot(pointer.x - note.x, pointer.y - note.y) <= LYRIC_HOLD_RADIUS;
+        drawLyricNote(ctx, note, appearProgress, scale, hiddenMod, holdProgress, holding, notePulseScale(dt));
       } else {
-        drawArrow(ctx, note, appearProgress, scale, hiddenMod);
+        if (dt < -TIER1_MS) continue;
+        const appearProgress = clamp(1 - dt / approachMs, 0, 1);
+        drawArrow(ctx, note, appearProgress, scale, hiddenMod, notePulseScale(dt));
       }
     }
     for (let i = animStart; i < animations.length; i++) {
@@ -533,10 +581,23 @@ export function createGame(deps: GameDeps): GameHandle {
 
   return {
     setChart(n: Note[]): void {
-      notes = normalizeChartNotes(n as RawNote[]);
+      // `end` markers are inert: they only carry a time that bounds a preceding lyric's
+      // hold. Pull their times out, then discard them so judging/drawing/stats never see
+      // them (keeping the rest of the engine free of a non-playable kind).
+      const endTimes: number[] = [];
+      const playable: RawNote[] = [];
+      for (const r of n as RawNote[]) {
+        if (typeof r.kind === "string" && r.kind.toLowerCase() === "end") {
+          if (typeof r.time === "number") endTimes.push(r.time);
+        } else {
+          playable.push(r);
+        }
+      }
+      notes = normalizeChartNotes(playable);
       pendingStart = 0;
       debugDrawOnce = true;
       linkFlowPhrases();
+      computeLyricHolds(notes, endTimes);
     },
 
     reset(): void {
@@ -545,7 +606,7 @@ export function createGame(deps: GameDeps): GameHandle {
       for (const n of notes) { n.state = "pending"; n.hitResult = undefined; }
       animations = [];
       animStart = 0;
-      setScore(0);
+      score = 0;
       tier3Count = 0;
       tier2Count = 0;
       tier1Count = 0;
@@ -554,6 +615,7 @@ export function createGame(deps: GameDeps): GameHandle {
       maxCombo   = 0;
       hitDetails = [];
       pointerSamples.length = 0;
+      emitAccuracy();
       onComboChange(0);
       onPlayingChange(false);
     },
@@ -580,6 +642,7 @@ export function createGame(deps: GameDeps): GameHandle {
         maxCombo,
         hits:    hitDetails.slice(),
         noteCounts,
+        chartHash: hashChart(notes),
       };
     },
 
@@ -597,6 +660,9 @@ export function createGame(deps: GameDeps): GameHandle {
         state: "pending",
         lyricChar: spec.lyricChar,
         lyricSpan: spec.lyricSpan,
+        // Spawned lyrics have no chart timeline to derive a bound from, so the caller
+        // (the testplay surface) supplies an explicit preview hold length.
+        holdMs: spec.kind === "lyric" ? spec.holdMs : undefined,
       };
       const index = notes.length;
       notes.push(note);

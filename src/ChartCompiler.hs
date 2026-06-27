@@ -1,5 +1,6 @@
 module ChartCompiler (chartCompiler) where
 
+import Control.Monad (foldM)
 import Data.Char (toLower)
 import Data.List (intercalate, isPrefixOf)
 import Hakyll
@@ -32,21 +33,6 @@ readDouble name s = case reads (trim s) of
     [(v, "")] -> Right v
     _         -> Left $ "Invalid number for '" ++ name ++ "': " ++ s
 
-parseLyricField :: String -> Either String (Maybe String, Maybe Int, Maybe Double)
-parseLyricField raw = go (words (trim raw)) (Nothing, Nothing, Nothing)
-  where
-    go [] acc = Right acc
-    go (t:ts) (mc, ms, mt)
-        | "span=" `isPrefixOf` map toLower t =
-            case reads (drop 5 t) of
-                [(n, "")] | n > 0 -> go ts (mc, Just (n :: Int), mt)
-                _                 -> Left $ "Invalid span (need positive integer): " ++ t
-        | "src=" `isPrefixOf` map toLower t =
-            case reads (drop 4 t) of
-                [(d, "")] -> go ts (mc, ms, Just (d :: Double))
-                _         -> Left $ "Invalid src (need a timestamp in ms): " ++ t
-        | otherwise = go ts (Just (maybe t (\c -> c ++ " " ++ t) mc), ms, mt)
-
 data NoteEntry = NoteEntry
     { neKind            :: String
     , neTimeMs          :: Double
@@ -58,36 +44,98 @@ data NoteEntry = NoteEntry
     , neLyricChar       :: Maybe String
     , neLyricSpan       :: Maybe Int
     , neLyricSrcTime    :: Maybe Double
+    , neIncludeEndChar  :: Bool
     }
+
+data LyricOptions = LyricOptions
+    { loChar           :: Maybe String
+    , loSpan           :: Maybe Int
+    , loSrcTime        :: Maybe Double
+    , loIncludeEndChar :: Bool
+    }
+
+emptyLyricOptions :: LyricOptions
+emptyLyricOptions = LyricOptions Nothing Nothing Nothing False
+
+normalizeKind :: String -> String
+normalizeKind k = case map toLower (trim k) of
+    "c"     -> "cut"
+    "cut"   -> "cut"
+    "f"     -> "flow"
+    "flow"  -> "flow"
+    "l"     -> "lyric"
+    "lyric" -> "lyric"
+    other   -> other
+
+parseLyricOptions :: String -> String -> [String] -> Either String LyricOptions
+parseLyricOptions _ _ [] = Right emptyLyricOptions
+parseLyricOptions line k opts
+    | normalizeKind k /= "lyric" =
+        Left $ "Lyric options are only valid on lyric rows: " ++ line
+    | otherwise = foldM parseOpt emptyLyricOptions (concatMap words opts)
+  where
+    parseOpt acc raw
+        | null opt = Right acc
+        | isEndChar opt = Right acc { loIncludeEndChar = True }
+        | "span=" `isPrefixOf` lower =
+            case reads (drop 5 opt) of
+                [(n, "")] | n > 0 && loSpan acc == Nothing -> Right acc { loSpan = Just (n :: Int) }
+                [(n, "")] | n > 0 -> Left $ "Duplicate lyric span in: " ++ line
+                _ -> Left $ "Invalid span (need positive integer): " ++ opt
+        | "src=" `isPrefixOf` lower =
+            case reads (drop 4 opt) of
+                [(d, "")] | loSrcTime acc == Nothing -> Right acc { loSrcTime = Just (d :: Double) }
+                [(_, "")] -> Left $ "Duplicate lyric src in: " ++ line
+                _ -> Left $ "Invalid src (need a timestamp in ms): " ++ opt
+        | otherwise =
+            case break (== '=') opt of
+                (key, '=':value)
+                    | map toLower (trim key) == "char" -> setChar acc (trim value)
+                    | otherwise -> Left $ "Unknown lyric option '" ++ trim key ++ "' in: " ++ line
+                _ -> setChar acc opt
+      where
+        opt = trim raw
+        lower = map toLower opt
+
+    isEndChar s = map toLower (trim s) == "endchar"
+
+    -- Legacy charts used a bare sixth field for the lyric override. Keep accepting that,
+    -- but new charts should spell it as `char=...` so flags and overrides do not collide.
+    setChar acc c
+        | null (trim c) = Right acc
+        | loChar acc == Nothing = Right acc { loChar = Just (trim c) }
+        | otherwise = Right acc { loChar = Just (loCharText ++ " " ++ trim c) }
+      where
+        loCharText = maybe "" id (loChar acc)
 
 parseNote :: (Double -> Double) -> String -> Either String NoteEntry
 parseNote toMs line =
     case map trim (splitOn ',' line) of
-        [k, t, d, x, y]    -> go k t d x y Nothing
-        [k, t, d, x, y, c] -> go k t d x y (Just c)
-        _                   -> Left $ "Expected 5 or 6 comma-separated fields: " ++ line
+        -- An `end` marker carries only a time; it bounds a preceding lyric's hold and is
+        -- stripped by the engine, so it needs no position/direction.
+        [k, t] | map toLower k == "end" -> do
+            t' <- readDouble "time" t
+            Right $ NoteEntry "end" (toMs t') 0 0 0 False False Nothing Nothing Nothing False
+        (k:t:d:x:y:opts) -> do
+            lyricOpts <- parseLyricOptions line k opts
+            go k t d x y lyricOpts
+        _ -> Left $ "Expected `end, time`, or at least 5 comma-separated fields: " ++ line
   where
-    go k t d x y mLyric = do
+    go k t d x y lyricOpts = do
         t'  <- readDouble "time" t
         nx  <- readDouble "x"    x
         ny  <- readDouble "y"    y
-        (mChar, mSpan, mSrcTime) <- maybe (Right (Nothing, Nothing, Nothing)) parseLyricField mLyric
         (radians, pinned) <- case map toLower (trim d) of
             ""     -> Right (0.0, False)
             "auto" -> Right (0.0, False)
             ds     -> do
                 deg <- readDouble "degrees" ds
                 Right (normalizeAngle (-(deg * pi / 180.0)), True)
-        let kind = case map toLower k of
-                "c"     -> "cut"
-                "cut"   -> "cut"
-                "f"     -> "flow"
-                "flow"  -> "flow"
-                "l"     -> "lyric"
-                "lyric" -> "lyric"
-                _       -> map toLower k
+        let kind = normalizeKind k
         let timeMs  = toMs t'
-        Right $ NoteEntry kind timeMs nx ny radians pinned False mChar mSpan mSrcTime
+        -- newCombo is set later by `parseEntries` when a `break` precedes this note.
+        Right $ NoteEntry kind timeMs nx ny radians pinned False
+            (loChar lyricOpts) (loSpan lyricOpts) (loSrcTime lyricOpts) (loIncludeEndChar lyricOpts)
 
 -- Fold the data lines into notes, treating a `break` line as a phrase boundary
 parseEntries :: (Double -> Double) -> [String] -> Either String [NoteEntry]
@@ -114,6 +162,9 @@ showNum d
   where n = round d :: Int
 
 renderNote :: NoteEntry -> String
+renderNote n
+    | neKind n == "end" =
+        "  { \"kind\": \"end\", \"time\": " ++ showNum (neTimeMs n) ++ ", \"state\": \"pending\" }"
 renderNote n =
     "  { \"kind\": \""     ++ neKind n                ++ "\"" ++
     ", \"time\": "         ++ showNum (neTimeMs    n) ++
@@ -125,6 +176,7 @@ renderNote n =
     maybe "" (\c -> ", \"lyricChar\": \"" ++ c ++ "\"") (neLyricChar n) ++
     maybe "" (\sp -> ", \"lyricSpan\": " ++ show sp) (neLyricSpan n) ++
     maybe "" (\st -> ", \"lyricSrcTime\": " ++ showNum st) (neLyricSrcTime n) ++
+    (if neIncludeEndChar n then ", \"includeEndChar\": true" else "") ++
     ", \"state\": \"pending\" }"
 
 compileChart :: String -> Either String String

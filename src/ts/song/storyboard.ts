@@ -1,8 +1,8 @@
 import type { TextAliveChar, TextAlivePhrase, TextAliveVideo, TextAliveWord } from "./textalive";
 import type { HitResult, Note } from "../game/engine";
-import { flattenChars } from "./lyricMatch";
 import { LYRIC_RADIUS } from "../game/draw";
 import { loadHiddenMod, subscribeHiddenMod } from "../core/settings";
+import { collectTextAliveChars } from "./charLookup";
 
 // Optional per-segment style directives (from `.story` m/l trailing tokens).
 export type StoryStyle = Record<string, string>;
@@ -62,6 +62,7 @@ interface ActiveLyric {
 export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElement = root): StoryboardRenderer {
   let video: TextAliveVideo | null = null;
   let currentPhrase: TextAlivePhrase | null = null;
+  let allChars: TextAliveChar[] = [];
   let charEls: { ch: TextAliveChar; el: HTMLElement; pulse: boolean }[] = [];
   let lineEls: HTMLElement[] = [];
   let highlights: StoryHighlight[] = [];
@@ -117,11 +118,10 @@ export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElem
   // or after the lyric's start, instead of a hand-listed char_time list.
   const deriveAutotime = (entry: StoryLyric): number[] => {
     if (!video) return entry.chars;
-    const all = flattenChars(video);
-    const start = all.findIndex(c => c.startTime >= entry.from);
+    const start = allChars.findIndex(c => c.startTime >= entry.from);
     if (start < 0) return entry.chars;
     const n = [...entry.text].length;
-    return all.slice(start, start + n).map(c => c.startTime);
+    return allChars.slice(start, start + n).map(c => c.startTime);
   };
 
   const renderPhrase = (phrase: TextAlivePhrase): void => {
@@ -133,9 +133,7 @@ export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElem
     charElMap.clear();
     lineEls = [];
 
-    const chars: TextAliveChar[] = [];
-    let c = phrase.firstChar;
-    while (c && c.startTime <= phrase.endTime) { chars.push(c); c = c.next; }
+    const chars = allChars.filter(c => c.startTime >= phrase.startTime && c.startTime <= phrase.endTime);
 
     const relevantMoves = moves.filter(m => m.time >= phrase.startTime && m.time <= phrase.endTime);
 
@@ -297,7 +295,10 @@ export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElem
   };
 
   return {
-    setVideo(v): void { video = v; },
+    setVideo(v): void {
+      video = v;
+      allChars = collectTextAliveChars(v);
+    },
 
     setStoryData(entries): void {
       highlights = entries.filter((e): e is StoryHighlight => e.type === "highlight");

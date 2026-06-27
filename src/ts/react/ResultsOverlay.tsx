@@ -1,9 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLang } from "./hooks/useLang";
 import { computeGrade, computeAccuracy, JUDGEMENT_LABEL } from "../game/grade";
 import { TIER1_MS } from "../game/judgement";
 import { shareResult } from "../song/share";
 import { withPath } from "../core/sitePath";
+import { commitPersonalBest, type PersonalBest } from "../game/personalBest";
 import type { GameStats, IssueReason, NoteKind } from "../game/engine";
 import type { Grade } from "../game/grade";
 
@@ -22,7 +23,7 @@ function MikuFigure({ grade, anim }: { grade: Grade; anim: "bounce" | "sway" }) 
     fetch(src)
       .then(r => r.text())
       .then(t => { if (alive) setMarkup(t.slice(Math.max(0, t.indexOf("<svg")))); })
-      .catch(() => {});
+      .catch(() => { });
     return () => { alive = false; };
   }, [src]);
   return (
@@ -36,24 +37,28 @@ function MikuFigure({ grade, anim }: { grade: Grade; anim: "bounce" | "sway" }) 
 }
 
 const LABELS_EN = {
-  score: "Score", accuracy: "Accuracy",
+  accuracy: "Accuracy",
   maxCombo: "Max combo", avgOffset: "Avg offset", issues: "Issues",
   judgement: "Judgement", level: "lv.", bpm: "BPM",
   timing: "Timing", early: "early", late: "late",
   tendEarly: "Tends early", tendLate: "Tends late",
-  to: "to", fullCombo: "Full Mimi", allPerfect: "All Mimi",
-  hoverFilter: "hover to filter",
+  to: (diff: string, grade: string) => `${diff} to ${grade}`,
+  fullCombo: "Full Mimi", allPerfect: "All Mimi",
+  hoverFilter: "hover to filter", best: "Best", newRecord: "New Record!",
+  toGo: (diff: string) => `${diff} to best`,
   advancedDetails: "Advanced Details", basicDetails: "Basic Details",
   share: "Share", copied: "Copied!", failed: "Failed", tryAgain: "Try Again", back: "Back",
 };
 const LABELS_JP = {
-  score: "スコア", accuracy: "精度",
+  accuracy: "精度",
   maxCombo: "最大コンボ", avgOffset: "平均ズレ", issues: "課題",
   judgement: "判定", level: "Lv.", bpm: "BPM",
   timing: "タイミング", early: "早", late: "遅",
   tendEarly: "早め", tendLate: "遅め",
-  to: "まで", fullCombo: "フルミミ", allPerfect: "オールミミ",
-  hoverFilter: "ホバーで絞り込み",
+  to: (diff: string, grade: string) => `${grade} まで ${diff}`,
+  fullCombo: "フルミミ", allPerfect: "オールミミ",
+  hoverFilter: "ホバーで絞り込み", best: "ベスト", newRecord: "自己ベスト更新！",
+  toGo: (diff: string) => `あと${diff}`,
   advancedDetails: "詳細表示", basicDetails: "簡易表示",
   share: "シェア", copied: "コピー済み！", failed: "失敗", tryAgain: "やり直す", back: "戻る",
 };
@@ -256,18 +261,39 @@ interface Props {
   returnHref: string;
   onTryAgain: () => void;
   songName: string;
+  // Language-stable English song name; with `difficulty` and the chart hash it
+  // keys this chart's localStorage personal best. Empty disables PB tracking.
+  songId: string;
   artist: string;
   difficulty: string;
   level: number | null;
   bpm: number | null;
 }
 
-export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, artist, difficulty, level, bpm }: Props) {
+export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, songId, artist, difficulty, level, bpm }: Props) {
   const lang = useLang();
   const [shareStatus, setShareStatus] = useState<"idle" | "copied" | "failed">("idle");
   const [focus, setFocus] = useState<Focus>(null);
   const [view, setView] = useState<"pie" | "detailed">("pie");
 
+  // Personal best (issue #72). Commit this run against localStorage exactly once on
+  // mount (guarded so it never double-writes), then surface the prior best and a
+  // "New Record!" flag. A run with no judged notes is ignored. The chart hash in
+  // stats invalidates a best left over from before a chart edit.
+  const [pb, setPb] = useState<{ previous: PersonalBest | null; isRecord: boolean } | null>(null);
+  const committed = useRef(false);
+  useEffect(() => {
+    if (committed.current || !songId || stats.total === 0) return;
+    committed.current = true;
+    setPb(commitPersonalBest(songId, difficulty, {
+      accuracy: computeAccuracy(stats),
+      grade: computeGrade(stats),
+      maxCombo: stats.maxCombo,
+      hash: stats.chartHash,
+    }));
+  }, [songId, difficulty, stats]);
+
+  // Enter retries, Escape returns — the buttons are right there, just wire keys.
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
       if (e.key === "Enter") { e.preventDefault(); onTryAgain(); }
@@ -280,20 +306,32 @@ export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, artist
   const grade = computeGrade(stats);
   const accuracy = computeAccuracy(stats);
   const pct = (accuracy * 100).toFixed(2);
-  const scoreView = useCountUp(stats.score);
   const accView = useCountUp(accuracy * 100);
   const nextStep = GRADE_STEPS.find(s => s.min > accuracy);
+  // Achievement badge: an all-PERFECT run, else an unbroken full combo. A combo
+  // breaks on a GOOD (tier1) as well as a miss, so a true full combo means the
+  // longest streak spans every note — not merely that nothing was missed (#86).
   const badgeKey: "allPerfect" | "fullCombo" | null =
     stats.total === 0 ? null
-    : stats.tier3 === stats.total ? "allPerfect"
-    : stats.miss === 0 ? "fullCombo"
-    : null;
+      : stats.tier3 === stats.total ? "allPerfect"
+        : stats.maxCombo === stats.total ? "fullCombo"
+          : null;
 
   const labels = lang === "jp" ? LABELS_JP : LABELS_EN;
   const issueLabels = lang === "jp" ? ISSUE_LABELS_JP : ISSUE_LABELS_EN;
   const noteLabels = lang === "jp" ? NOTE_LABELS_JP : NOTE_LABELS_EN;
   const difficultyName = difficulty ? difficulty.toUpperCase() : "";
   const acceptedHits = stats.hits.filter(hit => hit.result !== "miss");
+
+  // The parenthetical delta on the accuracy "Best" line. A run that beats (or
+  // ties) the prior best reads as a gain "(+diff)"; one that falls short reads
+  // how far it still has to go — "(あとdiff)" in JP, "(diff to best)" in EN —
+  // never a bare minus, so a missed best frames the next attempt, not the loss.
+  const bestDelta = (beatsBest: boolean, diff: string): string =>
+    beatsBest ? `(+${diff})` : `(${labels.toGo(diff)})`;
+
+  // Every non-Tier-3 hit carries an issue; flatten them so each dimension's
+  // counts are a simple predicate over the same list.
   const npHits: NonPerfectHit[] = [];
   for (const hit of stats.hits) {
     if (hit.result === "tier3" || !hit.issue) continue;
@@ -301,8 +339,8 @@ export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, artist
   }
   const matchesFocus = (h: NonPerfectHit): boolean =>
     focus === null
-      || (focus.dim === "tier" ? h.tier === focus.tier
-        : focus.dim === "note" ? h.note === focus.note
+    || (focus.dim === "tier" ? h.tier === focus.tier
+      : focus.dim === "note" ? h.note === focus.note
         : h.issue === focus.issue);
   const countWhere = (pred: (h: NonPerfectHit) => boolean): number => npHits.filter(pred).length;
   const tierCount = (tier: IssueTier): number =>
@@ -330,11 +368,11 @@ export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, artist
 
   const issueIndicator: string =
     focus === null ? labels.hoverFilter
-    : focus.dim === "tier" ? JUDGEMENT_LABEL[focus.tier]
-    : focus.dim === "note" ? noteLabels[focus.note]
-    : focus.issue === "timing"
-      ? `${labels.early} ${timingEarly} · ${labels.late} ${timingLate}`
-      : issueLabels[focus.issue];
+      : focus.dim === "tier" ? JUDGEMENT_LABEL[focus.tier]
+        : focus.dim === "note" ? noteLabels[focus.note]
+          : focus.issue === "timing"
+            ? `${labels.early} ${timingEarly} · ${labels.late} ${timingLate}`
+            : issueLabels[focus.issue];
 
   const handleShare = (): void => {
     shareResult({ accuracy: `${pct}%`, grade, songName, artist, lang })
@@ -346,14 +384,14 @@ export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, artist
 
   const shareLabel = shareStatus === "copied" ? labels.copied
     : shareStatus === "failed" ? labels.failed
-    : labels.share;
+      : labels.share;
 
   const mikuAnim = (grade === "SSS" || grade === "SS" || grade === "S" || grade === "A")
     ? "bounce" : "sway";
 
   return (
     <div className="results-overlay">
-      <div className="results-panel">
+      <div className={`results-panel${difficulty ? ` results-panel--${difficulty.toLowerCase()}` : ""}`}>
         <div className="results-head">
           <div className="results-songhead">
             <span className="results-songhead__name">{songName}</span>
@@ -361,130 +399,153 @@ export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, artist
           </div>
         </div>
         <div className="results-body">
-        <div className="results-left">
-          <div className={`results-grade results-grade--${grade.toLowerCase()}`}>{grade}</div>
-          <div className="results-accuracy">{accView.toFixed(2)}%</div>
-          {nextStep && (
-            <div className="results-next">
-              {`${((nextStep.min - accuracy) * 100).toFixed(2)}% ${labels.to} ${nextStep.grade}`}
-            </div>
-          )}
-          {badgeKey && (
-            <div className={`results-badge results-badge--${badgeKey}`}>{labels[badgeKey]}</div>
-          )}
-          <div className="results-headline">
-            <div className="results-stat">
-              <span className="results-stat__label">{labels.score}</span>
-              <span className="results-stat__value">{Math.round(scoreView)}</span>
-            </div>
-            <div className="results-stat">
-              <span className="results-stat__label">{labels.maxCombo}</span>
-              <span className="results-stat__value">{stats.maxCombo}x</span>
-            </div>
-          </div>
-        </div>
-        <div className="results-right">
-          <button
-            className="results-viewtoggle"
-            onClick={() => setView(v => (v === "pie" ? "detailed" : "pie"))}
-          >
-            <span className="results-viewtoggle__caret" aria-hidden="true">&gt;</span>
-            <span className="results-viewtoggle__text">
-              {view === "pie" ? labels.advancedDetails : labels.basicDetails}
-            </span>
-          </button>
-          {view === "pie" ? (
-          <div className="results-pieview">
-            <JudgementPie stats={stats} grade={grade} anim={mikuAnim} />
-          </div>
-          ) : (
-          <>
-          <div className="results-chart">
-            <div className="results-chart__meta">
-              {difficultyName && (
-                <span className="results-chart__stat results-chart__diff">
-                  <b>{difficultyName}</b>
-                  {level != null && <span className="results-chart__level"> {labels.level} {level}</span>}
+          <div className="results-left">
+            <div className={`results-grade results-grade--${grade.toLowerCase()}`}>{grade}</div>
+            <div className="results-accuracy">{accView.toFixed(2)}%</div>
+            {pb && (
+              <div className="results-accuracy-best">
+                <span className="results-accuracy-best__label">{labels.best}</span>
+                <span className="results-accuracy-best__value">
+                  {`${(Math.max(accuracy, pb.previous?.accuracy ?? 0) * 100).toFixed(2)}% `}
+                  <span className="results-accuracy-best__hintvalue">
+                    {bestDelta(accuracy >= (pb.previous?.accuracy ?? 0),
+                      `${(Math.abs(accuracy - (pb.previous?.accuracy ?? 0)) * 100).toFixed(2)}%`)}
+                  </span>
                 </span>
-              )}
-              {bpm != null && (
-                <span className="results-chart__stat">
-                  {labels.bpm} <b>{bpm}</b>
-                </span>
+              </div>
+            )}
+            {nextStep && (
+              <div className="results-next">
+                {labels.to(`${((nextStep.min - accuracy) * 100).toFixed(2)}%`, nextStep.grade)}
+              </div>
+            )}
+            {pb?.isRecord && (
+              <div className="results-badge results-badge--record">{labels.newRecord}</div>
+            )}
+            {badgeKey && (
+              <div className={`results-badge results-badge--${badgeKey}`}>{labels[badgeKey]}</div>
+            )}
+            <div className="results-headline">
+              <div className="results-stat">
+                <span className="results-stat__label">{labels.maxCombo}</span>
+                <span className="results-stat__value">{stats.maxCombo}x</span>
+              </div>
+              {pb && (
+                <div className="results-stat results-stat--hint">
+                  <span className="results-stat__hintlabel">{labels.best}</span>
+                  <span className="results-stat__hintvalue">
+                    {`${Math.max(stats.maxCombo, pb.previous?.maxCombo ?? 0)}x`}
+                    {stats.maxCombo > (pb.previous?.maxCombo ?? 0) && (
+                      ` (+${stats.maxCombo - (pb.previous?.maxCombo ?? 0)})`
+                    )}
+                  </span>
+                </div>
               )}
             </div>
-            <div className="results-notes">
-              {NOTE_ORDER.map(note => (
-                <span
-                  key={note}
-                  className={`results-note results-note--${note}${noteCellState(note)}`}
-                  onPointerEnter={() => setFocus({ dim: "note", note })}
-                  onPointerLeave={() => setFocus(null)}
-                >
-                  <span className="results-note__kind">{noteLabels[note]}</span>
-                  <span className="results-note__count">{stats.noteCounts[note]}</span>
-                </span>
-              ))}
-            </div>
           </div>
-
-          <div className="results-judgement">
-            <span className="results-section__label">{labels.judgement}</span>
-            <div className="results-breakdown">
-              <span className={`results-breakdown__tier3${focus !== null && focus.dim !== "tier" ? " is-dim" : ""}`}>
-                {JUDGEMENT_LABEL.tier3}: {stats.tier3}
+          <div className="results-right">
+            <button
+              className="results-viewtoggle"
+              onClick={() => setView(v => (v === "pie" ? "detailed" : "pie"))}
+            >
+              <span className="results-viewtoggle__caret" aria-hidden="true">&gt;</span>
+              <span className="results-viewtoggle__text">
+                {view === "pie" ? labels.advancedDetails : labels.basicDetails}
               </span>
-              {ISSUE_TIERS.map(tier => {
-                const count = tierCount(tier);
-                const cls = `results-breakdown__${tier} results-tierbtn`
-                  + cellState("tier", focus?.dim === "tier" && focus.tier === tier, count);
-                return (
-                  <span
-                    key={tier}
-                    className={cls}
-                    onPointerEnter={() => setFocus({ dim: "tier", tier })}
-                    onPointerLeave={() => setFocus(null)}
-                  >
-                    {JUDGEMENT_LABEL[tier]}: {count}
-                  </span>
-                );
-              })}
-            </div>
-          </div>
+            </button>
+            {view === "pie" ? (
+              <div className="results-pieview">
+                <JudgementPie stats={stats} grade={grade} anim={mikuAnim} />
+              </div>
+            ) : (
+              <>
+                <div className="results-judgement">
+                  <span className="results-section__label">{labels.judgement}</span>
+                  <div className="results-breakdown">
+                    <span className={`results-breakdown__tier3${focus !== null && focus.dim !== "tier" ? " is-dim" : ""}`}>
+                      {JUDGEMENT_LABEL.tier3}: {stats.tier3}
+                    </span>
+                    {ISSUE_TIERS.map(tier => {
+                      const count = tierCount(tier);
+                      const cls = `results-breakdown__${tier} results-tierbtn`
+                        + cellState("tier", focus?.dim === "tier" && focus.tier === tier, count);
+                      return (
+                        <span
+                          key={tier}
+                          className={cls}
+                          onPointerEnter={() => setFocus({ dim: "tier", tier })}
+                          onPointerLeave={() => setFocus(null)}
+                        >
+                          {JUDGEMENT_LABEL[tier]}: {count}
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
 
-          <div className="results-issues">
-            <span className="results-issues__label">
-              {labels.issues}
-              <span className={`results-issues__filter${focus === null ? " is-hint" : ""}`}>
-                {" · "}{issueIndicator}
-              </span>
-            </span>
-            <div className="results-issues__list">
-              {ISSUE_ORDER.map(issue => {
-                const count = issueCount(issue);
-                const cls = `results-issue results-issue--${issue}`
-                  + cellState("issue", focus?.dim === "issue" && focus.issue === issue, count);
-                return (
-                  <span
-                    key={issue}
-                    className={cls}
-                    onPointerEnter={() => setFocus({ dim: "issue", issue })}
-                    onPointerLeave={() => setFocus(null)}
-                  >
-                    <span className="results-issue__kind">{issueLabels[issue]}</span>
-                    <span className="results-issue__count">{count}</span>
+                <div className="results-issues">
+                  <span className="results-issues__label">
+                    {labels.issues}
+                    <span className={`results-issues__filter${focus === null ? " is-hint" : ""}`}>
+                      {" · "}{issueIndicator}
+                    </span>
                   </span>
-                );
-              })}
-            </div>
-          </div>
+                  <div className="results-issues__list">
+                    {ISSUE_ORDER.map(issue => {
+                      const count = issueCount(issue);
+                      const cls = `results-issue results-issue--${issue}`
+                        + cellState("issue", focus?.dim === "issue" && focus.issue === issue, count);
+                      return (
+                        <span
+                          key={issue}
+                          className={cls}
+                          onPointerEnter={() => setFocus({ dim: "issue", issue })}
+                          onPointerLeave={() => setFocus(null)}
+                        >
+                          <span className="results-issue__kind">{issueLabels[issue]}</span>
+                          <span className="results-issue__count">{count}</span>
+                        </span>
+                      );
+                    })}
+                  </div>
+                </div>
 
-          <TimingHistogram offsets={acceptedHits.map(hit => hit.offsetMs)} labels={labels} />
-          </>
-          )}
-        </div>
+                <TimingHistogram offsets={acceptedHits.map(hit => hit.offsetMs)} labels={labels} />
+
+                <div className="results-chart">
+                  <div className="results-chart__meta">
+                    {difficultyName && (
+                      <span className="results-chart__stat results-chart__diff">
+                        <b>{difficultyName}</b>
+                        {level != null && <span className="results-chart__level"> {labels.level} {level}</span>}
+                      </span>
+                    )}
+                    {bpm != null && (
+                      <span className="results-chart__stat">
+                        {labels.bpm} <b>{bpm}</b>
+                      </span>
+                    )}
+                  </div>
+                  <div className="results-notes">
+                    {NOTE_ORDER.map(note => (
+                      <span
+                        key={note}
+                        className={`results-note results-note--${note}${noteCellState(note)}`}
+                        onPointerEnter={() => setFocus({ dim: "note", note })}
+                        onPointerLeave={() => setFocus(null)}
+                      >
+                        <span className="results-note__kind">{noteLabels[note]}</span>
+                        <span className="results-note__count">{stats.noteCounts[note]}</span>
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
         </div>
         <div className="results-actions">
+          <a className="results-btn results-btn--back" href={returnHref}>{labels.back}</a>
           <button
             className={`results-btn results-btn--share results-btn--share-${shareStatus}`}
             onClick={handleShare}
@@ -492,7 +553,6 @@ export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, artist
             {shareLabel}
           </button>
           <button className="results-btn results-btn--try-again" onClick={onTryAgain}>{labels.tryAgain}</button>
-          <a className="results-btn results-btn--back" href={returnHref}>{labels.back}</a>
         </div>
       </div>
     </div>

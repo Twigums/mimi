@@ -586,32 +586,33 @@ html.theme-dark .game-frame .frame-star {
   }
 }
 
-.score-display {
+.accuracy-display {
   position: absolute;
   bottom: 0.75rem;
   right: 1rem;
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 0.15rem;
+  gap: 0;
   color: var(--song-text);
   pointer-events: none;
   text-shadow: var(--song-text-shadow);
   opacity: 0;
   transition: opacity 0.3s ease;
 
-  .score-label {
-    font-size: 0.75rem;
-    font-family: var(--font-display);
-    letter-spacing: 0.12em;
-    opacity: 0.75;
-    text-transform: uppercase;
-  }
-
-  .score-value {
+  .accuracy-value {
     font-size: 1.6rem;
     font-weight: bold;
     font-variant-numeric: tabular-nums;
+    line-height: 1;
+  }
+
+  .accuracy-label {
+    font-size: 0.65rem;
+    font-family: var(--font-display);
+    letter-spacing: 0.12em;
+    opacity: 0.6;
+    text-transform: uppercase;
   }
 
   .game-area.playing & {

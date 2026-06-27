@@ -1,5 +1,11 @@
 import type { Note } from "../game/engine";
 import { LYRIC_CHAR_MAX_DIST_MS } from "../game/engine";
+import {
+  LYRIC_CHAR_BOUNDARY_EPSILON_MS,
+  lyricCharWindow,
+  noteEndMs,
+} from "../game/lyrics";
+import { collectTextAliveChars } from "./charLookup";
 import type { TextAliveChar, TextAliveVideo } from "./textalive";
 
 export interface ExcludeRange { from: number; to: number; }
@@ -7,14 +13,7 @@ export interface ExcludeRange { from: number; to: number; }
 // Flatten the TextAlive video into a single time-ordered char list (phrase by
 // phrase, char by char), the input the matcher consumes.
 export function flattenChars(video: TextAliveVideo): TextAliveChar[] {
-  const chars: TextAliveChar[] = [];
-  let phrase = video.firstPhrase;
-  while (phrase) {
-    let c = phrase.firstChar;
-    while (c) { chars.push(c); c = c.next; }
-    phrase = phrase.next;
-  }
-  return chars;
+  return collectTextAliveChars(video);
 }
 
 export interface LyricMatchResult {
@@ -28,6 +27,8 @@ function charDist(c: TextAliveChar, timeMs: number): number {
   if (timeMs >= c.startTime && timeMs <= c.endTime) return 0;
   return Math.min(Math.abs(c.startTime - timeMs), Math.abs(c.endTime - timeMs));
 }
+
+const last = <T>(xs: T[]): T | undefined => xs.length > 0 ? xs[xs.length - 1] : undefined;
 
 // Assign TextAlive characters to lyric notes.
 //
@@ -71,8 +72,49 @@ export function matchLyrics(
     return bd <= LYRIC_CHAR_MAX_DIST_MS ? bi : -1;
   };
 
+  const charsInRange = (startMs: number, endMs: number): TextAliveChar[] =>
+    chars.filter(c => !excluded.has(c) && c.startTime >= startMs && c.startTime < endMs);
+
+  const previousInProgress = (startMs: number): TextAliveChar | undefined => {
+    let best: TextAliveChar | undefined;
+    for (const c of chars) {
+      if (excluded.has(c) || c.startTime >= startMs || c.endTime <= startMs) continue;
+      if (!best || c.startTime > best.startTime) best = c;
+    }
+    return best;
+  };
+
+  const matchHoldWindow = (note: Note, noteIndex: number): TextAliveChar[] => {
+    const prevEnd = noteIndex > 0 ? noteEndMs(notes[noteIndex - 1]) : -Infinity;
+    const { startMs, endMs } = lyricCharWindow(note, prevEnd);
+    const eps = LYRIC_CHAR_BOUNDARY_EPSILON_MS;
+    const selected = charsInRange(startMs, endMs);
+    const includePrev =
+      charsInRange(note.time - eps, note.time + eps).length === 0 &&
+      charsInRange(prevEnd - eps, startMs).length > 0;
+    const inProgress = includePrev ? previousInProgress(startMs) : undefined;
+    const result = inProgress ? [inProgress, ...selected] : selected;
+    const fallback = last(charsInRange(prevEnd, startMs));
+    return result.length > 0 ? result : fallback ? [fallback] : [];
+  };
+
   for (const note of lyricNotes) {
     const override = note.lyricChar !== undefined && note.lyricChar !== "";
+    const noteIndex = notes.indexOf(note);
+    const usesAuthoredSource = note.lyricSpan !== undefined || note.lyricSrcTime !== undefined;
+
+    if (!override && note.holdMs !== undefined && !usesAuthoredSource) {
+      const selected = matchHoldWindow(note, noteIndex);
+      if (selected.length === 0) {
+        note.lyricChar = "";
+        console.warn(`[mimi] lyric note at ${note.time}ms: no vocal characters in its hold window`);
+        continue;
+      }
+      note.lyricChar = selected.map(c => c.text).join("");
+      for (const c of selected) charToNote.set(c, note);
+      continue;
+    }
+
     // An authored `src=<ms>` points the funnel at a specific TextAlive char by time,
     // overriding the note's own time for source selection.
     const anchorTime = note.lyricSrcTime ?? note.time;

@@ -34,6 +34,18 @@ export const FLOW_CONT_TIER3     = 60 * Math.PI / 180;
 export const FLOW_CONT_TIER2     = 75 * Math.PI / 180;
 export const FLOW_CONT_TIER1     = 100 * Math.PI / 180;
 
+// Lyric hold tuning. A lyric is judged as a hold: enter the circle on time (timing),
+// reach the center (contact), and keep the pointer inside for the hold's duration
+// (the `gesture` issue slot — hold completeness). The hold length is the gap to the
+// next note (set by the engine); there is no default or cap — a lyric with no
+// following note is an invalid chart and judged as a miss. See LYRIC_HOLD_PLAN.md / wiki.
+export const LYRIC_HOLD_RADIUS     = 110;   // "still holding" tolerance (logical px)
+export const LYRIC_RELEASE_GRACE   = 100;   // early release counted as a full hold (ms)
+// Held-fraction tiers (fraction of the required hold actually sustained).
+export const LYRIC_HOLD_TIER3      = 0.95;
+export const LYRIC_HOLD_TIER2      = 0.80;
+export const LYRIC_HOLD_TIER1      = 0.55;
+
 export type NoteKind   = "cut" | "flow" | "lyric";
 export type HitResult  = "tier3" | "tier2" | "tier1" | "miss";
 export type HitTiming  = "early" | "late" | "on";
@@ -46,6 +58,9 @@ export interface JudgementNote {
   y: number;
   direction: number;
   flowShape?: number[];
+  // Lyric only: how long (ms) the cursor must be held in the circle, derived by the
+  // engine from the gap to the next note. Absent ⇒ an invalid lyric (judged as a miss).
+  holdMs?: number;
 }
 
 export interface PointerSample {
@@ -430,11 +445,135 @@ function gestureSettled(
   return Math.hypot(latest.x - note.x, latest.y - note.y) > CUT_CONTACT_TIER1;
 }
 
+// ---- Lyric hold judgement -------------------------------------------------
+// A lyric is judged as a hold rather than a stroke: the player keeps the cursor
+// inside the circle for (about) the hold duration. It maps onto the same four issue
+// buckets without adding a new one — timing (when you entered), contact (how close to
+// center you got), gesture (the held fraction). Direction does not apply.
+
+interface HoldAnalysis {
+  entered: boolean;       // the pointer reached inside LYRIC_HOLD_RADIUS at some point
+  closest: number;        // closest distance to center over the window
+  offsetMs: number;       // timing offset; early presence (before note.time) counts as 0
+  heldDuration: number;   // longest contiguous span inside the radius within the window
+}
+
+function analyzeHold(note: JudgementNote, samples: PointerSample[], holdEnd: number): HoldAnalysis {
+  let closest = Infinity;
+  let closestMs = note.time;
+  let firstInsideMs = Infinity;
+  // Longest contiguous in-radius run, measured by its overlap with [note.time, holdEnd].
+  let bestHeld = 0;
+  let runStart: number | null = null;
+  let runEnd = 0;
+  const flushRun = (): void => {
+    if (runStart === null) return;
+    const overlap = Math.min(runEnd, holdEnd) - Math.max(runStart, note.time);
+    if (overlap > bestHeld) bestHeld = overlap;
+    runStart = null;
+  };
+  for (const s of samples) {
+    const d = Math.hypot(s.x - note.x, s.y - note.y);
+    if (d < closest) { closest = d; closestMs = s.songMs; }
+    if (d <= LYRIC_HOLD_RADIUS) {
+      if (s.songMs < firstInsideMs) firstInsideMs = s.songMs;
+      if (runStart === null) runStart = s.songMs;
+      runEnd = s.songMs;
+    } else {
+      flushRun();
+    }
+  }
+  flushRun();
+
+  const entered = firstInsideMs !== Infinity;
+  // Timing: late entry is penalized; presence at or before the note start is on time.
+  // When the pointer never reached inside, fall back to the nearest-approach moment so
+  // a well-timed miss reads as a contact issue (you were there, not on it) like a cut.
+  const offsetMs = !entered ? closestMs - note.time
+    : firstInsideMs <= note.time ? 0
+    : firstInsideMs - note.time;
+  return { entered, closest, offsetMs, heldDuration: Math.max(0, bestHeld) };
+}
+
+function buildHoldJudgement(note: JudgementNote, samples: PointerSample[], holdMs: number, holdEnd: number): {
+  judgement: Judgement;
+  timingCap: HitResult;
+  entered: boolean;
+  held: boolean;
+} {
+  const a = analyzeHold(note, samples, holdEnd);
+  const required = Math.max(1, holdMs - LYRIC_RELEASE_GRACE);
+  const heldFraction = clamp(a.heldDuration / required, 0, 1);
+
+  const timingCap  = scoreFor(a.offsetMs).result;
+  const contactCap = capUpper(a.closest, CUT_CONTACT_TIER3, CUT_CONTACT_TIER2, CUT_CONTACT_TIER1);
+  const holdCap    = capLower(heldFraction, LYRIC_HOLD_TIER3, LYRIC_HOLD_TIER2, LYRIC_HOLD_TIER1);
+
+  const result = minTier(minTier(timingCap, contactCap), holdCap);
+  const points = result === "tier3" ? TIER3_POINTS
+    : result === "tier2" ? TIER2_POINTS
+    : result === "tier1" ? TIER1_POINTS
+    : 0;
+  // Reuse the shared issue priority (timing -> contact -> direction -> gesture). The
+  // held fraction is the `gesture` slot; lyrics have no direction.
+  const issue = issueFor(result, timingCap, contactCap, "tier3", holdCap, "tier3", "tier3");
+
+  return {
+    judgement: {
+      result,
+      points,
+      offsetMs: a.offsetMs,
+      timing: timingFor(a.offsetMs),
+      issue,
+      gesture: { travel: 0, direction: 0, impactSongMs: note.time + a.offsetMs, contactDistance: a.closest },
+    },
+    timingCap,
+    entered: a.entered,
+    held: a.heldDuration > 0,
+  };
+}
+
+function judgeHold(note: JudgementNote, pointerSamples: PointerSample[]): JudgementAttempt {
+  const latest = pointerSamples[pointerSamples.length - 1];
+  if (latest === undefined) return { status: "noGesture" };
+
+  // holdMs 0 ⇒ an invalid lyric (no following note to bound the hold, flagged at chart
+  // load): the zero-length window holds nothing, so it resolves as a miss.
+  const holdMs = note.holdMs ?? 0;
+  const holdEnd = note.time + holdMs;
+  const samples = clipSamples(
+    pointerSamples,
+    note.time - TIER1_MS,
+    Math.min(latest.songMs, holdEnd),
+  );
+
+  const { judgement, timingCap, entered, held } = buildHoldJudgement(note, samples, holdMs, holdEnd);
+  const latestInside = Math.hypot(latest.x - note.x, latest.y - note.y) <= LYRIC_HOLD_RADIUS;
+
+  // Finalize as soon as the outcome can no longer improve: the hold window has fully
+  // elapsed, the full hold is already achieved, timing has lapsed past a savable miss,
+  // or the player has released a started hold (left the circle after holding into the
+  // scored window) so the held fraction is fixed. This keeps feedback on the beat the
+  // hold ends rather than at holdEnd. A mere early brush before the note start (no
+  // scored hold yet) is not a release — the player can still enter and hold.
+  if (latest.songMs >= holdEnd) return { status: "judged", judgement };
+  if (timingCap === "miss") return { status: "judged", judgement };
+  if (judgement.result === "tier3") return { status: "judged", judgement };
+  if (held && !latestInside) return { status: "judged", judgement };
+  // Never reached inside and the late window has lapsed: it can never keep a hold.
+  if (!entered && !latestInside && latest.songMs >= note.time + TIER1_MS) {
+    return { status: "judged", judgement };
+  }
+  return { status: "pending", best: judgement };
+}
+
 export function judgeGesture(
   note: JudgementNote,
   pointerSamples: PointerSample[],
   prevNoteTime?: number,
 ): JudgementAttempt {
+  if (note.kind === "lyric") return judgeHold(note, pointerSamples);
+
   const latest = pointerSamples[pointerSamples.length - 1];
   if (latest === undefined) return { status: "noGesture" };
 

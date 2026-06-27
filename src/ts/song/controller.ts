@@ -1,4 +1,5 @@
 import type { GameHandle, GameStats, HitResult, Note } from "../game/engine";
+import { computeLyricHolds } from "../game/lyrics";
 import { arToMs, loadAr, loadVolume, subscribeVolume, loadMusicOffset, subscribeMusicOffset } from "../core/settings";
 import { createStoryboardRenderer, type StoryEntry, type ReactiveFrame } from "./storyboard";
 import { matchLyrics, flattenChars, type ExcludeRange } from "./lyricMatch";
@@ -136,6 +137,11 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPre
   let storyPending = !!(storyboard && chartDir);
   let chartApplied = false;
 
+  const isEndMarker = (note: Note): boolean => (note.kind as string).toLowerCase() === "end";
+  const playableNotes = (notes: Note[]): Note[] => notes.filter(note => !isEndMarker(note));
+  const endMarkerTimes = (notes: Note[]): number[] =>
+    notes.flatMap(note => isEndMarker(note) && typeof note.time === "number" ? [note.time] : []);
+
   const tryApplyChart = (): void => {
     if (chartApplied || !loadedNotes || storyPending) return;
     // When the song has a TextAlive video, wait for it before applying the chart so
@@ -143,8 +149,10 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPre
     // the chart first and the matcher (which needs the video chars) would be skipped.
     // Playback can't start before the video is ready anyway, so this never stalls.
     if (hasVideoIds && !videoForMatch) return;
+    const playable = playableNotes(loadedNotes);
+    computeLyricHolds(playable, endMarkerTimes(loadedNotes));
     if (videoForMatch) {
-      const { charToNote } = matchLyrics(flattenChars(videoForMatch), loadedNotes, excludeRanges);
+      const { charToNote } = matchLyrics(flattenChars(videoForMatch), playable, excludeRanges);
       storyboard?.setLyricMap(charToNote);
     }
     game.setChart(loadedNotes);
@@ -327,7 +335,7 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPre
       }
       if (!res.ok) return;
       const notes = (await res.json() as Note[]).slice().sort((a, b) => a.time - b.time);
-      noteTimes = notes.map(note => note.time);
+      noteTimes = playableNotes(notes).map(note => note.time);
       chartLoaded = true;
       loadedNotes = notes;
       tryApplyChart();
