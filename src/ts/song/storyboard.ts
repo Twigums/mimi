@@ -5,7 +5,17 @@ import { loadHiddenMod, subscribeHiddenMod } from "../core/settings";
 import { collectTextAliveChars } from "./charLookup";
 
 // Optional per-segment style directives (from `.story` m/l trailing tokens).
-export type StoryStyle = Record<string, string>;
+export interface StoryStyle extends Record<string, string> {
+  color?: string;
+  font?: string;
+  scale?: string;
+  in?: string;
+  out?: string;
+  motion?: string;
+  pulse?: string;
+  autotime?: string;
+  delay?: string;
+}
 
 export interface StoryHighlight { type: "highlight"; from: number; to: number; }
 export interface StoryMove      { type: "move";      time: number; x: number; y: number; style?: StoryStyle; }
@@ -29,6 +39,26 @@ const LOGICAL_H = 600;
 const FONT_MAP: Record<string, string> = {
   display: "var(--font-display)",
   handwriting: "var(--font-handwriting)",
+};
+
+const styleDelayMs = (style?: StoryStyle): number => {
+  if (!style?.delay) return 0;
+  const raw = String(style.delay).trim();
+  const braced = raw.match(/^\{([+-]?\d+)\}$/);
+  const value = braced ? braced[1] : raw;
+  if (!/^[+-]?\d+$/.test(value)) return 0;
+  const n = Number(value);
+  return Number.isInteger(n) ? n : 0;
+};
+
+const collectPhrases = (video: TextAliveVideo): TextAlivePhrase[] => {
+  const phrases: TextAlivePhrase[] = [];
+  const seen = new Set<TextAlivePhrase>();
+  for (let phrase = video.firstPhrase; phrase && !seen.has(phrase); phrase = phrase.next) {
+    seen.add(phrase);
+    phrases.push(phrase);
+  }
+  return phrases;
 };
 
 interface StoryboardRenderer {
@@ -63,6 +93,7 @@ export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElem
   let video: TextAliveVideo | null = null;
   let currentPhrase: TextAlivePhrase | null = null;
   let allChars: TextAliveChar[] = [];
+  let allPhrases: TextAlivePhrase[] = [];
   let charEls: { ch: TextAliveChar; el: HTMLElement; pulse: boolean }[] = [];
   let lineEls: HTMLElement[] = [];
   let highlights: StoryHighlight[] = [];
@@ -114,6 +145,46 @@ export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElem
     return { outer, inner: enterEl, pulse };
   };
 
+  const moveDisplayStart = (move: StoryMove, phrase: TextAlivePhrase): number =>
+    phrase.startTime - styleDelayMs(move.style);
+
+  const phraseDisplayStart = (phrase: TextAlivePhrase): number => {
+    let start = phrase.startTime;
+    for (const move of moves) {
+      if (move.time < phrase.startTime || move.time > phrase.endTime) continue;
+      start = Math.min(start, moveDisplayStart(move, phrase));
+    }
+    return start;
+  };
+
+  const findDisplayPhrase = (songMs: number): TextAlivePhrase | null => {
+    if (!video) return null;
+    let best: TextAlivePhrase | null = null;
+    for (const phrase of allPhrases) {
+      const displayStart = phraseDisplayStart(phrase);
+      if (songMs < displayStart || songMs >= phrase.endTime) continue;
+      if (!best || phrase.startTime > best.startTime) best = phrase;
+    }
+    return best;
+  };
+
+  const updateLineVisibility = (songMs: number): void => {
+    for (const el of lineEls) {
+      const displayStart = Number(el.dataset.displayStart ?? 0);
+      if (songMs >= displayStart) {
+        if (el.dataset.visible !== "true") {
+          el.dataset.visible = "true";
+          requestAnimationFrame(() => {
+            if (el.dataset.visible === "true") el.classList.add("visible");
+          });
+        }
+      } else {
+        el.dataset.visible = "false";
+        el.classList.remove("visible");
+      }
+    }
+  };
+
   // With `autotime`, derive each char's activation from the TextAlive characters at
   // or after the lyric's start, instead of a hand-listed char_time list.
   const deriveAutotime = (entry: StoryLyric): number[] => {
@@ -124,7 +195,7 @@ export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElem
     return allChars.slice(start, start + n).map(c => c.startTime);
   };
 
-  const renderPhrase = (phrase: TextAlivePhrase): void => {
+  const renderPhrase = (phrase: TextAlivePhrase, songMs: number): void => {
     // Preserve manual lyric elements before clearing TextAlive phrase content
     const manualEls = activeLyrics.map(a => a.el);
     root.innerHTML = "";
@@ -164,8 +235,9 @@ export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElem
       }
     };
 
-    const mountLine = (cls: string, group: TextAliveChar[], style: StoryStyle | undefined, pos: { x: number; y: number } | null): void => {
+    const mountLine = (cls: string, group: TextAliveChar[], style: StoryStyle | undefined, pos: { x: number; y: number } | null, displayStart: number): void => {
       const { outer, inner, pulse } = buildContainer(cls, style);
+      outer.dataset.displayStart = String(displayStart);
       if (pos) {
         outer.style.left = `${(pos.x / LOGICAL_W) * 100}%`;
         outer.style.top  = `${(pos.y / LOGICAL_H) * 100}%`;
@@ -173,21 +245,22 @@ export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElem
       addSpans(inner, group, pulse);
       root.appendChild(outer);
       lineEls.push(outer);
-      requestAnimationFrame(() => outer.classList.add("visible"));
     };
 
     const defaultChars = groups.get(null) ?? [];
-    if (defaultChars.length > 0) mountLine("storyboard-line", defaultChars, undefined, null);
+    if (defaultChars.length > 0) mountLine("storyboard-line", defaultChars, undefined, null, phrase.startTime);
 
     for (const [move, mChars] of groups) {
       if (move === null) continue;
-      mountLine("storyboard-segment", mChars, move.style, { x: move.x, y: move.y });
+      mountLine("storyboard-segment", mChars, move.style, { x: move.x, y: move.y }, moveDisplayStart(move, phrase));
     }
+    updateLineVisibility(songMs);
   };
 
   const clearLine = (): void => {
     if (clearTimer !== null) { clearTimeout(clearTimer); clearTimer = null; }
     for (const el of lineEls) {
+      el.dataset.visible = "false";
       el.classList.remove("visible");
       if (el.dataset.out) el.classList.add(`sb-out-${el.dataset.out}`);
     }
@@ -217,6 +290,13 @@ export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElem
     launched = new Set();
   };
 
+  const visibleSourceGlyph = (ch: TextAliveChar): HTMLElement | undefined => {
+    const el = charElMap.get(ch);
+    const container = el?.closest<HTMLElement>(".storyboard-line, .storyboard-segment");
+    if (!el || (container && !container.classList.contains("visible"))) return undefined;
+    return el;
+  };
+
   // Spawn the funnel characters for a note: each flies from its source storyboard
   // glyph to the note's logical position, staggered so multi-char notes land in order
   // by the note time. The flying glyph carries the note's text (an override or the
@@ -238,7 +318,7 @@ export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElem
     const charPct = ((fontPx * 0.62) / rect.width) * 100;
     for (let i = 0; i < n; i++) {
       const srcCh = srcChars[Math.min(i, srcChars.length - 1)];
-      const glyph = srcCh ? charElMap.get(srcCh) : undefined;
+      const glyph = srcCh ? visibleSourceGlyph(srcCh) : undefined;
       if (!glyph) continue;
       const gr = glyph.getBoundingClientRect();
       // Multi-char notes land their glyphs side by side, centred on the note.
@@ -265,7 +345,7 @@ export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElem
         if (launched.has(note)) continue;
         if (songMs < note.time - approachMs || songMs >= note.time) continue;
         const srcChars = noteToChars.get(note) ?? [];
-        if (!srcChars.some(c => charElMap.has(c))) continue; // wait until the lyric is on screen
+        if (!srcChars.some(visibleSourceGlyph)) continue; // wait until the source segment is visible
         launched.add(note);
         launchFlight(note, songMs);
       }
@@ -298,6 +378,7 @@ export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElem
     setVideo(v): void {
       video = v;
       allChars = collectTextAliveChars(v);
+      allPhrases = collectPhrases(v);
     },
 
     setStoryData(entries): void {
@@ -353,12 +434,13 @@ export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElem
 
       // TextAlive phrase rendering
       if (video) {
-        const phrase = video.findPhrase(songMs);
+        const phrase = findDisplayPhrase(songMs);
         if (phrase !== currentPhrase) {
           if (currentPhrase) clearLine();
           currentPhrase = phrase;
-          if (phrase) renderPhrase(phrase);
+          if (phrase) renderPhrase(phrase, songMs);
         }
+        updateLineVisibility(songMs);
         for (const { ch, el, pulse } of charEls) {
           // A note-mapped char (or any char in a completed word) is driven by hit/miss
           // outcome, not the song position. A char fills when its own note is hit; the
@@ -391,7 +473,8 @@ export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElem
 
       // Manual lyric rendering: create elements for newly visible entries
       for (const entry of lyrics) {
-        if (songMs < entry.from || songMs >= entry.to) continue;
+        const displayStart = entry.from - styleDelayMs(entry.style);
+        if (songMs < displayStart || songMs >= entry.to) continue;
         if (activeLyrics.some(a => a.entry === entry)) continue;
 
         const { outer, inner, pulse } = buildContainer("storyboard-segment", entry.style);
@@ -415,7 +498,8 @@ export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElem
 
       // Fade out entries that have reached their end time
       activeLyrics = activeLyrics.filter(({ entry, el }) => {
-        if (songMs >= entry.to) {
+        const displayStart = entry.from - styleDelayMs(entry.style);
+        if (songMs < displayStart || songMs >= entry.to) {
           el.classList.remove("visible");
           if (el.dataset.out) el.classList.add(`sb-out-${el.dataset.out}`);
           setTimeout(() => el.remove(), 300);

@@ -109,6 +109,10 @@ html.theme-dark .song-page .bg-overlay::before {
   from { transform: scale(0.6); opacity: 0; }
   to   { transform: scale(1);   opacity: 1; }
 }
+@keyframes sb-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
 @keyframes sb-sway {
   0%, 100% { transform: rotate(-3deg); }
   50%      { transform: rotate(3deg); }
@@ -124,6 +128,10 @@ html.theme-dark .song-page .bg-overlay::before {
 @keyframes sb-rise {
   from { transform: translateY(0);     opacity: 1; }
   to   { transform: translateY(-24px); opacity: 0; }
+}
+@keyframes sb-fade-out {
+  from { opacity: 1; }
+  to   { opacity: 0; }
 }
 
 .song-storyboard {
@@ -213,16 +221,20 @@ html.theme-dark .song-page .bg-overlay::before {
   .sb-fx, .sb-enter { display: inline-block; }
 
   .sb-in-grow      { animation: sb-grow 0.45s var(--motion-ease-bouncy, ease) both; }
+  .sb-in-fade      { animation: sb-fade-in 0.35s ease both; }
   .sb-motion-sway   { animation: sb-sway 2.4s ease-in-out infinite; }
   .sb-motion-drift  { animation: sb-drift 2.8s ease-in-out infinite; }
   .sb-motion-rotate { animation: sb-rotate 6s linear infinite; }
   .sb-out-rise      { animation: sb-rise 0.3s ease both; }
+  .sb-out-fade      { animation: sb-fade-out 0.3s ease both; }
 
   &.sb-chorus .storyboard-char.active,
   &.sb-chorus .storyboard-char.approach { filter: brightness(1.35); }
 
   @media (prefers-reduced-motion: reduce) {
-    .sb-in-grow, .sb-motion-sway, .sb-motion-drift, .sb-motion-rotate, .sb-out-rise {
+    .sb-in-grow, .sb-in-fade,
+    .sb-motion-sway, .sb-motion-drift, .sb-motion-rotate,
+    .sb-out-rise, .sb-out-fade {
       animation: none;
     }
   }
