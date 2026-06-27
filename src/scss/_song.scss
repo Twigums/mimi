@@ -130,10 +130,6 @@ html.theme-dark .song-page .bg-overlay::before {
   position: absolute;
   inset: 0;
   z-index: -1;
-  display: flex;
-  align-items: flex-start;
-  justify-content: flex-end;
-  padding: 2.5rem 1rem 1.5rem;
   pointer-events: none;
   overflow: hidden;
   background: var(--game-dim);
@@ -153,12 +149,28 @@ html.theme-dark .song-page .bg-overlay::before {
   }
 
   .storyboard-line {
+    position: absolute;
+    top: 2.5rem;
+    right: 1.25rem;
     max-height: calc(100% - 4rem);
     transform: translateX(12px);
 
     &.visible {
       opacity: 1;
       transform: translateX(0);
+    }
+
+    &.storyboard-line--overlay {
+      right: auto;
+      left: 1.25rem;
+      max-height: calc(100% - 5rem);
+      font-size: clamp(1.1rem, 2.2vw, 2rem);
+      color: var(--song-text-dim);
+      transform: translateX(-12px);
+
+      &.visible {
+        transform: translateX(0);
+      }
     }
   }
 
