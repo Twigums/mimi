@@ -1,5 +1,6 @@
 module ChartCompiler (chartCompiler) where
 
+import Control.Monad (foldM)
 import Data.Char (toLower)
 import Data.List (intercalate, isPrefixOf)
 import Hakyll
@@ -44,6 +45,52 @@ data NoteEntry = NoteEntry
     , neIncludeEndChar  :: Bool
     }
 
+data LyricOptions = LyricOptions
+    { loChar           :: Maybe String
+    , loIncludeEndChar :: Bool
+    }
+
+emptyLyricOptions :: LyricOptions
+emptyLyricOptions = LyricOptions Nothing False
+
+normalizeKind :: String -> String
+normalizeKind k = case map toLower (trim k) of
+    "c"     -> "cut"
+    "cut"   -> "cut"
+    "f"     -> "flow"
+    "flow"  -> "flow"
+    "l"     -> "lyric"
+    "lyric" -> "lyric"
+    other   -> other
+
+parseLyricOptions :: String -> String -> [String] -> Either String LyricOptions
+parseLyricOptions _ _ [] = Right emptyLyricOptions
+parseLyricOptions line k opts
+    | normalizeKind k /= "lyric" =
+        Left $ "Lyric options are only valid on lyric rows: " ++ line
+    | otherwise = foldM parseOpt emptyLyricOptions opts
+  where
+    parseOpt acc raw
+        | null opt = Right acc
+        | isEndChar opt = Right acc { loIncludeEndChar = True }
+        | otherwise =
+            case break (== '=') opt of
+                (key, '=':value)
+                    | map toLower (trim key) == "char" -> setChar acc (trim value)
+                    | otherwise -> Left $ "Unknown lyric option '" ++ trim key ++ "' in: " ++ line
+                _ -> setChar acc opt
+      where
+        opt = trim raw
+
+    isEndChar s = map toLower (trim s) == "endchar"
+
+    -- Legacy charts used a bare sixth field for the lyric override. Keep accepting that,
+    -- but new charts should spell it as `char=...` so flags and overrides do not collide.
+    setChar acc c
+        | null (trim c) = Right acc
+        | loChar acc == Nothing = Right acc { loChar = Just (trim c) }
+        | otherwise = Left $ "Duplicate lyric char override in: " ++ line
+
 parseNote :: (Double -> Double) -> String -> Either String NoteEntry
 parseNote toMs line =
     case map trim (splitOn ',' line) of
@@ -52,18 +99,11 @@ parseNote toMs line =
         [k, t] | map toLower k == "end" -> do
             t' <- readDouble "time" t
             Right $ NoteEntry "end" (toMs t') 0 0 0 False False Nothing False
-        [k, t, d, x, y]    -> go k t d x y Nothing  False
-        -- A trailing `endchar` flag (lyric only) extends the char-fetch window past the
-        -- hold end to claim the closing syllable; otherwise the 6th field is a lyric `char`.
-        [k, t, d, x, y, c]
-            | isEndChar c  -> go k t d x y Nothing      True
-            | otherwise    -> go k t d x y (Just c)     False
-        [k, t, d, x, y, c, f]
-            | isEndChar f  -> go k t d x y (charField c) True
-        _                  -> Left $ "Expected `end, time`, or 5-7 comma-separated fields: " ++ line
+        (k:t:d:x:y:opts) -> do
+            lyricOpts <- parseLyricOptions line k opts
+            go k t d x y (loChar lyricOpts) (loIncludeEndChar lyricOpts)
+        _ -> Left $ "Expected `end, time`, or at least 5 comma-separated fields: " ++ line
   where
-    isEndChar s   = map toLower (trim s) == "endchar"
-    charField c   = if null (trim c) then Nothing else Just c
     go k t d x y mChar incEnd = do
         t'  <- readDouble "time" t
         nx  <- readDouble "x"    x
@@ -76,14 +116,7 @@ parseNote toMs line =
             ds     -> do
                 deg <- readDouble "degrees" ds
                 Right (normalizeAngle (-(deg * pi / 180.0)), True)
-        let kind = case map toLower k of
-                "c"     -> "cut"
-                "cut"   -> "cut"
-                "f"     -> "flow"
-                "flow"  -> "flow"
-                "l"     -> "lyric"
-                "lyric" -> "lyric"
-                _       -> map toLower k
+        let kind = normalizeKind k
         let timeMs  = toMs t'
         -- newCombo is set later by `parseEntries` when a `break` precedes this note.
         Right $ NoteEntry kind timeMs nx ny radians pinned False mChar incEnd

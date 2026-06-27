@@ -1,4 +1,5 @@
 import type { TextAliveChar, TextAlivePhrase, TextAliveVideo } from "./textalive";
+import { collectTextAliveChars } from "./charLookup";
 
 export interface StoryHighlight { type: "highlight"; from: number; to: number; }
 export interface StoryMove      { type: "move";      time: number; x: number; y: number; }
@@ -24,6 +25,7 @@ interface ActiveLyric {
 export function createStoryboardRenderer(root: HTMLElement): StoryboardRenderer {
   let video: TextAliveVideo | null = null;
   let currentPhrase: TextAlivePhrase | null = null;
+  let allChars: TextAliveChar[] = [];
   let charEls: { ch: TextAliveChar; el: HTMLElement }[] = [];
   let lineEls: HTMLElement[] = [];
   let highlights: StoryHighlight[] = [];
@@ -40,9 +42,7 @@ export function createStoryboardRenderer(root: HTMLElement): StoryboardRenderer 
     charEls = [];
     lineEls = [];
 
-    const chars: TextAliveChar[] = [];
-    let c = phrase.firstChar;
-    while (c && c.startTime <= phrase.endTime) { chars.push(c); c = c.next; }
+    const chars = allChars.filter(c => c.startTime >= phrase.startTime && c.startTime <= phrase.endTime);
 
     const relevantMoves = moves.filter(m => m.time >= phrase.startTime && m.time <= phrase.endTime);
 
@@ -109,7 +109,10 @@ export function createStoryboardRenderer(root: HTMLElement): StoryboardRenderer 
   };
 
   return {
-    setVideo(v): void { video = v; },
+    setVideo(v): void {
+      video = v;
+      allChars = collectTextAliveChars(v);
+    },
 
     setStoryData(entries): void {
       highlights = entries.filter((e): e is StoryHighlight => e.type === "highlight");

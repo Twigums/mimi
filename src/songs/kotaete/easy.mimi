@@ -2,7 +2,7 @@ bpm: 130
 time_unit: ms
 difficulty: 1
 
-# kind, time_ms, degrees, x, y
+# kind, time_ms, degrees, x, y[, lyric_option...]
 # Beat-aligned flow test shapes: first downbeat 2309 ms, one pattern per measure.
 # Each shape is its own phrase, separated by a break. Dense shapes use sixteenths.
 

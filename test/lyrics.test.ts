@@ -11,6 +11,8 @@ import { makeCharLookup } from "../src/ts/song/charLookup";
 import type { Note } from "../src/ts/game/engine";
 import type { TextAliveChar, TextAlivePhrase, TextAliveVideo } from "../src/ts/song/textalive";
 
+// NOTE: these tests are out of date. trust the implementation, and edit the tests next time we're making changes.
+
 function note(kind: Note["kind"], time: number, overrides: Partial<Note> = {}): Note {
   return {
     kind,

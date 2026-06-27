@@ -1,6 +1,41 @@
 import type { TextAliveChar, TextAliveVideo } from "./textalive";
 import type { CharLookup } from "../game/lyrics";
 
+// TextAlive's `char.next` is a song-wide linked list. A phrase's `firstChar` points into
+// that global stream; it is not a private phrase-local list. Some phrase spans also abut
+// or overlap, so bounded per-phrase walks can miss later chars from a parent phrase or
+// collect shared boundary chars twice. Collect from the global linked list, de-dupe by
+// object identity and stable timing/text identity, then sort once for deterministic range
+// lookups and storyboard rendering.
+export function collectTextAliveChars(video: TextAliveVideo): TextAliveChar[] {
+  const chars: TextAliveChar[] = [];
+  const seenNodes = new Set<TextAliveChar>();
+  const seenKeys = new Set<string>();
+  const order = new Map<TextAliveChar, number>();
+
+  let phrase = video.firstPhrase;
+  while (phrase) {
+    let c = phrase.firstChar;
+    while (c) {
+      if (seenNodes.has(c)) break;
+      seenNodes.add(c);
+
+      const key = `${c.startTime}\0${c.endTime}\0${c.text}`;
+      if (!seenKeys.has(key)) {
+        seenKeys.add(key);
+        order.set(c, chars.length);
+        chars.push(c);
+      }
+      c = c.next;
+    }
+    phrase = phrase.next;
+  }
+
+  return chars.sort((a, b) =>
+    a.startTime - b.startTime || a.endTime - b.endTime || (order.get(a) ?? 0) - (order.get(b) ?? 0),
+  );
+}
+
 // Build a range lookup over the song's characters (a fixed, time-ordered list once the
 // video is ready): returns the text of every character whose start time falls in
 // [startMs, endMs), concatenated in order. Used to auto-fill a lyric note from its hold
@@ -12,19 +47,8 @@ import type { CharLookup } from "../game/lyrics";
 // A character that already ended before startMs is not in progress, so it is not pulled in
 // (this keeps an adjacent lyric's finished syllable from being borrowed).
 //
-// TextAlive's `char.next` is a song-wide linked list: it does NOT stop at phrase
-// boundaries. Walking it unbounded from every phrase's first char would re-collect each
-// later char once per preceding phrase (a phrase-3 char three times, etc.), so the
-// per-phrase walk is bounded by the phrase's own end — the same guard the storyboard
-// uses (storyboard.ts) — to collect every char exactly once.
 export function makeCharLookup(video: TextAliveVideo): CharLookup {
-  const chars: TextAliveChar[] = [];
-  let phrase = video.firstPhrase;
-  while (phrase) {
-    let c = phrase.firstChar;
-    while (c && c.startTime <= phrase.endTime) { chars.push(c); c = c.next; }
-    phrase = phrase.next;
-  }
+  const chars = collectTextAliveChars(video);
   return (startMs: number, endMs: number, includePrevChar = false) => {
     let text = "";
     let prev: TextAliveChar | null = null;

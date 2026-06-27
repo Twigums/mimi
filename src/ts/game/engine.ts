@@ -44,7 +44,7 @@ export interface Note {
   // Lyric only: hold duration in ms (derived from the next note; see computeLyricHolds).
   holdMs?: number;
   // Lyric only: extend the char-fetch window past the hold end by epsilon to include the
-  // closing syllable (the `endchar` chart flag / osu `finish` hitsound; see lyricCharWindow).
+  // closing syllable (the `endchar` chart option / osu `finish` hitsound; see lyricCharWindow).
   includeEndChar?: boolean;
   directionPinned?: boolean;
   newCombo?: boolean;

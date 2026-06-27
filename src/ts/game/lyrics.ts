@@ -11,7 +11,7 @@ export type CharLookup = (startMs: number, endMs: number, includePrevChar?: bool
 // within epsilon before a lyric's note counts as that lyric's, and a char within epsilon
 // before its hold end is left for the following boundary. A syllable that leads by more
 // than epsilon is recovered by the previous-char fallback in populateLyricChars.
-export const LYRIC_CHAR_BOUNDARY_EPSILON_MS = 100;
+export const LYRIC_CHAR_BOUNDARY_EPSILON_MS = 80;
 
 // A lyric's note row resolves once its hold window plus the metric grace has passed.
 // An invalid (unbounded) lyric has no hold, so it resolves at its note time like a tap.

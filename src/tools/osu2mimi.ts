@@ -33,7 +33,7 @@ function parseSections(text: string): Map<string, string[]> {
 // Hit objects map to mimi kinds explicitly via object type + hitsound:
 //   clap                  -> lyric (hold); a clap SLIDER also emits an `end` marker at
 //                            its tail so the slider duration becomes the lyric hold end.
-//                            A finish on the clap adds the `endchar` flag (the char-fetch
+//                            A finish on the clap adds the `endchar` lyric option (the char-fetch
 //                            window then extends past the hold end to claim the closing syllable)
 //   whistle (on a slider) -> cut, direction from the slider
 //   plain slider          -> flow, pinned to the slider's direction
@@ -53,7 +53,7 @@ interface Note {
     kind:           EntryKind;
     degrees:        number | null;
     newCombo:       boolean;
-    includeEndChar?: boolean;  // lyric only: emits the `endchar` flag (osu finish hitsound)
+    includeEndChar?: boolean;  // lyric only: emits the `endchar` option (osu finish hitsound)
 }
 
 const OSU_TYPE_SLIDER   = 1 << 1;
@@ -210,7 +210,7 @@ function parseHitObject(line: string, ctx: MapContext): Note[] {
 
     // clap -> lyric (held). The lyric sits at the head; a clap SLIDER's body shape is
     // ignored except for its duration, which becomes the hold end via an `end` marker. A
-    // finish on the clap flags the lyric to claim its closing syllable (the `endchar` flag).
+    // finish on the clap flags the lyric to claim its closing syllable (the `endchar` option).
     if (hitSound & OSU_HIT_CLAP) {
         const includeEndChar = !!(hitSound & OSU_HIT_FINISH);
         const notes: Note[] = [{ time, x: headX, y: headY, kind: "lyric", degrees: null, newCombo, includeEndChar }];
@@ -295,7 +295,7 @@ function main(): void {
     out.push(`beats_per_measure: ${beatsPerMeasure}`);
     out.push(
         "",
-        "# kind, time_ms, degrees, x, y",
+        "# kind, time_ms, degrees, x, y[, lyric_option...]",
     );
 
     // A `break` ends a flow phrase only between consecutive flow notes; `end` markers are
@@ -308,8 +308,8 @@ function main(): void {
         }
         if (note.newCombo && note.kind === "flow" && prevKind === "flow") out.push("break");
         const deg = note.degrees === null ? "auto" : note.degrees;
-        const endTag = note.includeEndChar ? ", endchar" : "";
-        out.push(`${note.kind}, ${note.time}, ${deg}, ${note.x}, ${note.y}${endTag}`);
+        const lyricOptions = note.includeEndChar ? ", endchar" : "";
+        out.push(`${note.kind}, ${note.time}, ${deg}, ${note.x}, ${note.y}${lyricOptions}`);
         prevKind = note.kind;
     }
 
