@@ -75,10 +75,7 @@ html.theme-dark .results-overlay {
   to   { opacity: 1; transform: none; }
 }
 
-// Both miku loops start and end at an extreme (not centre), so a paused or
-// reduced-motion stop never freezes mid-swing. The S/A "clock" loop is a
-// pendulum rotating about Miku's centre: ease-in-out so it's fastest through
-// the centre of the swing and slowest at the extremes.
+// miku animation keyframes
 @keyframes results-miku-clock {
   0%   { transform: rotate(7deg); }
   50%  { transform: rotate(-7deg); }
@@ -110,9 +107,8 @@ html.theme-dark .results-overlay {
   .results-next     { animation-delay: 0.16s; }
   .results-badge    { animation-delay: 0.22s; }
   .results-headline { animation-delay: 0.26s; }
-  // Advanced view children: toggle, breakdown, chart, issues, histogram —
-  // an even 0.08s step keeps the cascade seamless so issues rise in just
-  // after the chart, never before it.
+
+  // Advanced view
   .results-right > *:nth-child(1) { animation-delay: 0.2s; }
   .results-right > *:nth-child(2) { animation-delay: 0.28s; }
   .results-right > *:nth-child(3) { animation-delay: 0.36s; }
@@ -452,7 +448,7 @@ html.theme-dark .results-overlay {
 .results-issue--direction { --accent: var(--rp-late); }
 .results-issue--gesture   { --accent: var(--rp-grade-sss); }
 
-// basic / advanced view toggle — underlined text link with a nudging caret
+// basic/advanced view toggle
 .results-viewtoggle {
   align-self: flex-end;
   display: inline-flex;
@@ -515,8 +511,7 @@ html.theme-dark .results-overlay {
   &__seg--ok      { stroke: var(--rp-ink-soft); }
   &__seg--miss    { stroke: var(--rp-miss); }
 
-  // start/end marker; --rp-ink flips dark↔light with the theme so it stays
-  // legible on the coloured arc beneath it
+  // start/end marker
   &__notch {
     stroke: var(--rp-ink);
     stroke-width: 2.5px;
@@ -550,17 +545,14 @@ html.theme-dark .results-overlay {
     width: 100%;
     height: 100%;
 
-    // inline SVG fills the wrapper (preserveAspectRatio gives contain-like fit)
     svg { display: block; width: 100%; height: 100%; }
 
-    // miku_B sleep "zzz": black by day, white at night — driven by the in-app
-    // theme class now that the SVG is inlined
+    // miku_B sleep "zzz": black by day, white at night
     .miku-zzz { stroke: #000; }
     html.theme-dark & .miku-zzz { stroke: #fff; }
   }
 
-  // tier "LABEL: count" revealed on segment hover, in that tier's breakdown
-  // colour; reserves its own centred line so the chart never shifts
+  // tier "LABEL: count" revealed on segment hover
   &__tag {
     width: 100%;
     min-height: 1.2em;

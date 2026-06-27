@@ -92,8 +92,8 @@
   transition:
     opacity var(--motion-duration-base) var(--motion-ease-standard),
     transform var(--motion-duration-base) var(--motion-ease-standard);
-  // width is owned by _home.scss .song-pane (it carries a bleed to stop the
-  // scroll container from shearing the buttons' shadow glows into a border)
+
+  // width is owned by _home.scss .song-pane
   display: flex;
   flex-direction: column;
   align-items: center;

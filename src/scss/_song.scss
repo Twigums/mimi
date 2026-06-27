@@ -104,7 +104,7 @@ html.theme-dark .song-page .bg-overlay::before {
   to   { filter: hue-rotate(360deg); }
 }
 
-// Storyboard directive effects (P1.5): one-shot entrance, continuous motion, exit.
+// Storyboard directive effects
 @keyframes sb-grow {
   from { transform: scale(0.6); opacity: 0; }
   to   { transform: scale(1);   opacity: 1; }
@@ -192,9 +192,9 @@ html.theme-dark .song-page .bg-overlay::before {
         animation: technicolor-hue 0.5s linear infinite;
       }
 
-      // A lyric mapped to a note shows as a hollow outline until the note resolves;
-      // hitting it fills the glyph and lights it with the perfect-hit yellow, while
-      // a miss leaves it empty.
+      // lyric mapped to a note shows as a hollow outline until the note resolves
+      // hitting it fills the glyph and lights it with the perfect-hit yellow
+      // miss -> empty.
       &.note-empty {
         opacity: 0.6;
         color: transparent;
@@ -210,8 +210,6 @@ html.theme-dark .song-page .bg-overlay::before {
       }
   }
 
-  // Directive effect layers (P1.5). Each owns one transform so entrance, motion, and
-  // per-char pulse/amplitude never fight; they inherit the vertical writing mode.
   .sb-fx, .sb-enter { display: inline-block; }
 
   .sb-in-grow      { animation: sb-grow 0.45s var(--motion-ease-bouncy, ease) both; }
@@ -220,8 +218,6 @@ html.theme-dark .song-page .bg-overlay::before {
   .sb-motion-rotate { animation: sb-rotate 6s linear infinite; }
   .sb-out-rise      { animation: sb-rise 0.3s ease both; }
 
-  // Reactive chorus emphasis (brightness only, so it never clashes with the per-char
-  // scale transforms applied inline).
   &.sb-chorus .storyboard-char.active,
   &.sb-chorus .storyboard-char.approach { filter: brightness(1.35); }
 
@@ -353,16 +349,13 @@ html.theme-dark .song-page .bg-overlay::before {
     background: none;
     border: none;
     padding: 0.3rem;
-    opacity: 1; // undo the base 0.55 dim so the label reads at full ink
+    opacity: 1;
     font-size: 0.9rem;
     font-weight: normal;
 
     &::before { display: none; }
 
     .lang-option { display: none; padding: 0; opacity: 1; font-weight: normal; }
-    // the panel surface (--surface-hud) is white in light mode, so the active
-    // label takes the readable, theme-aware song ink instead of flat white
-    // (dark mode keeps its own brighter #fff via a more specific rule)
     .lang-option.active { display: block; color: var(--song-text); }
 
     .lang-jp.active { font-size: 0; }
@@ -379,7 +372,7 @@ html.theme-dark .song-page .bg-overlay::before {
     &:hover { background: none; color: var(--song-text); }
   }
 
-  // theme (sun/moon) toggle draws its icon from currentColor; match the others
+  // theme toggle draws its icon from currentColor
   .song-hud .hud-panel .theme-toggle {
     color: var(--song-text-dim);
     transition: color 0.2s ease;
@@ -444,8 +437,7 @@ html.theme-dark .game-frame .frame-star {
     cursor: none;
   }
 
-  // Funnel layer: lyric characters that fly from the storyboard onto the notes. Sits
-  // above the canvas (the storyboard itself is behind it) and never blocks pointers.
+  // lyric characters that fly from the storyboard onto the notes
   .song-funnel {
     position: absolute;
     inset: 0;
@@ -506,7 +498,7 @@ html.theme-dark .game-frame .frame-star {
               color      var(--motion-duration-base) var(--motion-ease-standard);
 
   .game-start-label {
-    border-bottom: 1px solid; // currentColor, so it follows the theme
+    border-bottom: 1px solid;
     padding-bottom: 0.28rem;
   }
 
@@ -540,7 +532,7 @@ html.theme-dark .game-frame .frame-star {
   transform: translateX(-50%);
   min-width: 5.5rem;
   padding: 0.45rem 0.85rem;
-  border: 1px solid; // currentColor, so it follows the theme
+  border: 1px solid;
   border-radius: var(--radius-pill);
   background: rgba(128, 128, 128, 0.2);
   color: var(--song-text-dim);
