@@ -1,6 +1,7 @@
 @charset "UTF-8";
 :root {
   --font-display: 'M PLUS Rounded 1c', 'JetBrains Mono', sans-serif;
+  --font-handwriting: 'Yomogi', 'M PLUS Rounded 1c', cursive;
   --miku-teal: #39c5bb;
   --miku-teal-deep: #1d9e94;
   --ink: #1c4e57;
@@ -555,6 +556,44 @@ html.theme-dark .bg-sky .cloud-layer {
 .song-list-entry:nth-child(even) .btn-main::after {
   left: auto;
   right: 36%;
+}
+
+.btn-main--play::after {
+  content: "";
+}
+
+.btn-play-icon {
+  position: absolute;
+  display: block;
+  width: 1.9rem;
+  height: 1.9rem;
+  top: -0.65rem;
+  left: 36%;
+  background: currentColor;
+  color: transparent;
+  pointer-events: none;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 33.76 37.28'%3E%3Cpath d='M2.1 35.18L31.66 18.64L2.1 2.1Z'/%3E%3C/svg%3E") center/45% no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 33.76 37.28'%3E%3Cpath d='M2.1 35.18L31.66 18.64L2.1 2.1Z'/%3E%3C/svg%3E") center/45% no-repeat;
+  transition: transform 0.3s var(--motion-ease-bouncy), color 0.2s;
+}
+
+.btn-main--play:hover .btn-play-icon {
+  color: var(--miku-teal);
+  transform: translateY(-0.55rem) rotate(12deg);
+}
+
+.btn-main--tutorial::after {
+  content: "?";
+  font-size: 1.2rem;
+  -webkit-font-smoothing: antialiased;
+}
+
+.btn-main--info::after {
+  content: "i";
+  font-size: 1.2rem;
+  font-style: oblique -12deg;
+  font-weight: 700;
+  -webkit-font-smoothing: antialiased;
 }
 
 .btn-back {
@@ -1356,6 +1395,50 @@ html.theme-dark .song-page .bg-overlay::before {
     filter: hue-rotate(360deg);
   }
 }
+@keyframes sb-grow {
+  from {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+@keyframes sb-sway {
+  0%, 100% {
+    transform: rotate(-3deg);
+  }
+  50% {
+    transform: rotate(3deg);
+  }
+}
+@keyframes sb-drift {
+  0%, 100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-8px);
+  }
+}
+@keyframes sb-rotate {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+@keyframes sb-rise {
+  from {
+    transform: translateY(0);
+    opacity: 1;
+  }
+  to {
+    transform: translateY(-24px);
+    opacity: 0;
+  }
+}
 .song-storyboard {
   position: absolute;
   inset: 0;
@@ -1416,6 +1499,46 @@ html.theme-dark .song-page .bg-overlay::before {
   color: hsl(0, 100%, 72%);
   text-shadow: 0 0 10px currentColor;
   animation: technicolor-hue 0.5s linear infinite;
+}
+.song-storyboard .storyboard-line .storyboard-char.note-empty,
+.song-storyboard .storyboard-segment .storyboard-char.note-empty {
+  opacity: 0.6;
+  color: transparent;
+  -webkit-text-stroke: 1px var(--song-text-dim);
+}
+.song-storyboard .storyboard-line .storyboard-char.note-filled,
+.song-storyboard .storyboard-segment .storyboard-char.note-filled {
+  opacity: 1;
+  color: var(--color-perfect);
+  -webkit-text-stroke: 0;
+  text-shadow: 0 0 12px var(--color-perfect);
+  transition: opacity 0.2s ease, color 0.2s ease, text-shadow 0.2s ease;
+}
+.song-storyboard .sb-fx, .song-storyboard .sb-enter {
+  display: inline-block;
+}
+.song-storyboard .sb-in-grow {
+  animation: sb-grow 0.45s var(--motion-ease-bouncy, ease) both;
+}
+.song-storyboard .sb-motion-sway {
+  animation: sb-sway 2.4s ease-in-out infinite;
+}
+.song-storyboard .sb-motion-drift {
+  animation: sb-drift 2.8s ease-in-out infinite;
+}
+.song-storyboard .sb-motion-rotate {
+  animation: sb-rotate 6s linear infinite;
+}
+.song-storyboard .sb-out-rise {
+  animation: sb-rise 0.3s ease both;
+}
+.song-storyboard.sb-chorus .storyboard-char.active, .song-storyboard.sb-chorus .storyboard-char.approach {
+  filter: brightness(1.35);
+}
+@media (prefers-reduced-motion: reduce) {
+  .song-storyboard .sb-in-grow, .song-storyboard .sb-motion-sway, .song-storyboard .sb-motion-drift, .song-storyboard .sb-motion-rotate, .song-storyboard .sb-out-rise {
+    animation: none;
+  }
 }
 
 .song-progress-bar {
@@ -1625,6 +1748,22 @@ html.theme-dark .game-frame .frame-star {
   height: 100%;
   display: block;
   cursor: none;
+}
+.game-area .song-funnel {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  overflow: hidden;
+  font-family: var(--font-display);
+}
+.game-area .song-funnel .sb-fly {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  font-weight: bold;
+  color: #eafffb;
+  text-shadow: 0 0 8px var(--miku-teal, #39c5bb);
+  will-change: left, top, transform, opacity;
 }
 
 .song-page .site-name-link {

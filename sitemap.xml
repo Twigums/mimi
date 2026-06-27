@@ -8,28 +8,31 @@
   xmlns:video = "http://www.google.com/schemas/sitemap-video/1.1"
 >
   <url>
-    <loc>https://example.com/mimi</loc>
+    <loc>https://twigums.github.io/mimi/</loc>
     <changefreq>daily</changefreq>
     <priority>1.0</priority>
   </url>
 
   <url>
-    <loc>https://example.comsrc/tabs/home.md/index.html</loc>
-    <lastmod></lastmod>
+    <loc>https://twigums.github.io/mimi/kotaete/?d=easy</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
 
   <url>
-    <loc>https://example.comsrc/tabs/songs/kotaete.md/kotaete/index.html</loc>
-    <lastmod></lastmod>
+    <loc>https://twigums.github.io/mimi/kotaete/?d=medium</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
 
   <url>
-    <loc>https://example.comsrc/tabs/tutorial.md</loc>
-    <lastmod></lastmod>
+    <loc>https://twigums.github.io/mimi/kotaete/?d=hard</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
+
+  <url>
+    <loc>https://twigums.github.io/mimi/kotaete/?d=expert</loc>
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
