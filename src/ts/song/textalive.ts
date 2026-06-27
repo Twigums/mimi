@@ -29,6 +29,8 @@ export interface TextAlivePhrase {
   firstChar: TextAliveChar | null;
   text: string;
   next: TextAlivePhrase | null;
+  /** Concurrent overlay layer (e.g. staff chorus lines under lead vocal). */
+  overlay?: boolean;
 }
 
 export interface TextAliveVideo {
@@ -36,6 +38,8 @@ export interface TextAliveVideo {
   charCount: number;
   firstPhrase: TextAlivePhrase | null;
   findPhrase(time: number): TextAlivePhrase | null;
+  /** All phrases active at `time` (for stacked storyboard display). */
+  findActivePhrases?(time: number): TextAlivePhrase[];
   findChar(time: number): TextAliveChar | null;
 }
 

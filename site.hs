@@ -6,6 +6,7 @@ import System.Directory     (doesDirectoryExist, doesFileExist, listDirectory)
 import System.Environment   (getArgs, lookupEnv, withArgs)
 import System.FilePath      ((</>), (<.>), takeBaseName)
 import Control.Monad        (filterM, forM)
+import GHC.IO.Encoding        (setLocaleEncoding, utf8)
 
 import Hakyll
 
@@ -295,6 +296,7 @@ sitemapLocs base = do
 
 main :: IO ()
 main = do
+    setLocaleEncoding utf8
     args           <- getArgs
     let (pathArg, remainingArgs) = extractSitePath args
     pathEnv        <- fromMaybe "" <$> lookupEnv "SITE_PATH"

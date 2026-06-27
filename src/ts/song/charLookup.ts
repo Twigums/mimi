@@ -1,4 +1,4 @@
-import type { TextAliveChar, TextAliveVideo } from "./textalive";
+import type { TextAliveChar, TextAlivePhrase, TextAliveVideo } from "./textalive";
 import type { CharLookup } from "../game/lyrics";
 
 // TextAlive's `char.next` is a song-wide linked list. A phrase's `firstChar` points into
@@ -34,6 +34,18 @@ export function collectTextAliveChars(video: TextAliveVideo): TextAliveChar[] {
   return chars.sort((a, b) =>
     a.startTime - b.startTime || a.endTime - b.endTime || (order.get(a) ?? 0) - (order.get(b) ?? 0),
   );
+}
+
+/** Chars belonging to one phrase — bounded so a song-wide `char.next` chain cannot bleed in. */
+export function walkPhraseChars(phrase: TextAlivePhrase): TextAliveChar[] {
+  const out: TextAliveChar[] = [];
+  let c = phrase.firstChar;
+  while (c) {
+    if (c.startTime > phrase.endTime) break;
+    if (c.startTime >= phrase.startTime) out.push(c);
+    c = c.next;
+  }
+  return out;
 }
 
 // Build a range lookup over the song's characters (a fixed, time-ordered list once the
