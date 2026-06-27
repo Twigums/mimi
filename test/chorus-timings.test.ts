@@ -48,9 +48,49 @@ function degenerateVideo(): TextAliveVideo {
   };
 }
 
-const merged = mergeChorusTimings(degenerateVideo(), phrases, wordSizes);
+function sdkLikeVideo(): TextAliveVideo {
+  const mk = (text: string, startTime: number, endTime: number): TextAliveChar => {
+    const node = { text, startTime, endTime, parent: null } as TextAliveChar;
+    Object.defineProperty(node, "next", {
+      get() { return (node as { _next?: TextAliveChar | null })._next ?? null; },
+      set(v: TextAliveChar | null) { (node as { _next?: TextAliveChar | null })._next = v; },
+      configurable: true,
+    });
+    return node;
+  };
+  const c0 = mk("自", 54887, 55114);
+  Object.defineProperty(c0, "next", {
+    get() { return null; },
+    configurable: false,
+  });
+  const phrase: TextAlivePhrase = {
+    startTime: 54887,
+    endTime: 65035,
+    text: "自分を重ねて聞いてた",
+    firstChar: c0,
+    next: null,
+  };
+  Object.defineProperty(phrase, "next", {
+    get() { return null; },
+    configurable: false,
+  });
+  return {
+    duration: 120000,
+    charCount: 1,
+    firstPhrase: phrase,
+    findPhrase: () => phrase,
+    findChar: t => (t >= c0.startTime && t <= c0.endTime ? c0 : null),
+  };
+}
+
+assert.doesNotThrow(() => mergeChorusTimings(sdkLikeVideo(), phrases, wordSizes));
+
+const { match: merged } = mergeChorusTimings(degenerateVideo(), phrases, wordSizes);
 assert.equal(merged.findChar(53545)?.text, "苦");
 assert.equal(merged.findChar(65307)?.text, "け");
+
+const layered = mergeChorusTimings(sdkLikeVideo(), phrases, wordSizes);
+assert.ok((layered.display.findActivePhrases?.(56000)?.length ?? 0) >= 2);
 
 function note(time: number): Note {
   return { kind: "lyric", time, x: 300, y: 300, direction: 0, state: "pending", holdMs: 900 };

@@ -160,6 +160,24 @@ html.theme-dark .song-page .bg-overlay::before {
       opacity: 1;
       transform: translateX(0);
     }
+
+    &.storyboard-line--overlay {
+      align-self: flex-start;
+      max-height: calc(100% - 5rem);
+      font-size: clamp(1.1rem, 2.2vw, 2rem);
+      color: var(--song-text-dim);
+      transform: translateX(-12px);
+
+      &.visible {
+        transform: translateX(0);
+      }
+    }
+  }
+
+  &.sb-stacked {
+    justify-content: space-between;
+    padding-left: 1.25rem;
+    padding-right: 1.25rem;
   }
 
   .storyboard-segment {

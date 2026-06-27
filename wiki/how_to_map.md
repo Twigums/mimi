@@ -152,6 +152,23 @@ Cut and pinned flow take their direction from the slider, so use a slider for th
 
 Lyric notes pair with the TextAlive lyrics shown in the storyboard background. Each lyric note shows one or more characters; those characters **funnel** out of the displayed lyric and fly onto the note during its approach, and the displayed word **shines** the perfect-hit yellow once the note(s) covering it are hit.
 
+### Funnel, fill, and word shine (golden notes)
+
+This is the player-facing lyric feedback loop:
+
+1. **Match** — at load time each lyric note claims one or more storyboard characters (see below). Those glyphs switch to **empty outlines** (`note-empty`).
+2. **Funnel** — during the note's approach window, each mapped character **flies** from its storyboard position onto the note (multi-char notes launch in sequence, landing by hit time).
+3. **Fill** — on a **hit**, that character's outline **fills** with the perfect-hit yellow (`note-filled`). On a **miss**, it stays empty.
+4. **Word shine** — TextAlive groups characters into **words**. If you map notes onto some (not all) characters in a word, hitting **every mapped note** for that word shines the **entire word** gold, including unmapped syllables in the same word. Miss any mapped note and the word never shines.
+
+Unmapped characters keep the normal sung animation (dim → active → sung) and never funnel.
+
+### Overlapping phrases (lead + chorus)
+
+TextAlive normally exposes one phrase at a time. When a song needs **concurrent** lines (lead vocal under chorus, or staff chorus timings that overlap the lead), set `lyric-chorus-timings: songs/<id>/chorus-timings.jsonc` on the song tab. The runtime merges staff chorus char timings as **overlay phrases** (`overlay: true`): the storyboard keeps the full lead line visible on the **right** while each active chorus line stacks on the **left**. Lyric **matching** still binds notes to chorus chars inside the chorus window; the lead glyphs remain visible for context but are omitted from matching in that window so notes do not grab the wrong line.
+
+To reposition a stacked line manually, use a `.story` **`m`** move on that phrase's time range (see below). `h` highlights still apply per character; `x` excludes backing vocals from note matching without hiding them from the storyboard.
+
 ### How a lyric note gets its text
 
 For each lyric note, in time order, the matcher resolves its source character **containment-first**: if the note's time falls inside a character's sung span, it sources that character and **shares** it (so several notes placed over one long-held character all source the same glyph); otherwise it claims the nearest **unclaimed** character within +/- 80 ms (so two notes near 自分 resolve to 自 then 分 instead of both grabbing 自). There are three ways to control the text:
@@ -226,6 +243,10 @@ lyric, 2400, auto, 460, 300, span=3
 The first note funnels お; the second funnels ね, が, い together onto one note.
 
 Lyric notes you do not map behave normally — they simply animate in the storyboard without funneling or shining.
+
+### Kotaete chorus example
+
+`kotaete.md` sets `lyric-chorus-timings: songs/kotaete/chorus-timings.jsonc` (Magical Mirai staff ms timings). During ~52–66 s the lead line *自分を重ねて聞いてた* and the two chorus lines *どれほどの苦しみも…* / *きっと私の目指す…* display together. Chart the chorus with `lyric` notes in that window; on hit, their glyphs funnel from the **left overlay line** and fill yellow, and word shine applies within each chorus word group defined in the jsonc.
 
 ## Minimal Example
 

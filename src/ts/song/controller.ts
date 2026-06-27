@@ -148,9 +148,9 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPre
     if (chorusTimingsPath && !chorusTimingsReady) return;
     const merged = chorusOverlay
       ? mergeChorusTimings(rawVideo, chorusOverlay.phrases, chorusOverlay.wordSizes)
-      : rawVideo;
-    videoForMatch = merged;
-    storyboard?.setVideo(merged);
+      : null;
+    videoForMatch = merged?.match ?? rawVideo;
+    storyboard?.setVideo(merged?.display ?? rawVideo);
     tryApplyChart();
   };
 

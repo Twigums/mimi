@@ -91,6 +91,24 @@ function walkPhraseChars(phrase: TextAlivePhrase): TextAliveChar[] {
   return out;
 }
 
+function charKey(c: { startTime: number; endTime: number; text: string }): string {
+  return `${c.startTime}\0${c.endTime}\0${c.text}`;
+}
+
+function cloneChar(c: TextAliveChar): TextAliveChar {
+  return { text: c.text, startTime: c.startTime, endTime: c.endTime, next: null, parent: null };
+}
+
+function linkNext<T extends { next: TextAliveChar | null }>(nodes: T[]): void {
+  for (let i = 0; i < nodes.length - 1; i++) nodes[i].next = nodes[i + 1];
+  if (nodes.length > 0) nodes[nodes.length - 1].next = null;
+}
+
+function linkPhraseNext(phrases: TextAlivePhrase[]): void {
+  for (let i = 0; i < phrases.length - 1; i++) phrases[i].next = phrases[i + 1];
+  if (phrases.length > 0) phrases[phrases.length - 1].next = null;
+}
+
 /** TextAlive emits placeholder micro-timings when char sync failed for a phrase. */
 export function isDegeneratePhraseData(phrase: PhraseGroup): boolean {
   if (phrase.chars.length === 0) return true;
@@ -168,67 +186,122 @@ function buildPhraseNodeFromData(data: PhraseTimingData, wordSizes: number[], ne
   };
 }
 
+export interface MergedChorusVideos {
+  /** Chars for lyric matching (chorus window replaces conflicting lead glyphs). */
+  match: TextAliveVideo;
+  /** Full layered phrases for storyboard display. */
+  display: TextAliveVideo;
+}
+
+function activePhrasesAt(chain: TextAlivePhrase[], t: number): TextAlivePhrase[] {
+  return chain.filter(p => t >= p.startTime && t <= p.endTime);
+}
+
+function buildPhraseFromChars(
+  phrase: TextAlivePhrase,
+  chars: TextAliveChar[],
+  overlay = false,
+): TextAlivePhrase {
+  return {
+    startTime: phrase.startTime,
+    endTime: phrase.endTime,
+    text: phrase.text,
+    firstChar: chars[0] ?? null,
+    next: null,
+    overlay,
+  };
+}
+
 /** Overlay staff chorus timings onto a TextAlive video for lyric matching and storyboard. */
 export function mergeChorusTimings(
   base: TextAliveVideo,
   chorusPhrases: PhraseTimingData[],
   chorusWordSizes: number[][],
-): TextAliveVideo {
-  if (chorusPhrases.length === 0) return base;
+): MergedChorusVideos {
+  if (chorusPhrases.length === 0) return { match: base, display: base };
 
   const chorusStart = Math.min(...chorusPhrases.map(p => p.startTime));
   const chorusEnd = Math.max(...chorusPhrases.map(p => p.endTime));
 
-  const keptBasePhrases: TextAlivePhrase[] = [];
-  let phrase = base.firstPhrase;
-  while (phrase) {
-    if (!isDegeneratePhrase(phrase)) keptBasePhrases.push(phrase);
-    phrase = phrase.next;
-  }
-  for (let i = 0; i < keptBasePhrases.length - 1; i++) {
-    keptBasePhrases[i].next = keptBasePhrases[i + 1];
-  }
-  if (keptBasePhrases.length > 0) {
-    keptBasePhrases[keptBasePhrases.length - 1].next = null;
-  }
-
-  const baseChars = collectTextAliveChars(base).filter(
-    c => c.startTime < chorusStart || c.startTime > chorusEnd,
-  );
-
   const chorusPhraseNodes: TextAlivePhrase[] = [];
   for (let i = chorusPhrases.length - 1; i >= 0; i--) {
-    chorusPhraseNodes.unshift(
-      buildPhraseNodeFromData(chorusPhrases[i], chorusWordSizes[i] ?? [], chorusPhraseNodes[0] ?? null),
-    );
+    const node = buildPhraseNodeFromData(chorusPhrases[i], chorusWordSizes[i] ?? [], chorusPhraseNodes[0] ?? null);
+    node.overlay = true;
+    chorusPhraseNodes.unshift(node);
   }
-  for (let i = 0; i < chorusPhraseNodes.length - 1; i++) {
-    chorusPhraseNodes[i].next = chorusPhraseNodes[i + 1];
-  }
+  linkPhraseNext(chorusPhraseNodes);
+
+  // ── Match video: lead glyphs in the chorus window are omitted so notes bind to chorus chars.
+  const matchBaseChars = collectTextAliveChars(base)
+    .filter(c => c.startTime < chorusStart || c.startTime > chorusEnd)
+    .map(cloneChar);
 
   const chorusChars = chorusPhraseNodes.flatMap(p => walkPhraseChars(p));
-  const allChars = [...baseChars, ...chorusChars].sort(
+  const matchChars = [...matchBaseChars, ...chorusChars].sort(
     (a, b) => a.startTime - b.startTime || a.endTime - b.endTime,
   );
-  for (let i = 0; i < allChars.length - 1; i++) allChars[i].next = allChars[i + 1];
-  if (allChars.length > 0) allChars[allChars.length - 1].next = null;
+  linkNext(matchChars);
+  const matchCharByKey = new Map(matchChars.map(c => [charKey(c), c]));
 
-  const phraseChain = [...keptBasePhrases, ...chorusPhraseNodes];
-  for (let i = 0; i < phraseChain.length - 1; i++) phraseChain[i].next = phraseChain[i + 1];
-  if (phraseChain.length > 0) phraseChain[phraseChain.length - 1].next = null;
+  const matchBasePhraseNodes: TextAlivePhrase[] = [];
+  let phrase = base.firstPhrase;
+  while (phrase) {
+    if (!isDegeneratePhrase(phrase)) {
+      const kept = walkPhraseChars(phrase).filter(
+        c => c.startTime < chorusStart || c.startTime > chorusEnd,
+      );
+      matchBasePhraseNodes.push(buildPhraseFromChars(phrase, kept.map(c => matchCharByKey.get(charKey(c))!).filter(Boolean)));
+    }
+    phrase = phrase.next;
+  }
 
-  const chorusSet = new Set(chorusPhraseNodes);
+  const matchPhraseChain = [...matchBasePhraseNodes, ...chorusPhraseNodes];
+  linkPhraseNext(matchPhraseChain);
+  const matchChorusSet = new Set(chorusPhraseNodes);
 
-  return {
+  const matchVideo: TextAliveVideo = {
     duration: base.duration,
-    charCount: allChars.length,
-    firstPhrase: phraseChain[0] ?? null,
+    charCount: matchChars.length,
+    firstPhrase: matchPhraseChain[0] ?? null,
+    findActivePhrases: t => activePhrasesAt(matchPhraseChain, t),
     findPhrase: (t: number) => {
       for (const p of chorusPhraseNodes) {
         if (t >= p.startTime && t <= p.endTime) return p;
       }
-      return phraseChain.find(p => !chorusSet.has(p) && t >= p.startTime && t <= p.endTime) ?? null;
+      return matchPhraseChain.find(p => !matchChorusSet.has(p) && t >= p.startTime && t <= p.endTime) ?? null;
     },
-    findChar: (t: number) => allChars.find(c => t >= c.startTime && t <= c.endTime) ?? null,
+    findChar: (t: number) => matchChars.find(c => t >= c.startTime && t <= c.endTime) ?? null,
   };
+
+  // ── Display video: full lead lines stay visible; chorus lines stack as overlays.
+  const displayBasePhraseNodes: TextAlivePhrase[] = [];
+  phrase = base.firstPhrase;
+  while (phrase) {
+    if (!isDegeneratePhrase(phrase)) {
+      const cloned = walkPhraseChars(phrase).map(cloneChar);
+      linkNext(cloned);
+      displayBasePhraseNodes.push(buildPhraseFromChars(phrase, cloned));
+    }
+    phrase = phrase.next;
+  }
+
+  const displayPhraseChain = [...displayBasePhraseNodes, ...chorusPhraseNodes];
+  linkPhraseNext(displayPhraseChain);
+
+  const displayVideo: TextAliveVideo = {
+    duration: base.duration,
+    charCount: displayPhraseChain.flatMap(p => walkPhraseChars(p)).length,
+    firstPhrase: displayPhraseChain[0] ?? null,
+    findActivePhrases: t => activePhrasesAt(displayPhraseChain, t),
+    findPhrase: (t: number) => displayPhraseChain.find(p => t >= p.startTime && t <= p.endTime) ?? null,
+    findChar: (t: number) => {
+      for (const p of [...displayPhraseChain].reverse()) {
+        const c = walkPhraseChars(p).find(ch => t >= ch.startTime && t <= ch.endTime);
+        if (c) return c;
+      }
+      return null;
+    },
+  };
+
+  return { match: matchVideo, display: displayVideo };
 }
