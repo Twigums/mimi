@@ -4,7 +4,21 @@ Mimi is a rhythm game web application built on primarily Typescript and compiled
 
 ## How to Build
 
-Requires `node >=20.19.0`/`npm` and `stack`. Stack will use a compatible GHC from `~/.stack` (or a compatible system GHC if you already have one).
+### Prerequisites
+
+**Node.js >= 20.19.0 with `npm`**
+
+Follow the instructions for **prebuilt Node.js** at [nodejs.org](https://nodejs.org/), or use a version manager such as `nvm`.
+
+**Stack + GHC**
+
+Follow the instructions at [docs.haskellstack.org](https://docs.haskellstack.org/en/stable/install_and_upgrade/#install-stack).
+
+There is no need to install GHC; Stack will download and use its own sandboxed GHC if there is no existing installation.
+
+Quick check: `node -v` and `stack --version` should both succeed.
+
+### Build Instructions
 
 1. Install dependencies + build haskell binary:
    ```bash
@@ -29,13 +43,11 @@ The compiled site outputs to `./docs`. Configure GitHub Pages to serve from the 
 
 Set `SITE_PATH=/sub-path` (or pass `--path /sub-path`) when hosting at a sub-path. The CI workflow sets this automatically from the repo name.
 
-## Converting osu! Charts
+## Chart File Format
 
-Mimi delegates charting to using the "osu!" format for simplicity. See [`src/tools/README.md`](src/tools/README.md) for more charting information.
+Chart data is stored at `src/songs/<name>/<difficulty>.mimi`.
 
-## Storyboard Story Files
-
-An optional `src/songs/<name>/chart.story` file controls the TextAlive lyric storyboard. It is compiled to `songs/<name>/chart.json` alongside the chart. See `wiki/gameplay.md` for the full format reference.
+An optional `src/songs/<name>/<difficulty>.story` file controls the TextAlive lyric storyboard. It is compiled to `songs/<name>/chart.json` alongside the chart. See `wiki/gameplay.md` for the full format reference.
 
 ## Common Issues
 
