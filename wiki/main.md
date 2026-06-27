@@ -14,4 +14,4 @@ This file serves as a summary/directory of all information in the `/wiki` direct
 
 - `imie - Answer Me (IOException).osu`: Sample `.osu` file for translating `.osu` to `.mimi`.
 
-Staff chorus timing for こたえて lives with the song at `src/songs/kotaete/chorus-timings.jsonc` (Magical Mirai / TextAlive official ms char slots; phrase lines in `//` comments). Songs opt in via the `lyric-chorus-timings` frontmatter field.
+- `6W2N_chorus_timings.jsonc`: Official information presented by the Magical Mirai/TextAlive staff regarding the TextAlive song information.

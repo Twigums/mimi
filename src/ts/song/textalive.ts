@@ -18,7 +18,7 @@ export interface TextAliveChar {
   startTime: number;
   endTime: number;
   next: TextAliveChar | null;
-  // The word this character belongs to (TextAlive Phrase → Word → Char). Used to
+  // The word this character belongs to (TextAlive Phrase ΓåÆ Word ΓåÆ Char). Used to
   // shine a whole word once all its mapped lyric notes are hit.
   parent: TextAliveWord | null;
 }
@@ -29,8 +29,6 @@ export interface TextAlivePhrase {
   firstChar: TextAliveChar | null;
   text: string;
   next: TextAlivePhrase | null;
-  /** Concurrent overlay layer (e.g. staff chorus lines under lead vocal). */
-  overlay?: boolean;
 }
 
 export interface TextAliveVideo {
@@ -38,8 +36,6 @@ export interface TextAliveVideo {
   charCount: number;
   firstPhrase: TextAlivePhrase | null;
   findPhrase(time: number): TextAlivePhrase | null;
-  /** All phrases active at `time` (for stacked storyboard display). */
-  findActivePhrases?(time: number): TextAlivePhrase[];
   findChar(time: number): TextAliveChar | null;
 }
 

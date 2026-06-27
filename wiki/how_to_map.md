@@ -45,7 +45,7 @@ flow, 4800, -45, 520, 260
 break
 flow, 5000, auto, 300, 300
 lyric, 5100, auto, 360, 310
-lyric, 5400, auto, 410, 320, char=輝き, endchar
+lyric, 5400, auto, 410, 320, char=Φ╝¥πüì, endchar
 ```
 
 | Field | Meaning |
@@ -55,7 +55,7 @@ lyric, 5400, auto, 410, 320, char=輝き, endchar
 | `degrees` | Direction in degrees. Required for cut notes; ignored for lyric notes. For a flow anchor, write `auto` to derive the direction from the ribbon tangent (the normal case), or give a number to **pin** that anchor's tangent heading |
 | `x` | Horizontal position in the 800 x 600 logical play area |
 | `y` | Vertical position in the 800 x 600 logical play area |
-| `lyric_option` | Optional lyric-only trailing tokens after `y`. Bare text or `char=<text>` overrides TextAlive's automatic lyric text; `span=N` takes N consecutive TextAlive characters into this one note; `src=<ms>` sources the funnel character from the TextAlive character at that timestamp instead of the note's own time; `endchar` extends the auto-fill text window past the hold end to include the closing syllable. Options can be combined in any order, for example `lyric, t, auto, x, y, char=輝き, endchar`. Older bare lyric overrides are still accepted, but new charts should use `char=` |
+| `lyric_option` | Optional lyric-only trailing tokens after `y`. Bare text or `char=<text>` overrides TextAlive's automatic lyric text; `span=N` takes N consecutive TextAlive characters into this one note; `src=<ms>` sources the funnel character from the TextAlive character at that timestamp instead of the note's own time; `endchar` extends the auto-fill text window past the hold end to include the closing syllable. Options can be combined in any order, for example `lyric, t, auto, x, y, char=Φ╝¥πüì, endchar`. Older bare lyric overrides are still accepted, but new charts should use `char=` |
 | `break` | A standalone line (not a note) that ends the current flow phrase; the next flow anchor starts a new phrase |
 | `end` | An `end, time` line (no other fields): an inert lyric-end marker. It bounds a preceding lyric's hold at `time` without placing a playable note there, then is discarded. Use it to end a lyric where no note is charted |
 
@@ -71,7 +71,7 @@ The compiler emits runtime notes with `kind`, `time`, `x`, `y`, `direction` in r
 
 Cut and flow notes do not require a mouse-button or key hold. Flow notes should be placed so the player can read a continuous path through the phrase.
 
-A lyric is a **hold**: the player keeps the cursor inside the circle from the note's time until the **next event strictly after it** — whichever comes first, the next note (any kind) or an explicit `end` marker. There is no default or cap, so **a lyric must not be the last event** (with nothing to bound it the engine logs an error and the note misses). Place the next note, or an `end, time` line, where the hold should end. Do not chart a lyric with less than roughly 300 ms before its bound, and pick one standout lyric per phrase rather than charting every word. The `degrees` field is unused for lyrics; the hold length is not authored as a row field. The displayed text auto-fills from every sung character in the hold window (use the `char=<text>` option only to correct it). A trailing `endchar` option on the row extends the text window past the hold end to include the closing syllable sung as the hold finishes.
+A lyric is a **hold**: the player keeps the cursor inside the circle from the note's time until the **next event strictly after it** ΓÇö whichever comes first, the next note (any kind) or an explicit `end` marker. There is no default or cap, so **a lyric must not be the last event** (with nothing to bound it the engine logs an error and the note misses). Place the next note, or an `end, time` line, where the hold should end. Do not chart a lyric with less than roughly 300 ms before its bound, and pick one standout lyric per phrase rather than charting every word. The `degrees` field is unused for lyrics; the hold length is not authored as a row field. The displayed text auto-fills from every sung character in the hold window (use the `char=<text>` option only to correct it). A trailing `endchar` option on the row extends the text window past the hold end to include the closing syllable sung as the hold finishes.
 
 During migration, older charts may still use `f` for cut-style notes. Prefer `c` for new maps.
 
@@ -143,7 +143,7 @@ The osu play area is scaled into mimi's 800 x 600 play area (spinners and holds 
 | hitcircle (no special hitsound) | flow anchor, `auto` direction |
 | slider (no special hitsound) | flow anchor, direction pinned to the slider's opening |
 | slider with **whistle** | cut, direction from the slider's opening |
-| **hitcircle** with **clap** | lyric (hold runs to the next note — no end override) |
+| **hitcircle** with **clap** | lyric (hold runs to the next note ΓÇö no end override) |
 | **slider** with **clap** | lyric **+ an `end` marker at the slider tail** (the slider duration sets the hold end) |
 
 Cut and pinned flow take their direction from the slider, so use a slider for those; a whistle on a bare hitcircle has no direction and is imported as auto flow with a warning. **Cut and flow slider notes are positioned at the midpoint of the head and the first curve point** (sliders are expected to be linear), so author short linear sliders. A **clap slider** is how you author a lyric's hold end in osu: only its head time and duration matter (the body shape is ignored), so give it a distinctive shape or a low-SV inherited timing point to make it easy to spot. Adding the `finish` hitsound to a clap adds the lyric option `endchar`, extending its text window past the hold end to include the closing syllable; `finish` on a non-clap object is ignored. Consecutive flow anchors link into flowing phrases automatically.
@@ -152,36 +152,19 @@ Cut and pinned flow take their direction from the slider, so use a slider for th
 
 Lyric notes pair with the TextAlive lyrics shown in the storyboard background. Each lyric note shows one or more characters; those characters **funnel** out of the displayed lyric and fly onto the note during its approach, and the displayed word **shines** the perfect-hit yellow once the note(s) covering it are hit.
 
-### Funnel, fill, and word shine (golden notes)
-
-This is the player-facing lyric feedback loop:
-
-1. **Match** — at load time each lyric note claims one or more storyboard characters (see below). Those glyphs switch to **empty outlines** (`note-empty`).
-2. **Funnel** — during the note's approach window, each mapped character **flies** from its storyboard position onto the note (multi-char notes launch in sequence, landing by hit time).
-3. **Fill** — on a **hit**, that character's outline **fills** with the perfect-hit yellow (`note-filled`). On a **miss**, it stays empty.
-4. **Word shine** — TextAlive groups characters into **words**. If you map notes onto some (not all) characters in a word, hitting **every mapped note** for that word shines the **entire word** gold, including unmapped syllables in the same word. Miss any mapped note and the word never shines.
-
-Unmapped characters keep the normal sung animation (dim → active → sung) and never funnel.
-
-### Overlapping phrases (lead + chorus)
-
-TextAlive normally exposes one phrase at a time. When a song needs **concurrent** lines (lead vocal under chorus, or staff chorus timings that overlap the lead), set `lyric-chorus-timings: songs/<id>/chorus-timings.jsonc` on the song tab. The runtime merges staff chorus char timings as **overlay phrases** (`overlay: true`): the storyboard keeps the full lead line visible on the **right** while each active chorus line stacks on the **left**. Lyric **matching** still binds notes to chorus chars inside the chorus window; the lead glyphs remain visible for context but are omitted from matching in that window so notes do not grab the wrong line.
-
-To reposition a stacked line manually, use a `.story` **`m`** move on that phrase's time range (see below). `h` highlights still apply per character; `x` excludes backing vocals from note matching without hiding them from the storyboard.
-
 ### How a lyric note gets its text
 
-For each lyric note, in time order, the matcher resolves its source character **containment-first**: if the note's time falls inside a character's sung span, it sources that character and **shares** it (so several notes placed over one long-held character all source the same glyph); otherwise it claims the nearest **unclaimed** character within +/- 80 ms (so two notes near 自分 resolve to 自 then 分 instead of both grabbing 自). There are three ways to control the text:
+For each lyric note, in time order, the matcher resolves its source character **containment-first**: if the note's time falls inside a character's sung span, it sources that character and **shares** it (so several notes placed over one long-held character all source the same glyph); otherwise it claims the nearest **unclaimed** character within +/- 80 ms (so two notes near Φç¬σêå resolve to Φç¬ then σêå instead of both grabbing Φç¬). There are three ways to control the text:
 
 | Form | Example row | Result |
 |------|-------------|--------|
 | Auto (no 6th field) | `lyric, 2000, auto, 400, 300` | Sources the character containing the note time (else nearest unclaimed) |
 | Span | `lyric, 2000, auto, 400, 300, span=3` | Takes the source character plus the next 2 into this one note (a whole word funnels together) |
-| Override | `lyric, 2000, auto, 400, 300, 自分` | Displays the literal text `自分`; sources from the character at the note time |
+| Override | `lyric, 2000, auto, 400, 300, Φç¬σêå` | Displays the literal text `Φç¬σêå`; sources from the character at the note time |
 | Source timestamp | `lyric, 2000, auto, 400, 300, src=2350` | Sources the character at **2350 ms** (text = that character), regardless of the note time |
-| Source + override | `lyric, 2000, auto, 400, 300, src=2350 がんばれ` | Sources the glyph at 2350 ms but displays the literal `がんばれ` |
+| Source + override | `lyric, 2000, auto, 400, 300, src=2350 πüîπéôπü░πéî` | Sources the glyph at 2350 ms but displays the literal `πüîπéôπü░πéî` |
 
-The 6th field accepts these as space-separated tokens (`span=`, `src=`, and/or a literal). The override text can differ from the spoken character — if the lyric is 輝 and you map か, が, or やき onto it, that text funnels out of the **same** 輝 glyph. Use **`src=<ms>`** when a note's own time doesn't line up with the character you want to bring over: dump the lyric timestamps with `npm run dump:lyrics` (see `src/tools/README.md`) and copy the character's `start` value.
+The 6th field accepts these as space-separated tokens (`span=`, `src=`, and/or a literal). The override text can differ from the spoken character ΓÇö if the lyric is Φ╝¥ and you map πüï, πüî, or πéäπüì onto it, that text funnels out of the **same** Φ╝¥ glyph. Use **`src=<ms>`** when a note's own time doesn't line up with the character you want to bring over: dump the lyric timestamps with `npm run dump:lyrics` (see `src/tools/README.md`) and copy the character's `start` value.
 
 ### Word shine
 
@@ -205,10 +188,10 @@ m, 70000, 200, 420, color=#ff629d, font=handwriting, scale=1.4, in=grow, motion=
 x, 80000, 82000
 
 # Manual lyric: self-contained text, independent of TextAlive
-l, 90000, 92000, 400, 300, またね, 90000, 90600, 91200
+l, 90000, 92000, 400, 300, πü╛πüƒπü¡, 90000, 90600, 91200
 
 # Manual lyric, auto-timed from the TextAlive characters, rising out on exit
-l, 95000, 97000, 400, 300, ありがとう, autotime, out=rise
+l, 95000, 97000, 400, 300, πüéπéèπüîπü¿πüå, autotime, out=rise
 
 # Reactive header: live song-map effects (any subset)
 reactive: amplitude mood chorus
@@ -216,37 +199,33 @@ reactive: amplitude mood chorus
 
 ### Worked lyric examples
 
-**Single character, override funnel.** Spoken lyric 輝 at t = 100-1100 ms; map か onto it:
+**Single character, override funnel.** Spoken lyric Φ╝¥ at t = 100-1100 ms; map πüï onto it:
 
 ```text
-lyric, 600, auto, 400, 300, か
+lyric, 600, auto, 400, 300, πüï
 ```
 
-か funnels out of the 輝 glyph onto the note; hitting the note shines 輝.
+πüï funnels out of the Φ╝¥ glyph onto the note; hitting the note shines Φ╝¥.
 
-**Partial word, whole-word shine.** Spoken word 帰って; map only 帰 and て (っ stays unmapped):
+**Partial word, whole-word shine.** Spoken word σ╕░πüúπüª; map only σ╕░ and πüª (πüú stays unmapped):
 
 ```text
-lyric, 1000, auto, 360, 300, 帰
-lyric, 1300, auto, 440, 300, て
+lyric, 1000, auto, 360, 300, σ╕░
+lyric, 1300, auto, 440, 300, πüª
 ```
 
-帰 funnels first, て second; after both notes are hit the entire 帰って shines. Miss either and the word stays dim.
+σ╕░ funnels first, πüª second; after both notes are hit the entire σ╕░πüúπüª shines. Miss either and the word stays dim.
 
-**Mixed single + multi-character funnel.** Spoken word おねがい; map お alone, then ねがい as one note:
+**Mixed single + multi-character funnel.** Spoken word πüèπü¡πüîπüä; map πüè alone, then πü¡πüîπüä as one note:
 
 ```text
-lyric, 2000, auto, 320, 300, お
+lyric, 2000, auto, 320, 300, πüè
 lyric, 2400, auto, 460, 300, span=3
 ```
 
-The first note funnels お; the second funnels ね, が, い together onto one note.
+The first note funnels πüè; the second funnels πü¡, πüî, πüä together onto one note.
 
-Lyric notes you do not map behave normally — they simply animate in the storyboard without funneling or shining.
-
-### Kotaete chorus example
-
-`kotaete.md` sets `lyric-chorus-timings: songs/kotaete/chorus-timings.jsonc` (Magical Mirai staff ms timings). During ~52–66 s the lead line *自分を重ねて聞いてた* and the two chorus lines *どれほどの苦しみも…* / *きっと私の目指す…* display together. Chart the chorus with `lyric` notes in that window; on hit, their glyphs funnel from the **left overlay line** and fill yellow, and word shine applies within each chorus word group defined in the jsonc.
+Lyric notes you do not map behave normally ΓÇö they simply animate in the storyboard without funneling or shining.
 
 ## Minimal Example
 

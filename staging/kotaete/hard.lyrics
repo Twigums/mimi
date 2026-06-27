@@ -1,0 +1,24 @@
+# Kotaete hard — one line per clap hit object in [HitObjects] file order (0-based).
+# Bare text becomes char=<text>; endchar still comes from osu's finish hitsound on the clap.
+char=輝き
+char=を
+char=大通り
+char=会いたく
+char=て
+char=紛
+char=れて
+char=るん
+char=だ
+char=振った
+char=振り
+char=かえ
+char=あなた
+char=声を
+char=静かに
+char=耳を
+char=傾
+char=けて
+char=苦しみ
+char=自分を
+char=向こうに
+char=重ねて
