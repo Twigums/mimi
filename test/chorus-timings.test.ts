@@ -91,6 +91,18 @@ assert.equal(merged.findChar(65307)?.text, "け");
 
 const layered = mergeChorusTimings(sdkLikeVideo(), phrases, wordSizes);
 assert.ok((layered.display.findActivePhrases?.(56000)?.length ?? 0) >= 2);
+{
+  const active = layered.display.findActivePhrases?.(56000) ?? [];
+  const texts = active.map(p => {
+    let s = "";
+    let c = p.firstChar;
+    while (c) { s += c.text; c = c.next; }
+    return s;
+  });
+  assert.ok(texts.some(t => t.includes("自")));
+  assert.ok(texts.some(t => t.includes("苦")));
+  assert.ok(!texts.some(t => t.includes("自") && t.includes("苦")));
+}
 
 function note(time: number): Note {
   return { kind: "lyric", time, x: 300, y: 300, direction: 0, state: "pending", holdMs: 900 };

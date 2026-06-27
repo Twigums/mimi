@@ -2,7 +2,7 @@ import type { TextAliveChar, TextAlivePhrase, TextAliveVideo, TextAliveWord } fr
 import type { HitResult, Note } from "../game/engine";
 import { LYRIC_RADIUS } from "../game/draw";
 import { loadHiddenMod, subscribeHiddenMod } from "../core/settings";
-import { collectTextAliveChars } from "./charLookup";
+import { collectTextAliveChars, walkPhraseChars } from "./charLookup";
 
 // Optional per-segment style directives (from `.story` m/l trailing tokens).
 export type StoryStyle = Record<string, string>;
@@ -127,7 +127,7 @@ export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElem
 
   const renderPhrase = (phrase: TextAlivePhrase): HTMLElement[] => {
     const mounted: HTMLElement[] = [];
-    const chars = allChars.filter(c => c.startTime >= phrase.startTime && c.startTime <= phrase.endTime);
+    const chars = walkPhraseChars(phrase);
     if (chars.length === 0) return mounted;
 
     const relevantMoves = moves.filter(m => m.time >= phrase.startTime && m.time <= phrase.endTime);

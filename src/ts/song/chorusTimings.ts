@@ -1,4 +1,4 @@
-import { collectTextAliveChars } from "./charLookup";
+import { collectTextAliveChars, walkPhraseChars } from "./charLookup";
 import type { TextAliveChar, TextAlivePhrase, TextAliveVideo, TextAliveWord } from "./textalive";
 
 export interface PhraseTimingData {
@@ -84,13 +84,6 @@ export function loadChorusTimingsJsonc(raw: string): {
   };
 }
 
-function walkPhraseChars(phrase: TextAlivePhrase): TextAliveChar[] {
-  const out: TextAliveChar[] = [];
-  let c = phrase.firstChar;
-  while (c) { out.push(c); c = c.next; }
-  return out;
-}
-
 function charKey(c: { startTime: number; endTime: number; text: string }): string {
   return `${c.startTime}\0${c.endTime}\0${c.text}`;
 }
@@ -99,7 +92,7 @@ function cloneChar(c: TextAliveChar): TextAliveChar {
   return { text: c.text, startTime: c.startTime, endTime: c.endTime, next: null, parent: null };
 }
 
-function linkNext<T extends { next: TextAliveChar | null }>(nodes: T[]): void {
+function linkNext(nodes: TextAliveChar[]): void {
   for (let i = 0; i < nodes.length - 1; i++) nodes[i].next = nodes[i + 1];
   if (nodes.length > 0) nodes[nodes.length - 1].next = null;
 }
@@ -194,7 +187,22 @@ export interface MergedChorusVideos {
 }
 
 function activePhrasesAt(chain: TextAlivePhrase[], t: number): TextAlivePhrase[] {
-  return chain.filter(p => t >= p.startTime && t <= p.endTime);
+  const active = chain.filter(p => t >= p.startTime && t <= p.endTime);
+  if (active.length <= 1) return active;
+
+  const overlays = active.filter(p => p.overlay);
+  const bases = active.filter(p => !p.overlay);
+  if (bases.length === 0) return overlays;
+
+  // One lead/base column on the right; overlay chorus lines stack on the left.
+  const primaryBase = bases.length === 1 ? bases[0] : bases.find(p => {
+    for (const c of walkPhraseChars(p)) {
+      if (t >= c.startTime && t <= c.endTime) return true;
+    }
+    return false;
+  }) ?? bases.reduce((a, b) => (b.endTime - b.startTime) >= (a.endTime - a.startTime) ? b : a);
+
+  return [...overlays, primaryBase];
 }
 
 function buildPhraseFromChars(
