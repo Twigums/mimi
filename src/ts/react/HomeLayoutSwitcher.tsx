@@ -176,8 +176,6 @@ export function HomeLayoutSwitcher({ infoContent, infoContentJp, tutorialContent
 
   useEffect(() => {
     setActiveDiffId(renderedSong?.difficulties[0]?.id ?? null);
-    // The difficulty select is the last screen before navigating to a song;
-    // warm the song-page origins now so its TextAlive load starts on warm sockets.
     if (renderedSong) warmSongOrigins();
   }, [renderedSong]);
 
@@ -244,16 +242,17 @@ export function HomeLayoutSwitcher({ infoContent, infoContentJp, tutorialContent
       <div className={`layout-pane${exiting ? " exiting" : ""}`} key={paneKey}>
         {currentLayout === "original" && (
           <>
-            <button className="btn-main" onClick={handlePlayClick}>
+            <button className="btn-main btn-main--play" onClick={handlePlayClick}>
+              <span className="btn-play-icon" aria-hidden="true" />
               {t("Play", "プレイ")}
             </button>
             <button
-              className={`btn-main${tutorialHintHovered ? " btn-main--shine" : ""}`}
+              className={`btn-main btn-main--tutorial${tutorialHintHovered ? " btn-main--shine" : ""}`}
               onClick={() => setLayout("tutorial")}
             >
               {t("Tutorial", "チュートリアル")}
             </button>
-            <button className="btn-main" onClick={() => setLayout("info")}>
+            <button className="btn-main btn-main--info" onClick={() => setLayout("info")}>
               {t("Info", "情報")}
             </button>
           </>

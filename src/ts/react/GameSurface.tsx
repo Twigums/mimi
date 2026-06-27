@@ -38,6 +38,7 @@ interface Props {
     setPlayerReady: () => void,
     setBreakSkipKind: (kind: BreakSkipKind | null) => void,
     setPreparing: () => void,
+    registerLyricOutcome: (fn: (result: HitResult, x: number, y: number) => void) => void,
   ) => void;
   returnHref: string;
   onTryAgain: () => void;
@@ -52,6 +53,7 @@ export function GameSurface({ onReady, returnHref, onTryAgain }: Props) {
   const fadeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const startRef = useRef<(() => void) | null>(null);
   const skipBreakRef = useRef<(() => void) | null>(null);
+  const lyricOutcomeRef = useRef<((result: HitResult, x: number, y: number) => void) | null>(null);
 
   const [accuracy, setAccuracy] = useState(0);
   const [combo, setCombo] = useState(0);
@@ -77,9 +79,7 @@ export function GameSurface({ onReady, returnHref, onTryAgain }: Props) {
   const [ar] = useApproachRate();
   const frameSize = useElementSize(gameAreaRef);
 
-  // Chart metadata for the results screen: difficulty from the URL (?d=), tempo
-  // and per-difficulty level map from the song-page dataset (injected by site.hs;
-  // the active difficulty's level is looked up since one page serves all of them).
+  // Chart metadata for the results screen
   const difficulty = new URL(window.location.href).searchParams.get("d") ?? "expert";
   const bpmRaw = document.body.dataset.songBpm;
   const bpm = bpmRaw ? Number(bpmRaw) : null;
@@ -119,6 +119,7 @@ export function GameSurface({ onReady, returnHref, onTryAgain }: Props) {
         const id = ++_toastId;
         setFeedbacks(prev => [...prev, { id, result: res, x, y }]);
         setTimeout(() => setFeedbacks(prev => prev.filter(f => f.id !== id)), 700);
+        lyricOutcomeRef.current?.(res, x, y);
       },
     });
 
@@ -133,6 +134,7 @@ export function GameSurface({ onReady, returnHref, onTryAgain }: Props) {
       () => setPlayerReady(true),
       setBreakSkipKind,
       () => setPreparing(true),
+      (fn) => { lyricOutcomeRef.current = fn; },
     );
     return () => game.destroy();
   }, []);
@@ -182,6 +184,7 @@ export function GameSurface({ onReady, returnHref, onTryAgain }: Props) {
       <div className={`game-area${playing ? " playing" : ""}`} ref={gameAreaRef}>
         <div id="song-storyboard" className="song-storyboard" />
         <canvas className="game-canvas" ref={canvasRef} />
+        <div id="song-funnel" className="song-funnel" />
 
         {showStartPrompt && (
           <button

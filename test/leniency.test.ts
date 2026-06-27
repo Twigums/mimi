@@ -197,13 +197,12 @@ right("backward-contact-plus-far-forward Frankenstein is capped below tier3", ()
 // ---------------------------------------------------------------------------
 
 // FIXED (#74): flow has no direction cap (heading folds into the shape metric), and
-// the shape tiers were pulled in (35/50/70 degrees). A flow gesture ~60 degrees off
-// the ribbon now drops to tier1 instead of tier2 -- in attempt_2 most of the inflated
-// GREATs were flow notes held up by the old wide tiers. A sweep further off (>70deg)
-// misses entirely.
-right("flow ~60deg off the ribbon is held to tier1 (not tier2)", () => {
+// the shape tiers are 60/75/100 degrees. A perpendicular flow gesture is held to tier1
+// instead of tier2 -- in attempt_2 most of the inflated GREATs were flow notes held up
+// by the old wide tiers. A sweep further off (>100deg) misses entirely.
+right("flow 90deg off the ribbon is held to tier1 (not tier2)", () => {
   const flow = note({ kind: "flow", flowShape: [0, 0, 0, 0] });
-  const g = withLatest(lineThroughCenter(Math.PI / 3, 40), WINDOW_END);
+  const g = withLatest(lineThroughCenter(Math.PI / 2, 40), WINDOW_END);
   const j = judged(judgeGesture(flow, g));
   assert.equal(j.result, "tier1");
   assert.equal(j.issue, "gesture");

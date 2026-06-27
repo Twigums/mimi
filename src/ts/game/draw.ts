@@ -165,7 +165,6 @@ function ensureArrowGlyph(): void {
 ensureArrowGlyph();
 
 // appearProgress: 0 = faint outline just appearing, 1 = fully filled at hit time
-// scale: canvas pixels per logical unit (canvas.width / LOGICAL_W)
 export function drawArrow(
   ctx: CanvasRenderingContext2D,
   note: Note,
@@ -191,7 +190,6 @@ export function drawArrow(
 
   const { base, darkBase } = style.colors;
 
-  // Outline snaps to full opacity quickly; fill grows from center after FILL_START
   const OUTLINE_SNAP = 0.12;
   const FILL_START   = 0.62;
   const outlineAlpha = Math.min(appearProgress / OUTLINE_SNAP, 1);
@@ -206,9 +204,6 @@ export function drawArrow(
     return;
   }
 
-  // Place the SVG arrow: center its viewBox on the note, rotate to `direction`, and
-  // scale so the arrow spans one note radius (matching the old hand-built footprint).
-  // Build once; reuse for both clip and stroke.
   const s = r / arrowGlyph.viewBoxW;
   const matrix = new DOMMatrix()
     .translateSelf(cx, cy)
@@ -218,7 +213,6 @@ export function drawArrow(
   const path = new Path2D();
   path.addPath(arrowGlyph.path, matrix);
 
-  // Radial fill clipped to arrow shape (skipped in hidden mod)
   if (!hidden) {
     ctx.save();
     ctx.clip(path);
@@ -230,7 +224,6 @@ export function drawArrow(
     ctx.restore();
   }
 
-  // Stroke outline (clip no longer active)
   ctx.save();
   ctx.strokeStyle = `rgba(${darkBase}, ${0.9 * outlineAlpha})`;
   ctx.lineWidth = 2.5 * scale;
@@ -260,11 +253,9 @@ export function drawLyricNote(
   const r  = LYRIC_RADIUS * scale * pulse;
 
   const OUTLINE_SNAP = 0.12;
-  const FILL_START   = 0.62;
   const outlineAlpha = Math.min(appearProgress / OUTLINE_SNAP, 1);
-  const fillProgress = Math.max(0, (appearProgress - FILL_START) / (1 - FILL_START));
 
-  const { base, darkBase } = NOTE_STYLE.lyric.colors;
+  const { darkBase } = NOTE_STYLE.lyric.colors;
 
   const dotR = r * 0.62;
   ctx.save();
@@ -279,24 +270,23 @@ export function drawLyricNote(
 
   ctx.save();
   // A lyric can carry several syllables; shrink the glyph so 1–4 chars stay inside.
-  const fontPx = r * 0.9 * Math.min(1, 1.4 / Math.max(1, note.lyricChar.length));
+  let fontPx = r * 0.9 * Math.min(1, 1.4 / Math.max(1, note.lyricChar.length));
   ctx.font = `bold ${fontPx.toFixed(1)}px sans-serif`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
 
-  if (!hidden && fillProgress > 0) {
-    ctx.save();
-    ctx.beginPath();
-    ctx.arc(cx, cy, fillProgress * r, 0, Math.PI * 2);
-    ctx.clip();
-    ctx.fillStyle = `rgba(${base}, 1.0)`;
-    ctx.fillText(note.lyricChar, cx, cy);
-    ctx.restore();
+  const maxWidth = dotR * 1.9;
+  const measured = ctx.measureText(note.lyricChar).width;
+  if (measured > maxWidth) {
+    fontPx *= maxWidth / measured;
+    ctx.font = `bold ${fontPx.toFixed(1)}px sans-serif`;
   }
 
-  ctx.strokeStyle = `rgba(${darkBase}, ${0.9 * outlineAlpha})`;
-  ctx.lineWidth = 1.5 * scale;
-  ctx.strokeText(note.lyricChar, cx, cy);
+  if (!hidden) {
+    ctx.strokeStyle = `rgba(${darkBase}, ${0.9 * outlineAlpha})`;
+    ctx.lineWidth = 1.5 * scale;
+    ctx.strokeText(note.lyricChar, cx, cy);
+  }
 
   ctx.restore();
 
@@ -331,9 +321,6 @@ export function drawFlowRibbon(
 ): void {
   const { base } = NOTE_STYLE.flow.colors;
 
-  // Cubic Hermite from `from` to `to` using each anchor's ribbon tangent, so the
-  // drawn ribbon matches the curve the anchors trace. Missing tangents (e.g. a lone
-  // link) fall back to the straight chord.
   const ax = from.x, ay = from.y, bx = to.x, by = to.y;
   const chordX = bx - ax, chordY = by - ay;
   const tax = from.flowTanX ?? chordX, tay = from.flowTanY ?? chordY;

@@ -42,16 +42,20 @@ data NoteEntry = NoteEntry
     , neDirectionPinned :: Bool
     , neNewCombo        :: Bool
     , neLyricChar       :: Maybe String
+    , neLyricSpan       :: Maybe Int
+    , neLyricSrcTime    :: Maybe Double
     , neIncludeEndChar  :: Bool
     }
 
 data LyricOptions = LyricOptions
     { loChar           :: Maybe String
+    , loSpan           :: Maybe Int
+    , loSrcTime        :: Maybe Double
     , loIncludeEndChar :: Bool
     }
 
 emptyLyricOptions :: LyricOptions
-emptyLyricOptions = LyricOptions Nothing False
+emptyLyricOptions = LyricOptions Nothing Nothing Nothing False
 
 normalizeKind :: String -> String
 normalizeKind k = case map toLower (trim k) of
@@ -68,11 +72,21 @@ parseLyricOptions _ _ [] = Right emptyLyricOptions
 parseLyricOptions line k opts
     | normalizeKind k /= "lyric" =
         Left $ "Lyric options are only valid on lyric rows: " ++ line
-    | otherwise = foldM parseOpt emptyLyricOptions opts
+    | otherwise = foldM parseOpt emptyLyricOptions (concatMap words opts)
   where
     parseOpt acc raw
         | null opt = Right acc
         | isEndChar opt = Right acc { loIncludeEndChar = True }
+        | "span=" `isPrefixOf` lower =
+            case reads (drop 5 opt) of
+                [(n, "")] | n > 0 && loSpan acc == Nothing -> Right acc { loSpan = Just (n :: Int) }
+                [(n, "")] | n > 0 -> Left $ "Duplicate lyric span in: " ++ line
+                _ -> Left $ "Invalid span (need positive integer): " ++ opt
+        | "src=" `isPrefixOf` lower =
+            case reads (drop 4 opt) of
+                [(d, "")] | loSrcTime acc == Nothing -> Right acc { loSrcTime = Just (d :: Double) }
+                [(_, "")] -> Left $ "Duplicate lyric src in: " ++ line
+                _ -> Left $ "Invalid src (need a timestamp in ms): " ++ opt
         | otherwise =
             case break (== '=') opt of
                 (key, '=':value)
@@ -81,6 +95,7 @@ parseLyricOptions line k opts
                 _ -> setChar acc opt
       where
         opt = trim raw
+        lower = map toLower opt
 
     isEndChar s = map toLower (trim s) == "endchar"
 
@@ -89,7 +104,9 @@ parseLyricOptions line k opts
     setChar acc c
         | null (trim c) = Right acc
         | loChar acc == Nothing = Right acc { loChar = Just (trim c) }
-        | otherwise = Left $ "Duplicate lyric char override in: " ++ line
+        | otherwise = Right acc { loChar = Just (loCharText ++ " " ++ trim c) }
+      where
+        loCharText = maybe "" id (loChar acc)
 
 parseNote :: (Double -> Double) -> String -> Either String NoteEntry
 parseNote toMs line =
@@ -98,18 +115,16 @@ parseNote toMs line =
         -- stripped by the engine, so it needs no position/direction.
         [k, t] | map toLower k == "end" -> do
             t' <- readDouble "time" t
-            Right $ NoteEntry "end" (toMs t') 0 0 0 False False Nothing False
+            Right $ NoteEntry "end" (toMs t') 0 0 0 False False Nothing Nothing Nothing False
         (k:t:d:x:y:opts) -> do
             lyricOpts <- parseLyricOptions line k opts
-            go k t d x y (loChar lyricOpts) (loIncludeEndChar lyricOpts)
+            go k t d x y lyricOpts
         _ -> Left $ "Expected `end, time`, or at least 5 comma-separated fields: " ++ line
   where
-    go k t d x y mChar incEnd = do
+    go k t d x y lyricOpts = do
         t'  <- readDouble "time" t
         nx  <- readDouble "x"    x
         ny  <- readDouble "y"    y
-        -- "auto" (or an empty field) means "no authored direction": flow anchors then
-        -- derive it from the ribbon tangent. A numeric value pins the direction.
         (radians, pinned) <- case map toLower (trim d) of
             ""     -> Right (0.0, False)
             "auto" -> Right (0.0, False)
@@ -119,10 +134,10 @@ parseNote toMs line =
         let kind = normalizeKind k
         let timeMs  = toMs t'
         -- newCombo is set later by `parseEntries` when a `break` precedes this note.
-        Right $ NoteEntry kind timeMs nx ny radians pinned False mChar incEnd
+        Right $ NoteEntry kind timeMs nx ny radians pinned False
+            (loChar lyricOpts) (loSpan lyricOpts) (loSrcTime lyricOpts) (loIncludeEndChar lyricOpts)
 
--- Fold the data lines into notes, treating a `break` line as a phrase boundary: it
--- sets newCombo on the next note so the engine starts a fresh flow phrase there.
+-- Fold the data lines into notes, treating a `break` line as a phrase boundary
 parseEntries :: (Double -> Double) -> [String] -> Either String [NoteEntry]
 parseEntries toMs = go False
   where
@@ -159,6 +174,8 @@ renderNote n =
     (if neDirectionPinned n then ", \"directionPinned\": true" else "") ++
     (if neNewCombo n then ", \"newCombo\": true" else "") ++
     maybe "" (\c -> ", \"lyricChar\": \"" ++ c ++ "\"") (neLyricChar n) ++
+    maybe "" (\sp -> ", \"lyricSpan\": " ++ show sp) (neLyricSpan n) ++
+    maybe "" (\st -> ", \"lyricSrcTime\": " ++ showNum st) (neLyricSrcTime n) ++
     (if neIncludeEndChar n then ", \"includeEndChar\": true" else "") ++
     ", \"state\": \"pending\" }"
 

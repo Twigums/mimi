@@ -42,11 +42,10 @@ function subscribeBoolSetting(event: string, cb: (v: boolean) => void): () => vo
   return () => window.removeEventListener(event, handler);
 }
 
-export const AR_MIN     = 1;
-export const AR_MAX     = 20;
-const AR_DEFAULT = 5;
+export const AR_MIN  = 1;
+export const AR_MAX  = 20;
+const AR_DEFAULT     = 5;
 
-// [1, 10] → 2000ms–1000ms; (10, 20] → 1000ms–300ms
 export function arToMs(ar: number): number {
   if (ar <= 10) {
     return 2000 - (ar - 1) * (1000 / 9);
@@ -122,13 +121,12 @@ export const loadTrailFadeSpeed      = trailFadeSetting.load;
 export const saveTrailFadeSpeed      = trailFadeSetting.save;
 export const subscribeTrailFadeSpeed = trailFadeSetting.subscribe;
 
-// 1 = longest trail (1200ms), 10 = no trail (0ms)
 const TRAIL_MAX_LIFETIME_MS = 1200;
 export function trailFadeToLifetimeMs(fadeSpeed: number): number {
   return Math.max(0, (TRAIL_FADE_MAX - fadeSpeed) * (TRAIL_MAX_LIFETIME_MS / (TRAIL_FADE_MAX - TRAIL_FADE_MIN)));
 }
 
-// Default: cyan (0, 255, 255)
+// default cursor color: cyan (0, 255, 255)
 const cursorRSetting = createNumericSetting("cursorR", "cursorRChange", clampRgb, 0);
 export const loadCursorR      = cursorRSetting.load;
 export const saveCursorR      = cursorRSetting.save;
@@ -144,11 +142,11 @@ export const loadCursorB      = cursorBSetting.load;
 export const saveCursorB      = cursorBSetting.save;
 export const subscribeCursorB = cursorBSetting.subscribe;
 
-export const OFFSET_MIN  = -5000;
-export const OFFSET_MAX  =  5000;
-export const OFFSET_STEP =    10;
-export const TIMING_OFFSET_MIN = -200;
-export const TIMING_OFFSET_MAX =  200;
+export const OFFSET_MIN        = -5000;
+export const OFFSET_MAX        =  5000;
+export const OFFSET_STEP       =    10;
+export const TIMING_OFFSET_MIN =  -200;
+export const TIMING_OFFSET_MAX =   200;
 
 function clampOffset(n: number): number {
   return Math.max(OFFSET_MIN, Math.min(OFFSET_MAX, Math.round(n / OFFSET_STEP) * OFFSET_STEP));
@@ -190,8 +188,6 @@ export const loadTrailDecay      = (): TrailDecay => loadStringSetting("trailDec
 export const saveTrailDecay      = (v: TrailDecay): void => saveStringSetting("trailDecay", "trailDecayChange", v);
 export const subscribeTrailDecay = (cb: (v: TrailDecay) => void): (() => void) => subscribeStringSetting<TrailDecay>("trailDecayChange", cb);
 
-// Restore every persisted setting to its default; each save dispatches its
-// change event, so subscribed renderers (engine, cursor, options hooks) update.
 export function resetSettings(): void {
   saveAr(AR_DEFAULT);
   saveVolume(VOLUME_DEFAULT);

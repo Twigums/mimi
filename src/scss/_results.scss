@@ -105,10 +105,7 @@ html.theme-dark .results-overlay {
   }
 }
 
-// Both miku loops start and end at an extreme (not centre), so a paused or
-// reduced-motion stop never freezes mid-swing. The S/A "clock" loop is a
-// pendulum rotating about Miku's centre: ease-in-out so it's fastest through
-// the centre of the swing and slowest at the extremes.
+// miku animation keyframes
 @keyframes results-miku-clock {
   0% {
     transform: rotate(7deg);
@@ -687,7 +684,7 @@ html.theme-dark .results-overlay {
   }
 }
 
-// basic / advanced view toggle — underlined text link with a nudging caret
+// basic/advanced view toggle
 .results-viewtoggle {
   align-self: flex-end;
   display: inline-flex;
@@ -786,8 +783,7 @@ html.theme-dark .results-overlay {
     stroke: var(--rp-miss);
   }
 
-  // start/end marker; --rp-ink flips dark↔light with the theme so it stays
-  // legible on the coloured arc beneath it
+  // start/end marker
   &__notch {
     stroke: var(--rp-ink);
     stroke-width: 2.5px;
@@ -839,8 +835,7 @@ html.theme-dark .results-overlay {
     }
   }
 
-  // tier "LABEL: count" revealed on segment hover, in that tier's breakdown
-  // colour; reserves its own centred line so the chart never shifts
+  // tier "LABEL: count" revealed on segment hover
   &__tag {
     width: 100%;
     min-height: 1.2em;

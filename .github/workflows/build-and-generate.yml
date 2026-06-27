@@ -43,6 +43,12 @@ jobs:
     - name: Build app
       run: npm run setup # runs stack
 
+    # Pages serves from <owner>.github.io (lowercased); sitemap URLs need it.
+    - name: Resolve Pages origin
+      run: |
+        owner=$(echo "${{ github.repository_owner }}" | tr '[:upper:]' '[:lower:]')
+        echo "SITE_ORIGIN=https://${owner}.github.io" >> "$GITHUB_ENV"
+
     - name: Generate site
       env:
         # since I have a personal site, and the repo is hosted as a tab

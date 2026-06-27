@@ -255,14 +255,13 @@ check("a flow gesture tracing the ribbon shape earns tier 3", () => {
 
 check("a flow gesture off the ribbon shape is capped by the flow metric", () => {
   // Ribbon heads right; the gesture sweeps perpendicular (90 degrees off every bin).
-  // The tightened shape cap (#74, FLOW_CONT_TIER1 = 70 degrees) rejects a sweep that
-  // fully ignores the ribbon — a perpendicular stroke exceeds the tier-1 ceiling and
-  // misses — and the gesture issue slot reports it.
+  // The shape cap reports a perpendicular trace as a low accepted tier, not a clean
+  // flow, and the gesture issue slot reports it.
   const flow = note({ kind: "flow", flowShape: [0, 0, 0, 0] });
   const gesture = withLatest(lineThroughCenter(Math.PI / 2, 40), NOTE_TIME + CUT_METRIC_WINDOW_MS);
   const judgement = judged(judgeGesture(flow, gesture));
 
-  assert.equal(judgement.result, "miss");
+  assert.equal(judgement.result, "tier1");
   assert.equal(judgement.issue, "gesture");
 });
 
@@ -286,12 +285,11 @@ check("a lone flow anchor (no shape) judges motion only", () => {
 check("flow shape match accounts for the ribbon's bend, not just one heading", () => {
   // Ribbon bends hard across its bins (right -> down-left). A straight rightward sweep
   // matches only the first bin (~84 degrees RMS error), so the whole-shape cap reads
-  // the bend, not a single heading. Under the tightened tiers (#74, 70-degree tier-1
-  // ceiling) that whole-shape error exceeds the cap and misses.
+  // the bend, not a single heading.
   const curved = note({ kind: "flow", flowShape: [0, Math.PI / 4, Math.PI / 2, (3 * Math.PI) / 4] });
   const straight = withLatest(lineThroughCenter(0, 40), NOTE_TIME + CUT_METRIC_WINDOW_MS);
 
-  assert.equal(judged(judgeGesture(curved, straight)).result, "miss");
+  assert.equal(judged(judgeGesture(curved, straight)).result, "tier1");
 });
 
 check("best sub-gesture is selected when another motion shares the metric window", () => {

@@ -56,7 +56,7 @@ function fillLyrics(notes: Note[], chars: Array<[text: string, startTime: number
   populateLyricChars(notes, makeCharLookup(videoFrom(chars)));
 }
 
-assert.equal(LYRIC_CHAR_BOUNDARY_EPSILON_MS, 100);
+assert.equal(LYRIC_CHAR_BOUNDARY_EPSILON_MS, 80);
 
 // ── window bounds: [time − ε, holdEnd − ε), ε excluded at each end ──────────────────────
 {
@@ -64,17 +64,17 @@ assert.equal(LYRIC_CHAR_BOUNDARY_EPSILON_MS, 100);
   computeLyricHolds(notes, []);
 
   assert.deepEqual(lyricCharWindow(notes[0], -Infinity), {
-    startMs: 900,
-    endMs: 1200,
+    startMs: 920,
+    endMs: 1220,
     clampedToPrev: false,
   });
 
   fillLyrics(notes, [
-    ["a", 899],   // before the start → excluded
-    ["b", 900],   // at the start → included
+    ["a", 919],   // before the start → excluded
+    ["b", 920],   // at the start → included
     ["c", 1000],
-    ["d", 1199],  // before the end → included
-    ["e", 1200],  // at the end → excluded (left for the next boundary)
+    ["d", 1219],  // before the end → included
+    ["e", 1220],  // at the end → excluded (left for the next boundary)
     ["f", 1300],
   ]);
 
@@ -87,8 +87,8 @@ assert.equal(LYRIC_CHAR_BOUNDARY_EPSILON_MS, 100);
   computeLyricHolds(notes, []);
 
   fillLyrics(notes, [
-    ["a", 1199],  // < 1200 → first lyric
-    ["b", 1200],  // ≥ 1200 → second lyric
+    ["a", 1219],  // < 1220 → first lyric
+    ["b", 1220],  // ≥ 1220 → second lyric
     ["c", 1300],
   ]);
 
@@ -99,7 +99,7 @@ assert.equal(LYRIC_CHAR_BOUNDARY_EPSILON_MS, 100);
 // ── previous-char fallback: a syllable leading the note by more than ε is recovered ─────
 {
   // A flow note between two lyrics bounds the first lyric's hold; the second lyric's
-  // syllable onset (1390) leads its note (1500) by 110ms, so its window [1400, 1700) is
+  // syllable onset (1390) leads its note (1500) by 110ms, so its window [1420, 1720) is
   // empty and the fallback pulls the orphaned char from the gap after the flow note.
   const notes = [note("lyric", 1000), note("flow", 1300), note("lyric", 1500), note("cut", 1800)];
   computeLyricHolds(notes, []);
@@ -119,7 +119,7 @@ assert.equal(LYRIC_CHAR_BOUNDARY_EPSILON_MS, 100);
   computeLyricHolds(notes, []);
 
   fillLyrics(notes, [
-    ["a", 1150],  // inside the first lyric's window [900, 1200)
+    ["a", 1150],  // inside the first lyric's window [920, 1220)
   ]);
 
   assert.equal(notes[0].lyricChar, "a");

@@ -45,7 +45,6 @@ export function ColorPicker({ r, g, b, onChange }: Props) {
   const hueRef = useRef<HTMLCanvasElement>(null);
 
   const [derivedH, s, v] = rgbToHsv(r, g, b);
-  // localH preserves hue across low-saturation colors (grays don't reset hue)
   const [localH, setLocalH] = useState(derivedH);
   const h = s > 0.02 ? derivedH : localH;
 
@@ -85,7 +84,7 @@ export function ColorPicker({ r, g, b, onChange }: Props) {
     ctx.fillStyle = grad;
     ctx.fillRect(0, 0, HUE_W, HUE_H);
 
-    // Hue indicator line
+    // Hue indicator
     const hx = Math.round(h * HUE_W);
     ctx.strokeStyle = "white";
     ctx.lineWidth = 2;

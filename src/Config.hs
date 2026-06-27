@@ -1,27 +1,13 @@
 module Config
-    ( siteRoot
-    , templateDir
-    , tabPaths
+    ( templateDir
     , hakyllConfig
     , textaliveToken
     ) where
 
 import Hakyll (Configuration (..), defaultConfiguration)
 
--- TODO: set to url
-siteRoot :: String
-siteRoot = "https://example.com"
-
 templateDir :: FilePath
 templateDir = "src/templates/"
-
--- tabs belong here
-tabPaths :: [FilePath]
-tabPaths =
-    [ "src/tabs/home.md"
-    , "src/tabs/tutorial.md"
-    , "src/tabs/songs/kotaete.md"
-    ]
 
 hakyllConfig :: Configuration
 hakyllConfig = defaultConfiguration

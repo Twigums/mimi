@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>TextAlive lyric dumper — mimi</title>
+  <!-- Same SDK the song page uses. Load over a local server (not file://) so the
+       TextAlive API accepts the request, e.g.:  npx http-server src/tools  -->
+  <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+  <script src="https://unpkg.com/textalive-app-api/dist/index.js"></script>
+  <style>
+    :root { color-scheme: dark; }
+    body { font-family: system-ui, sans-serif; max-width: 860px; margin: 2rem auto; padding: 0 1rem;
+           background: #12131a; color: #e8eef2; }
+    h1 { font-size: 1.3rem; }
+    p.hint { color: #9aa7b3; font-size: 0.9rem; }
+    fieldset { border: 1px solid #2a2d3a; border-radius: 8px; margin: 1rem 0; padding: 1rem; }
+    label { display: block; margin: 0.4rem 0 0.1rem; font-size: 0.85rem; color: #b9c4cf; }
+    input { width: 100%; box-sizing: border-box; padding: 0.45rem; background: #1c1e29; color: #e8eef2;
+            border: 1px solid #343849; border-radius: 6px; font-family: ui-monospace, monospace; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
+    button { margin-top: 1rem; padding: 0.6rem 1.1rem; border: 0; border-radius: 6px; background: #39c5bb;
+             color: #06222020; color: #04222a; font-weight: 700; cursor: pointer; }
+    button:disabled { opacity: 0.5; cursor: default; }
+    #status { margin: 1rem 0; min-height: 1.4rem; color: #ffd866; }
+    textarea { width: 100%; box-sizing: border-box; height: 320px; background: #1c1e29; color: #cfe; border: 1px solid #343849;
+               border-radius: 6px; padding: 0.6rem; font-family: ui-monospace, monospace; font-size: 0.8rem; }
+  </style>
+</head>
+<body>
+  <h1>TextAlive lyric dumper</h1>
+  <p class="hint">
+    Paste a song's TextAlive fields (copy them from <code>src/tabs/songs/&lt;song&gt;.md</code> frontmatter), load,
+    and download a flat <code>[{ text, start, end }]</code> JSON of every lyric character and its timestamps.
+    Use those <code>start</code> values with a lyric note's <code>src=&lt;ms&gt;</code> field to pin which character funnels in.
+  </p>
+  <p class="hint">Open this through a local server (not <code>file://</code>), e.g. <code>npx http-server src/tools</code>, so the TextAlive API accepts the request.</p>
+
+  <fieldset>
+    <label>App token</label>
+    <input id="token" value="N6S7A1HvahiwDLUg" />
+    <label>Song URL (<code>song-url</code>)</label>
+    <input id="songUrl" placeholder="https://piapro.jp/t/..." />
+    <div class="row">
+      <div><label>beat id</label><input id="beatId" /></div>
+      <div><label>chord id</label><input id="chordId" /></div>
+      <div><label>repetitive segment id</label><input id="repetitiveSegmentId" /></div>
+      <div><label>lyric id</label><input id="lyricId" /></div>
+      <div><label>lyric diff id</label><input id="lyricDiffId" /></div>
+    </div>
+    <button id="load">Load lyrics</button>
+    <button id="download" disabled>Download JSON</button>
+  </fieldset>
+
+  <div id="status">Idle.</div>
+  <textarea id="out" readonly placeholder="JSON output appears here..."></textarea>
+
+  <!-- The Player wants a media element even though we never start playback. -->
+  <div id="media" style="display:none"></div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const status = (msg) => { $("status").textContent = msg; };
+    let json = "";
+
+    const num = (id) => {
+      const v = parseInt($(id).value.trim(), 10);
+      return Number.isNaN(v) ? undefined : v;
+    };
+
+    $("load").addEventListener("click", () => {
+      const token = $("token").value.trim();
+      const songUrl = $("songUrl").value.trim();
+      if (!token || !songUrl) { status("Token and song URL are required."); return; }
+      $("load").disabled = true;
+      $("download").disabled = true;
+      status("Loading… (TextAlive analysis can take a while)");
+
+      const player = new TextAliveApp.Player({ app: { token }, mediaElement: $("media") });
+      player.addListener({
+        onError(e) { status("Error: " + (e && e.message ? e.message : e)); $("load").disabled = false; },
+        onVideoReady() {
+          try {
+            const v = player.video;
+            const chars = [];
+            // Characters are linked across the whole video via .next.
+            let c = v.firstChar;
+            while (c) {
+              chars.push({ text: c.text, start: Math.round(c.startTime), end: Math.round(c.endTime) });
+              c = c.next;
+            }
+            json = JSON.stringify(chars, null, 2);
+            $("out").value = json;
+            $("download").disabled = chars.length === 0;
+            status(`Loaded ${chars.length} characters.`);
+          } catch (err) {
+            status("Failed to read lyrics: " + err);
+          } finally {
+            $("load").disabled = false;
+          }
+        },
+      });
+
+      player.createFromSongUrl(songUrl, {
+        video: {
+          beatId: num("beatId"),
+          chordId: num("chordId"),
+          repetitiveSegmentId: num("repetitiveSegmentId"),
+          lyricId: num("lyricId"),
+          lyricDiffId: num("lyricDiffId"),
+        },
+      }).catch((err) => { status("createFromSongUrl failed: " + err); $("load").disabled = false; });
+    });
+
+    $("download").addEventListener("click", () => {
+      const blob = new Blob([json], { type: "application/json" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "lyrics.json";
+      a.click();
+      URL.revokeObjectURL(a.href);
+    });
+  </script>
+</body>
+</html>

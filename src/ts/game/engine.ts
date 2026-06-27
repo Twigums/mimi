@@ -2,7 +2,7 @@ import { clamp } from "../core/utils";
 import { drawArrow, drawLyricNote, drawFireworks, drawFlowRibbon, notePulseScale } from "./draw";
 import { arToMs, loadAr, loadHitsoundVolume, subscribeHitsoundVolume, volToFactor, loadHiddenMod, subscribeHiddenMod } from "../core/settings";
 import { createCursorRenderer, type CursorRenderer } from "./cursor";
-import { computeLyricHolds, noteEndMs, populateLyricChars, type CharLookup } from "./lyrics";
+import { computeLyricHolds, noteEndMs } from "./lyrics";
 import { hashChart } from "./personalBest";
 import {
   CUT_METRIC_WINDOW_MS,
@@ -24,6 +24,8 @@ export { MAX_POINTS, TIER1_POINTS, TIER2_POINTS, TIER3_POINTS } from "./judgemen
 export const LOGICAL_W = 800;
 export const LOGICAL_H = 600;
 
+export const LYRIC_CHAR_MAX_DIST_MS = 80;
+
 // How far the ribbon bows through each flow anchor, as a fraction of the shorter
 // adjacent chord. Higher = rounder curves (less kinking at the waypoint) at the cost
 // of some overshoot risk on very uneven spacing.
@@ -41,6 +43,8 @@ export interface Note {
   state: NoteState;
   hitResult?: HitResult;
   lyricChar?: string;
+  lyricSpan?: number;
+  lyricSrcTime?: number;
   // Lyric only: hold duration in ms (derived from the next note; see computeLyricHolds).
   holdMs?: number;
   // Lyric only: extend the char-fetch window past the hold end by epsilon to include the
@@ -88,8 +92,6 @@ export interface GameStats {
   combo: number;
   maxCombo: number;
   hits: HitDetail[];
-  // Total notes of each kind in the chart (independent of how they were judged),
-  // surfaced as chart composition in the results screen.
   noteCounts: Record<NoteKind, number>;
   // Content hash of the live chart (independent of the run), so the results screen
   // can key personal-best tracking to this exact note set (see personalBest.ts).
@@ -103,15 +105,13 @@ export interface SpawnSpec {
   y: number;
   direction: number;
   lyricChar?: string;
+  lyricSpan?: number;
   holdMs?: number;
   flowPrevIndex?: number;
 }
 
 export interface GameHandle {
   setChart(notes: Note[]): void;
-  // Supplies the sung characters whose start time falls in [startMs, endMs), concatenated
-  // in order (empty when none); used to auto-fill a lyric note's text from its hold window.
-  setCharLookup(charsInRange: CharLookup): void;
   reset(): void;
   start(): void;
   setPlaying(playing: boolean): void;
@@ -130,8 +130,6 @@ interface GameDeps {
   onComboChange:   (combo: number) => void;
   onPlayingChange: (playing: boolean) => void;
   hitSoundUrl?:    string;
-  // logical play-field span in gameplay px; a smaller span than the default
-  // 800×600 zooms the same notes in (used by the testplay surface)
   logicalW?:       number;
   logicalH?:       number;
 }
@@ -209,7 +207,6 @@ export function createGame(deps: GameDeps): GameHandle {
       : 0.6;
     source.connect(resultGain);
     if (result === "tier3") {
-      // brighten the perfect hit so it reads as distinctly sharper/crisper
       const bright = audioCtx.createBiquadFilter();
       bright.type = "highshelf";
       bright.frequency.value = 3200;
@@ -303,8 +300,6 @@ export function createGame(deps: GameDeps): GameHandle {
   let reportedCursorError = false;
   let debugDrawOnce = true;
 
-  let lyricCharLookup: CharLookup | null = null;
-
   // After reset(), skip expiry until the song confirms it has rewound to the lead-in window,
   // preventing stale mid-song positions from triggering immediate misses.
   let skipExpiry = false;
@@ -350,14 +345,14 @@ export function createGame(deps: GameDeps): GameHandle {
       const dx = x.x - n.x, dy = x.y - n.y, len = Math.hypot(dx, dy);
       if (len > 0) { dirX += dx / len; dirY += dy / len; span = Math.min(span, len); }
     }
-    if (!Number.isFinite(span)) return null; // lone anchor: no ribbon, no magnitude
+    if (!Number.isFinite(span)) return null;
     let ux: number, uy: number;
     if (n.directionPinned) {
       ux = Math.cos(n.direction);
       uy = Math.sin(n.direction);
     } else {
       const dirLen = Math.hypot(dirX, dirY);
-      if (dirLen === 0) return null; // 180-degree cusp with no authored heading
+      if (dirLen === 0) return null;
       ux = dirX / dirLen;
       uy = dirY / dirLen;
     }
@@ -374,9 +369,6 @@ export function createGame(deps: GameDeps): GameHandle {
     n.direction = Math.atan2(t.y, t.x);
   };
 
-  // The local ribbon shape an anchor is judged against: sample the cubic Hermite over
-  // the half-segments on either side of the anchor (so the window is centred on it),
-  // then reduce to FLOW_SHAPE_BINS arc-length headings. A lone anchor has no shape.
   const SHAPE_HALF_STEPS = 5;
   const hermite = (
     ax: number, ay: number, tax: number, tay: number,
@@ -415,9 +407,6 @@ export function createGame(deps: GameDeps): GameHandle {
   };
 
   const linkFlowPhrases = (): void => {
-    // Phrases are explicit, not auto-detected: consecutive flow anchors link into one
-    // phrase until a `newCombo` anchor (a chart `break`) starts a new one, or a
-    // non-flow note interrupts the run.
     let prevFlowIndex: number | null = null;
     for (let i = 0; i < notes.length; i++) {
       const note = notes[i];
@@ -433,8 +422,8 @@ export function createGame(deps: GameDeps): GameHandle {
       }
       prevFlowIndex = i;
     }
-    // Links are now resolved for the whole chart; derive each anchor's tangent, then
-    // its local shape (which depends on the neighbours' tangents).
+
+    // links are now resolved for the whole chart
     for (let i = 0; i < notes.length; i++) {
       if (notes[i].kind === "flow") applyFlowTangent(i);
     }
@@ -560,7 +549,6 @@ export function createGame(deps: GameDeps): GameHandle {
       const appearProgress = clamp(1 - dt / approachMs, 0, 1);
       drawFlowRibbon(ctx, note, next, scale, appearProgress);
     }
-    // Notes are time-sorted: break once a pending note is past the approach window
     for (let i = pendingStart; i < notes.length; i++) {
       const note = notes[i];
       if (note.state !== "pending") continue;
@@ -610,12 +598,6 @@ export function createGame(deps: GameDeps): GameHandle {
       debugDrawOnce = true;
       linkFlowPhrases();
       computeLyricHolds(notes, endTimes);
-      if (lyricCharLookup) populateLyricChars(notes, lyricCharLookup);
-    },
-
-    setCharLookup(charsInRange): void {
-      lyricCharLookup = charsInRange;
-      populateLyricChars(notes, charsInRange);
     },
 
     reset(): void {
@@ -642,8 +624,6 @@ export function createGame(deps: GameDeps): GameHandle {
       onPlayingChange(true);
     },
 
-    // Reflect a playback state change that did NOT originate from start()/reset()
-    // (e.g. the player pausing or stopping on its own) without wiping the score.
     setPlaying(playing: boolean): void {
       onPlayingChange(playing);
     },
@@ -670,9 +650,6 @@ export function createGame(deps: GameDeps): GameHandle {
       approachMs = ms;
     },
 
-    // Append a single live note. Used by the testplay surface, which has no song
-    // timeline: callers pass an absolute `time` (the shared clock) so spawned
-    // notes stay time-sorted, preserving the early-break assumptions in tick/draw.
     spawnNote(spec: SpawnSpec): number {
       const note: Note = {
         kind: spec.kind,
@@ -682,6 +659,7 @@ export function createGame(deps: GameDeps): GameHandle {
         direction: spec.direction,
         state: "pending",
         lyricChar: spec.lyricChar,
+        lyricSpan: spec.lyricSpan,
         // Spawned lyrics have no chart timeline to derive a bound from, so the caller
         // (the testplay surface) supplies an explicit preview hold length.
         holdMs: spec.kind === "lyric" ? spec.holdMs : undefined,
@@ -693,13 +671,11 @@ export function createGame(deps: GameDeps): GameHandle {
         if (prev && prev.kind === "flow") {
           note.flowPrevIndex = spec.flowPrevIndex;
           prev.flowNextIndex = index;
-          applyFlowTangent(spec.flowPrevIndex); // prev gained an outgoing chord
+          applyFlowTangent(spec.flowPrevIndex);
         }
       }
       if (spec.kind === "flow") applyFlowTangent(index);
-      // Re-derive shapes for the new anchor and the neighbours whose tangents moved
-      // (the predecessor gained an outgoing chord; its own predecessor's outgoing
-      // segment now ends on a re-tangented anchor).
+
       if (spec.kind === "flow") {
         applyFlowShape(index);
         if (note.flowPrevIndex !== undefined) {
@@ -714,22 +690,18 @@ export function createGame(deps: GameDeps): GameHandle {
     tick(songMs: number): void {
       recordPointerSample(songMs);
       try {
-        // Only check notes within the hit window; notes are time-sorted so break early
         for (let i = pendingStart; i < notes.length; i++) {
           const n = notes[i];
           if (n.time > songMs + TIER1_MS) break;
           if (n.state === "pending") tryHit(n, songMs, notes[i - 1]?.time);
         }
         if (skipExpiry) {
-          // Clear only once the timer has actually rewound into the lead-in window.
-          // A stale, large mid-song position (the old play head right after reset(),
-          // before the async seek lands) must NOT re-enable expiry — otherwise the
-          // next tick mass-misses every freshly-pending note before the song restarts.
           if (songMs <= approachMs) skipExpiry = false;
         } else {
           expireMisses(songMs);
         }
-        // Advance past resolved notes (hit or missed) at the front
+
+        // Advance past resolved notes
         while (pendingStart < notes.length && notes[pendingStart].state !== "pending") pendingStart++;
       } catch (err) {
         if (!reportedUpdateError) {

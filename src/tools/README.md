@@ -39,6 +39,31 @@ A `.mimi` chart: a small header (`time_unit: ms`, optional `bpm`/`difficulty`, `
 
 ---
 
+# textalive-dump.html
+
+A browser tool that dumps a song's TextAlive lyrics + timestamps to JSON, to help author lyric notes (especially the `src=<ms>` source override).
+
+```bash
+npm run dump:lyrics
+```
+
+This serves `src/tools/` on a local server (via `npx http-server`) and opens the page — serving over `http://` rather than `file://` so the TextAlive API accepts the request. Paste the song's TextAlive fields from `src/tabs/songs/<song>.md` frontmatter (`song-url`, `textalive-beat-id`, `textalive-chord-id`, `textalive-repetitive-segment-id`, `textalive-lyric-id`, `textalive-lyric-diff-id`), click **Load lyrics**, then **Download JSON**.
+
+## Output
+
+A flat array of every lyric character with its timestamps (ms):
+
+```json
+[
+  { "text": "輝", "start": 100, "end": 1100 },
+  { "text": "き", "start": 1100, "end": 1320 }
+]
+```
+
+Use a character's `start` value as a lyric note's `src=<ms>` field in the `.mimi` chart to pin exactly which TextAlive character funnels onto that note (see `wiki/how_to_map.md`).
+
+---
+
 # lyrictrace
 
 Traces what the lyric char-population logic does to a compiled chart's lyric notes, against a **mocked** TextAlive video — no live API or browser needed. It reuses the real runtime functions (`makeCharLookup`, `computeLyricHolds`, `populateLyricChars`), so the output reflects exactly what the engine produces at load time.

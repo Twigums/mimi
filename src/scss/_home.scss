@@ -306,8 +306,6 @@ html.theme-dark .bg-sky .cloud-layer {
   letter-spacing: 0.1em;
   box-sizing: border-box;
   filter: drop-shadow(0 4px 0 var(--cloud-glow)) drop-shadow(0 10px 18px rgba(57, 197, 187, 0.22));
-  // background-color (0.4s, matching the universal theme transition) keeps the
-  // button body easing in step with its ::before/::after puffs on a theme switch
   transition:
     transform 0.3s var(--motion-ease-bouncy),
     filter 0.3s var(--motion-ease-standard),
@@ -344,8 +342,6 @@ html.theme-dark .bg-sky .cloud-layer {
     font-size: 1rem;
     line-height: 1.1;
     color: transparent;
-    // include background-color (matching the universal theme transition) so this
-    // puff's fill animates with ::before and the button body on a theme switch
     transition: transform 0.3s var(--motion-ease-bouncy), color 0.2s, background-color 0.4s ease;
   }
 
@@ -378,6 +374,44 @@ html.theme-dark .bg-sky .cloud-layer {
     left: auto;
     right: 36%;
   }
+}
+
+.btn-main--play::after {
+  content: '';
+}
+
+.btn-play-icon {
+  position: absolute;
+  display: block;
+  width: 1.9rem;
+  height: 1.9rem;
+  top: -0.65rem;
+  left: 36%;
+  background: currentColor;
+  color: transparent;
+  pointer-events: none;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 33.76 37.28'%3E%3Cpath d='M2.1 35.18L31.66 18.64L2.1 2.1Z'/%3E%3C/svg%3E") center / 45% no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 33.76 37.28'%3E%3Cpath d='M2.1 35.18L31.66 18.64L2.1 2.1Z'/%3E%3C/svg%3E") center / 45% no-repeat;
+  transition: transform 0.3s var(--motion-ease-bouncy), color 0.2s;
+}
+
+.btn-main--play:hover .btn-play-icon {
+  color: var(--miku-teal);
+  transform: translateY(-0.55rem) rotate(12deg);
+}
+
+.btn-main--tutorial::after {
+  content: '?';
+  font-size: 1.2rem;
+  -webkit-font-smoothing: antialiased;
+}
+
+.btn-main--info::after {
+  content: 'i';
+  font-size: 1.2rem;
+  font-style: oblique -12deg;
+  font-weight: 700;
+  -webkit-font-smoothing: antialiased;
 }
 
 .btn-back {
@@ -481,21 +515,9 @@ html.theme-dark .bg-sky .cloud-layer {
   white-space: nowrap;
 }
 
-// The selection pane (song list, then difficulty list) is centred in a fixed-height
-// viewport. When its content is taller than the viewport — a long difficulty list, a
-// wrapped song title, either orientation — vertical centring pushes the overflow off
-// BOTH ends, clipping the song name at the top with no way to reach it. Make the pane
-// the single scroll container; the reduced max-height leaves room for the fixed header
-// (top-left site name) and footer so neither overlaps the scrolled content.
+// The song list + difficulty list
 .song-pane {
   box-sizing: border-box;
-  // A scroll container (overflow below) clips ink overflow, so the buttons' soft
-  // drop-shadow glows were sheared into a hard-edged rectangle that read as a
-  // border against the page gradient. Bleed the box outward — a negative inline
-  // margin keeps the margin-box at the container width (so it stays centred and
-  // full-width) while the wider border-box plus matching inline padding pushes
-  // the clip edge past where the glow has faded. Button content width is
-  // unchanged; width lives here (not in _transitions.scss) so this wins.
   width: calc(100% + 3rem);
   margin-inline: -1.5rem;
   max-height: calc(100vh - 8rem);
@@ -504,16 +526,8 @@ html.theme-dark .bg-sky .cloud-layer {
   overflow-x: hidden;
   overscroll-behavior: contain;
   scrollbar-width: none;
-  // top clears the song buttons' cloud puff and the music note that pops up on hover
-  // (peaks ~1.2rem above the button); the 2rem sides hold the buttons' drop-shadow
-  // glows inside the bleed so the clip never shaves them; bottom clears the back
-  // button's shadow.
   padding: 1.6rem 2rem 1.1rem;
 
-  // Chrome makes an overflow:auto container keyboard-focusable once its content
-  // scrolls, drawing a focus ring around the whole pane (all the difficulties +
-  // info). The interactive content inside is independently focusable, so the
-  // scroller's own ring is redundant noise — suppress it.
   &:focus,
   &:focus-visible {
     outline: none;
@@ -694,10 +708,7 @@ html.theme-dark .bg-sky .cloud-layer {
   }
 }
 
-// Landscape phones have very little height, so even with the pane scrolling (base
-// rule above) the chrome eats most of the view. Shrink it so more of the difficulty
-// list shows before scrolling: drop the detail panel's reserved height and the song
-// title size.
+// scroll for phones
 @media (max-height: 540px) {
   .difficulty-detail {
     min-height: 0;
@@ -861,7 +872,7 @@ html.theme-dark .bg-sky .cloud-layer {
     gap: 1.25rem;
   }
 
-  // testplay is second in DOM; order: -1 pulls it above the info text
+  // testplay is second in DOM
   .testplay-wrap--tutorial {
     order: -1;
     width: 100%;
@@ -926,8 +937,6 @@ html.theme-dark .home-footer img {
   filter: invert(1);
 }
 
-// ─── Miku hint (bottom-right mascot + speech bubble) ──────────────────────────
-
 @keyframes miku-hint-hop {
   0%   { transform: translateX(0) rotate(0deg); animation-timing-function: ease-out; }
   25%  { transform: translateX(5px) rotate(5deg); animation-timing-function: ease-in-out; }
@@ -935,19 +944,19 @@ html.theme-dark .home-footer img {
   100% { transform: translateX(0) rotate(0deg); }
 }
 
-// Miku slides in from the right with a sigmoid (slow→fast→slow) curve
+// Miku homepage keyframe
 @keyframes miku-hint-enter {
   from { transform: translateX(200px); opacity: 0; }
   to   { transform: none; opacity: 1; }
 }
 
-// Cloud/bubble fades up into place after Miku settles
+// text bubble transition
 @keyframes miku-hint-cloud-in {
   from { opacity: 0; transform: translateY(8px); }
   to   { opacity: 1; transform: none; }
 }
 
-// Exit: whole group slides right and fades (mirrors the entrance direction)
+// Miku exit
 @keyframes miku-hint-out {
   to { opacity: 0; transform: translateX(20px); }
 }
@@ -974,16 +983,12 @@ html.theme-dark .home-footer img {
   position: fixed;
   bottom: 4.5rem;
   right: 1.5rem;
-  // wider than the bubble so Miku (flex-end) sits to its lower-right, leaving
-  // the bubble's tail to land off Miku's top-left corner
   min-width: 23.5rem;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
   z-index: 5;
   pointer-events: auto;
-  // Miku and the bubble chrome are decorative; only the hint text re-enables
-  // selection (below), so nothing else gets caught in a drag-select
   user-select: none;
   -webkit-user-select: none;
 
@@ -1001,33 +1006,26 @@ html.theme-dark .home-footer img {
   }
 }
 
-// Wrapper that owns the shadow/glow and hosts the cloud-puff border
 .miku-hint__cloud {
   position: relative;
-  z-index: 1; // keep the cloud + its glow above Miku so the hop never clips it
-  // shadow below (like btn-main hover) + ambient glow, wrapping frame + body
+  z-index: 1;
   filter:
     drop-shadow(0 5px 0 var(--cloud-glow))
     drop-shadow(0 12px 22px rgba(57, 197, 187, 0.3))
     drop-shadow(0 0 18px rgba(57, 197, 187, 0.18));
 
-  // cloud-puff border drawn by the same generator as the gameplay frame, but a
-  // single flat colour (the button fill) instead of the night purple + sparkles
   .game-frame {
     position: absolute;
     inset: 0;
     width: 100%;
     height: 100%;
     z-index: 0;
-    filter: none; // the wrapper owns the shadow; suppress the frame's own glow
+    filter: none;
 
     circle { fill: var(--cloud-fill); }
-    .frame-star { display: none; } // single colour: no sparkles
+    .frame-star { display: none; }
   }
 
-  // third, smallest tail dot — the speech-bubble's pointer landing on Miku's
-  // top-left so it reads as her speaking. Sits clear of the puff border and
-  // beyond the bubble's right edge (negative right), reaching toward Miku.
   &::after {
     content: '';
     position: absolute;
@@ -1047,8 +1045,6 @@ html.theme-dark .miku-hint__cloud {
     drop-shadow(0 0 20px rgba(57, 197, 187, 0.2));
 }
 
-// Main bubble body — fixed width so the tail lands consistently relative to
-// Miku regardless of language; tail dots trail down-right toward Miku's top-left
 .miku-hint__bubble {
   position: relative;
   z-index: 1;
@@ -1058,7 +1054,6 @@ html.theme-dark .miku-hint__cloud {
   border-radius: 1.6rem;
   padding: 0.85rem 1.15rem;
 
-  // first/largest tail dot — clears the puff border below the bubble's lower-right
   &::before {
     content: '';
     position: absolute;
@@ -1070,7 +1065,6 @@ html.theme-dark .miku-hint__cloud {
     height: 0.82rem;
   }
 
-  // second tail dot — continues the trail down and toward Miku
   &::after {
     content: '';
     position: absolute;
@@ -1088,7 +1082,6 @@ html.theme-dark .miku-hint__cloud {
   font-family: var(--font-display);
   color: var(--ink);
   line-height: 1.5;
-  // only the hint text itself is selectable
   user-select: text;
   -webkit-user-select: text;
 }
@@ -1123,7 +1116,7 @@ html.theme-dark .miku-hint__tutorial-word {
 
 .miku-hint__miku {
   position: relative;
-  z-index: 0; // sits under the cloud so its hop can't paint over the cloud's shine
+  z-index: 0;
   width: 120px;
   height: 120px;
   object-fit: contain;
@@ -1131,16 +1124,13 @@ html.theme-dark .miku-hint__tutorial-word {
   margin-top: 0.45rem;
 }
 
-// Entrance and dance only when motion is OK; reduced-motion gets instant visibility
 @media (prefers-reduced-motion: no-preference) {
-  // Sigmoid (slow → fast → slow) slide in from the right, then continuous hop
   .miku-hint__miku {
     animation:
       miku-hint-enter 0.8s cubic-bezier(0.87, 0, 0.13, 1) 1.2s both,
       miku-hint-hop   2.2s linear 2.0s infinite;
   }
 
-  // Bubble appears after Miku has settled and started dancing
   .miku-hint__cloud {
     animation: miku-hint-cloud-in 0.4s ease 2.1s both;
   }

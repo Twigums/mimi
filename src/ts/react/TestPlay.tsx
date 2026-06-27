@@ -14,17 +14,11 @@ export interface TestPlayHandle {
 }
 
 interface Props {
-  // when set, notes auto-spawn on a rolling loop (settings menu);
-  // otherwise notes appear only via the imperative spawnNote handle (tutorial)
   loop?: boolean;
   variant?: "tutorial" | "panel";
   frameScale?: number;
-  // gameplay-px span of the surface; smaller than the real 800×600 field so the
-  // same notes render zoomed in. keep the 4:3 ratio to match the canvas
   logicalW?: number;
   logicalH?: number;
-  // fixed AR (skips the live setting) — the tutorial pins this so its pace is
-  // independent of the player's chosen approach rate
   arOverride?: number;
 }
 

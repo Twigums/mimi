@@ -1,5 +1,5 @@
 {
-  "description": "Lyric char-population fixture. Each entry is a note taken VERBATIM from src/songs/kotaete/hard.mimi (every lyric note plus its immediate bounding events, which set the hold end and the previous-char lookback). For lyric notes, expected is the charset auto-filled by computeLyricHolds + populateLyricChars against the captured TextAlive timings in kotaete-hard-timings.json, with LYRIC_CHAR_BOUNDARY_EPSILON_MS = 100 and the previous-char fallback (21699 and 51007 are recovered by the fallback; 29084 and 36468 land inside the widened window).",
+  "description": "Lyric char-population fixture. Each entry is a note taken VERBATIM from src/songs/kotaete/hard.mimi (every lyric note plus its immediate bounding events, which set the hold end and the previous-char lookback). For lyric notes, expected is the charset auto-filled by computeLyricHolds + populateLyricChars against the captured TextAlive timings in kotaete-hard-timings.json, with LYRIC_CHAR_BOUNDARY_EPSILON_MS = 80 and the previous-char fallback (21699 and 51007 are recovered by the fallback; 29084 and 36468 land inside the widened window).",
   "timings": "kotaete-hard-timings.json",
   "notes": [
     {
@@ -55,7 +55,7 @@
     },
     {
       "mimi": "lyric, 33468, auto, 120.3, 114.1",
-      "expected": "れ"
+      "expected": "れて"
     },
     {
       "mimi": "flow, 35315, auto, 195.3, 198.4"
@@ -100,7 +100,7 @@
     },
     {
       "mimi": "lyric, 50084, auto, 503.1, 315.6",
-      "expected": "を"
+      "expected": "耳を"
     },
     {
       "mimi": "cut, 50776, 9.5, 631.3, 289.8"

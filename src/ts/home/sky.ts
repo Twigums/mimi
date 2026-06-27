@@ -10,17 +10,18 @@ const INITIAL_NOTES = 4;
 const CLOUD_SPAWN_MS = 2400;
 const NOTE_SPAWN_MS = 4200;
 const SHOOTING_STAR_SPAWN_MS = 9000;
-const SPAWN_JITTER = 0.5; // spawn intervals vary ±50% around the base frequency
-const NOTE_BASE_H = 60;   // nominal glyph height before scaling
-// note physics (units: SVG user units, ms)
-const GRAVITY = 0.00003;        // downward accel, keeps the gentle "fall" feel
-const NOTE_RESTITUTION = 0.7;   // bounciness of note-on-note hits
-const COLLISION_ITERS = 2;      // relaxation passes per frame for stable stacks
-const MAX_THROW_SPEED = 2.5;    // cap a flick so a note can't teleport off
-const MAX_STEP_MS = 32;         // clamp dt after a tab-switch so nothing tunnels
+const SPAWN_JITTER = 0.5;
+const NOTE_BASE_H = 60;
+
+// note physics
+const GRAVITY = 0.00003;
+const NOTE_RESTITUTION = 0.7;
+const COLLISION_ITERS = 2;
+const MAX_THROW_SPEED = 2.5;
+const MAX_STEP_MS = 32;
 const STAR_COUNT = 26;
-// hub of the celestial dial, far below the horizon; must match the
-// .sky-dial transform-origin in _home.scss
+
+// hub of the celestial dial, far below the horizon
 const DIAL_CX = VIEW_W / 2;
 const DIAL_CY = 3000;
 
@@ -32,7 +33,7 @@ interface NoteAsset {
   shapes: SVGElement[];
 }
 
-// quarter notes make up half the sky; the rest split the remainder evenly
+// quarter notes make up half the sky
 const NOTE_KINDS: ReadonlyArray<{ kind: NoteKind; weight: number }> = [
   { kind: "quarter", weight: 0.5 },
   { kind: "eighth", weight: 0.125 },
@@ -73,8 +74,7 @@ function parseNumberList(raw: string): number[] {
   return raw.trim().split(/[\s,]+/).map(Number).filter(Number.isFinite);
 }
 
-// twinkling stars; rendered behind everything and faded in/out by CSS
-// (html.theme-dark .night-layer) so theme switches stay seamless
+// twinkling stars
 function buildNightLayer(): SVGGElement {
   const layer = document.createElementNS(SVG_NS, "g");
   layer.setAttribute("class", "night-layer");
@@ -93,19 +93,14 @@ function buildNightLayer(): SVGGElement {
   return layer;
 }
 
-// the moon's "craters" are the simple-miku.svg drawing, fetched at runtime and
-// inlined onto the moon so it always matches the asset (no path data is copied
-// into this file)
+// miku on the moon
 const MIKU_SRC = "/images/simple-miku.svg";
-// adjustment knobs — tweak these to fit the drawing on the moon:
-const MIKU_FILL = 1.32;    // size: art's larger side ÷ moon diameter; >1 overflows the rim and clips
-const MIKU_ROTATE = 25;     // spin in place, degrees clockwise
-const MIKU_NUDGE_X = 0.09;    // shift across the moon, in moon radii (+ = right, e.g. 0.1 = 10% of the radius)
-const MIKU_NUDGE_Y = 0.4;    // shift up/down the moon, in moon radii (+ = down)
+const MIKU_FILL = 1.32;
+const MIKU_ROTATE = 25;
+const MIKU_NUDGE_X = 0.09;
+const MIKU_NUDGE_Y = 0.4;
 
-// fetch simple-miku.svg and drop its drawing elements into the moon-face group;
-// the asset's own black stroke is stripped so _home.scss can recolour the lines
-// to the old crater tone, and the group is scaled/centred by reposition()
+// fetch simple-miku.svg and drop its drawing elements into the moon-face group
 async function loadMoonFace(moonFace: SVGGElement, reposition: () => void): Promise<void> {
   try {
     const res = await fetch(withPath(MIKU_SRC));
@@ -118,15 +113,12 @@ async function loadMoonFace(moonFace: SVGGElement, reposition: () => void): Prom
       for (const attr of ["style", "fill", "stroke"]) shape.removeAttribute(attr);
       moonFace.appendChild(shape);
     }
-    reposition(); // the art now has a measurable bbox to scale against
+    reposition();
   } catch {
-    /* decorative: a missing or blocked asset just leaves a plain moon */
   }
 }
 
-// sun and moon sit on opposite ends of a wheel hubbed at (DIAL_CX, DIAL_CY);
-// CSS rotates the .sky-dial group half a turn per theme, so the moon sets on
-// the right while the sun rises from the left horizon (and vice versa)
+// sun and moon sit on opposite ends of a wheel
 function buildSkyDial(): SVGGElement {
   const dial = document.createElementNS(SVG_NS, "g");
   dial.setAttribute("class", "sky-dial");
@@ -153,23 +145,16 @@ function buildSkyDial(): SVGGElement {
   dial.appendChild(moonGlow);
   dial.appendChild(moonBody);
 
-  // the moon circle doubles as a clip so Miku's hair/twintails that spill past
-  // the rim are cut away; the clip circle tracks the moon body in dial space
   const clipCircle = el("circle", { cy: my.toFixed(0), r: mr.toFixed(0) });
   const faceClipPath = el("clipPath", { id: "moon-face-clip", clipPathUnits: "userSpaceOnUse" });
   faceClipPath.appendChild(clipCircle);
   defs.appendChild(faceClipPath);
 
-  // the inner group holds the (later-fetched) line art and carries the
-  // placement transform; the outer group carries the clip, so the clip is
-  // evaluated in dial space and lines up with the moon body's coordinates
   const moonFace = el("g", { class: "moon-face" });
   const faceClip = el("g", { "clip-path": "url(#moon-face-clip)" });
   faceClip.appendChild(moonFace);
   dial.appendChild(faceClip);
 
-  // the sun starts diametrically opposite the moon, below the horizon;
-  // rotating the dial 180° lands it exactly on the moon's sky slot
   const sy = 2 * DIAL_CY - my;
   const sr = mr + 6;
   const sunGlow = el("circle", { class: "sun-glow", cy: sy.toFixed(0), r: (sr * 2.2).toFixed(0) });
@@ -177,11 +162,6 @@ function buildSkyDial(): SVGGElement {
   dial.appendChild(sunGlow);
   dial.appendChild(sunBody);
 
-  // the svg's `slice` fit crops the viewBox sides on narrow screens: only a
-  // centred window of width VIEW_H * viewport-aspect stays visible, so the
-  // moon's horizontal slot must be clamped into it (phones and tablets would
-  // otherwise crop the dial away); re-clamped on resize/orientation change.
-  // the sun mirrors through the hub, so it stays visible whenever the moon is
   const slot = Math.random();
   const place = (): void => {
     const aspect = window.innerWidth / Math.max(window.innerHeight, 1);
@@ -192,16 +172,12 @@ function buildSkyDial(): SVGGElement {
     moonGlow.setAttribute("cx", mx.toFixed(0));
     moonBody.setAttribute("cx", mx.toFixed(0));
     clipCircle.setAttribute("cx", mx.toFixed(0));
-    // scale the fetched art to fill the moon and centre it on the body; getBBox
-    // reads the raw art bounds (ignoring this group's own transform), so it
-    // stays stable across calls and is empty until the asset loads
+
     const bb = moonFace.getBBox();
     if (bb.width > 0 && bb.height > 0) {
       const faceScale = (2 * mr * MIKU_FILL) / Math.max(bb.width, bb.height);
       const fcx = bb.x + bb.width / 2;
       const fcy = bb.y + bb.height / 2;
-      // applied right-to-left: centre the art on the origin, scale it, rotate it
-      // in place, then move it to the moon centre plus the nudge offset
       const px = (mx + MIKU_NUDGE_X * mr).toFixed(1);
       const py = (my + MIKU_NUDGE_Y * mr).toFixed(1);
       moonFace.setAttribute(
@@ -215,13 +191,12 @@ function buildSkyDial(): SVGGElement {
   };
   place();
   window.addEventListener("resize", place);
-  void loadMoonFace(moonFace, place); // populates the moon and re-places once loaded
+  void loadMoonFace(moonFace, place);
 
   return dial;
 }
 
-// a streak aligned with its travel direction, animated by the shooting-star
-// keyframe; only spawned while night mode is active
+// shooting star
 function spawnShootingStar(layer: SVGGElement): void {
   if (!document.documentElement.classList.contains("theme-dark")) return;
   const x = rand(VIEW_W * 0.2, VIEW_W * 0.95);
@@ -241,8 +216,7 @@ function spawnShootingStar(layer: SVGGElement): void {
   layer.appendChild(star);
 }
 
-// a cloud is a wide base ellipse plus 3–5 random puffs along its top; parts
-// are solid white and the group carries the opacity, so overlaps never seam
+// cloud
 function buildCloudShape(w: number, h: number): SVGGElement {
   const g = document.createElementNS(SVG_NS, "g");
   g.appendChild(el("ellipse", {
@@ -307,8 +281,6 @@ function buildNoteGlyph(asset: NoteAsset): SVGGElement {
     g.appendChild(document.importNode(shape, true));
   }
 
-  // invisible grab area covering every glyph kind — Chrome lacks
-  // pointer-events: bounding-box, so the gaps in notes need this
   g.appendChild(el("rect", {
     class: "note-hit",
     x: "0",
@@ -323,12 +295,10 @@ function spawnCloud(layer: SVGGElement, initial: boolean, staticField: boolean):
   if (layer.childElementCount >= MAX_ELEMENTS) return;
   const w = rand(70, 220);
   const h = w * rand(0.35, 0.5);
-  const fullH = h * 1.8; // base ellipse plus the tallest possible puff
+  const fullH = h * 1.8;
   const x = rand(80, VIEW_W - 80);
   const y = staticField ? rand(fullH, VIEW_H - fullH) : VIEW_H + fullH;
 
-  // outer <g> carries the CSS rise animation; the inner <g> holds the static
-  // placement transform so the two never fight over the transform property
   const cloud = document.createElementNS(SVG_NS, "g");
   cloud.setAttribute("class", "cloud");
   const shape = buildCloudShape(w, h);
@@ -348,32 +318,28 @@ function spawnCloud(layer: SVGGElement, initial: boolean, staticField: boolean):
   layer.appendChild(cloud);
 }
 
-// a physics-driven note: an axis-aligned body (box = the glyph's scaled SVG
-// dims, per the brief — loose, rotation-ignoring) carrying linear + angular
-// velocity. cx/cy is the body centre; the glyph is rendered about it
+// music note
 interface PhysNote {
   el: SVGGElement;
   glyph: SVGGElement;
-  s: number;            // glyph scale (NOTE_BASE_H/viewBoxH × random size)
+  s: number;
   vbW: number;
   vbH: number;
-  hw: number;           // half-width / half-height of the collision box
+  hw: number;
   hh: number;
   mass: number;
-  invMass: number;      // 0 while dragged (immovable, but still shoves others)
+  invMass: number;
   cx: number;
   cy: number;
   vx: number;
   vy: number;
-  rot: number;          // degrees
-  vrot: number;         // degrees / ms
+  rot: number;
+  vrot: number;
   dragging: boolean;
-  dragPrevX: number;    // last frame's centre while dragging, for cursor-speed velocity
+  dragPrevX: number;
   dragPrevY: number;
 }
 
-// the glyph rotates about the body centre and is offset so the asset is
-// centred, so cx/cy is the true pivot (clean tumbling, simple collisions)
 function renderNote(n: PhysNote): void {
   n.glyph.setAttribute(
     "transform",
@@ -381,8 +347,6 @@ function renderNote(n: PhysNote): void {
   );
 }
 
-// gone once fully past an edge (with slack so spawns just above the top and
-// near-misses aren't culled mid-flight)
 function offscreen(n: PhysNote): boolean {
   return (
     n.cy - n.hh > VIEW_H + 60 ||
@@ -392,8 +356,7 @@ function offscreen(n: PhysNote): boolean {
   );
 }
 
-// AABB collision: separate along the least-penetration axis and exchange
-// momentum there (1D impulse with restitution, weighted by inverse mass)
+// AABB collision
 function collide(a: PhysNote, b: PhysNote): void {
   const dx = b.cx - a.cx;
   const ox = a.hw + b.hw - Math.abs(dx);
@@ -402,20 +365,20 @@ function collide(a: PhysNote, b: PhysNote): void {
   const oy = a.hh + b.hh - Math.abs(dy);
   if (oy <= 0) return;
   const invSum = a.invMass + b.invMass;
-  if (invSum === 0) return; // two dragged notes: both immovable
+  if (invSum === 0) return;
 
   let nx = 0;
   let ny = 0;
   let pen = 0;
   if (ox < oy) {
-    nx = dx < 0 ? -1 : 1; // contact normal points from a to b
+    nx = dx < 0 ? -1 : 1;
     pen = ox;
   } else {
     ny = dy < 0 ? -1 : 1;
     pen = oy;
   }
 
-  // push the pair apart, share by inverse mass
+  // push the pair apart
   const corr = pen / invSum;
   a.cx -= nx * corr * a.invMass;
   a.cy -= ny * corr * a.invMass;
@@ -423,7 +386,7 @@ function collide(a: PhysNote, b: PhysNote): void {
   b.cy += ny * corr * b.invMass;
 
   const rvn = (b.vx - a.vx) * nx + (b.vy - a.vy) * ny;
-  if (rvn > 0) return; // already separating
+  if (rvn > 0) return;
   const j = (-(1 + NOTE_RESTITUTION) * rvn) / invSum;
   a.vx -= j * a.invMass * nx;
   a.vy -= j * a.invMass * ny;
@@ -442,8 +405,6 @@ interface NoteWorld {
   count: () => number;
 }
 
-// one rAF loop integrating + colliding + culling every live note; idles when
-// the field empties and restarts on the next add (static field never starts)
 function createNoteWorld(svg: SVGSVGElement, staticField: boolean): NoteWorld {
   let notes: PhysNote[] = [];
   let running = false;
@@ -455,7 +416,6 @@ function createNoteWorld(svg: SVGSVGElement, staticField: boolean): NoteWorld {
 
     for (const n of notes) {
       if (n.dragging) {
-        // velocity tracks cursor travel so a bump hands off the drag momentum
         if (dt > 0) {
           let vx = (n.cx - n.dragPrevX) / dt;
           let vy = (n.cy - n.dragPrevY) / dt;
@@ -526,11 +486,9 @@ function spawnNote(world: NoteWorld, assets: Map<NoteKind, NoteAsset>, initial: 
   note.setAttribute("class", "floating-note");
   const glyph = buildNoteGlyph(asset);
   note.appendChild(glyph);
-  // parts are solid teal; the group alone carries the translucency so
-  // head/stem/flag overlaps composite evenly (same trick as the clouds)
   note.style.opacity = rand(0.2, 0.4).toFixed(2);
 
-  const mass = hw * hh; // ∝ area, so big notes shove little ones convincingly
+  const mass = hw * hh;
   const n: PhysNote = {
     el: note,
     glyph,
@@ -542,8 +500,6 @@ function spawnNote(world: NoteWorld, assets: Map<NoteKind, NoteAsset>, initial: 
     mass,
     invMass: 1 / mass,
     cx: rand(hw + 20, VIEW_W - hw - 20),
-    // static: scattered in view; initial: spread down the field so it starts
-    // populated; otherwise drop in from just above the top edge
     cy: staticField ? rand(hh, VIEW_H - hh) : initial ? rand(-hh, VIEW_H * 0.7) : -(hh + 10),
     vx: staticField ? 0 : rand(-0.02, 0.02),
     vy: staticField ? 0 : rand(0.01, 0.03),
@@ -564,22 +520,20 @@ function svgPoint(svg: SVGSVGElement, clientX: number, clientY: number): DOMPoin
   return ctm === null ? point : point.matrixTransform(ctm.inverse());
 }
 
-// drag a note and release it to throw it: dragging pins the body to the cursor
-// (immovable, infinite mass) and release hands the sampled velocity back to the
-// physics loop, so a flick carries momentum and a slow drop just keeps falling
+// drag a note and release it to throw it
 function makeNoteDraggable(svg: SVGSVGElement, n: PhysNote): void {
   let drag: { offX: number; offY: number; samples: { t: number; x: number; y: number }[] } | null = null;
 
   n.el.addEventListener("pointerdown", (e) => {
     e.preventDefault();
     n.dragging = true;
-    n.invMass = 0; // immovable while held, but still shoves what it bumps
+    n.invMass = 0;
     n.vx = 0;
     n.vy = 0;
     n.vrot = 0;
     n.dragPrevX = n.cx;
     n.dragPrevY = n.cy;
-    svg.appendChild(n.el); // raise above the other notes while held
+    svg.appendChild(n.el);
 
     const p = svgPoint(svg, e.clientX, e.clientY);
     drag = { offX: p.x - n.cx, offY: p.y - n.cy, samples: [{ t: e.timeStamp, x: p.x, y: p.y }] };
@@ -592,8 +546,7 @@ function makeNoteDraggable(svg: SVGSVGElement, n: PhysNote): void {
     const p = svgPoint(svg, e.clientX, e.clientY);
     n.cx = p.x - drag.offX;
     n.cy = p.y - drag.offY;
-    renderNote(n); // immediate, so it tracks even when the loop is idle (static)
-    // velocity window: keep only the last ~100 ms of movement
+    renderNote(n);
     drag.samples.push({ t: e.timeStamp, x: p.x, y: p.y });
     while (drag.samples.length > 1 && e.timeStamp - drag.samples[0].t > 100) drag.samples.shift();
   });
@@ -603,7 +556,6 @@ function makeNoteDraggable(svg: SVGSVGElement, n: PhysNote): void {
     const first = drag.samples[0];
     const dt = Math.max(e.timeStamp - first.t, 1);
     const last = drag.samples[drag.samples.length - 1];
-    // a pointer that rested before release means a still drop, not a throw
     const rested = e.timeStamp - last.t > 120;
     let vx = rested ? 0 : (last.x - first.x) / dt;
     let vy = rested ? 0 : (last.y - first.y) / dt;
@@ -614,7 +566,7 @@ function makeNoteDraggable(svg: SVGSVGElement, n: PhysNote): void {
     }
     n.vx = vx;
     n.vy = vy;
-    n.vrot = Math.max(-0.05, Math.min(0.05, vx * 0.03)); // horizontal flick → tumble
+    n.vrot = Math.max(-0.05, Math.min(0.05, vx * 0.03));
     n.dragging = false;
     n.invMass = 1 / n.mass;
     n.el.classList.remove("dragging");
@@ -636,16 +588,12 @@ export function initBgSky(): void {
   const svg = document.querySelector<SVGSVGElement>(".bg-sky");
   if (svg === null) return;
 
-  // without animation the spawn positions sit off-screen, so reduced motion
-  // gets a static in-view field instead of the rising/falling loop
+  // without animation the spawn positions sit off screen
   const staticField = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
   const nightLayer = buildNightLayer();
-  svg.appendChild(nightLayer); // appended first so it stays behind clouds/notes
+  svg.appendChild(nightLayer);
 
-  // the dial angle only ever grows (+180° per theme switch) so the wheel
-  // always turns clockwise: both bodies set on the right and rise from the
-  // left; CSS owns the transition, this observer owns the angle
   const dial = buildSkyDial();
   const root = document.documentElement;
   let dark = root.classList.contains("theme-dark");
@@ -654,14 +602,12 @@ export function initBgSky(): void {
   svg.appendChild(dial);
   new MutationObserver(() => {
     const nowDark = root.classList.contains("theme-dark");
-    if (nowDark === dark) return; // ignore unrelated class flips (e.g. lang-jp)
+    if (nowDark === dark) return;
     dark = nowDark;
     dialAngle += 180;
     dial.style.transform = `rotate(${dialAngle}deg)`;
   }).observe(root, { attributes: true, attributeFilter: ["class"] });
 
-  // clouds live in their own group so CSS can fade them all out at night;
-  // they keep spawning while hidden, so switching back to day is populated
   const cloudLayer = document.createElementNS(SVG_NS, "g");
   cloudLayer.setAttribute("class", "cloud-layer");
   svg.appendChild(cloudLayer);
