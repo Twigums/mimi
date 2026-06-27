@@ -7,11 +7,10 @@ import {
   LYRIC_CHAR_BOUNDARY_EPSILON_MS,
   populateLyricChars,
 } from "../src/ts/game/lyrics";
-import { makeCharLookup } from "../src/ts/song/charLookup";
+import { collectTextAliveChars, makeCharLookup } from "../src/ts/song/charLookup";
+import { matchLyrics } from "../src/ts/song/lyricMatch";
 import type { Note } from "../src/ts/game/engine";
 import type { TextAliveChar, TextAlivePhrase, TextAliveVideo } from "../src/ts/song/textalive";
-
-// NOTE: these tests are out of date. trust the implementation, and edit the tests next time we're making changes.
 
 function note(kind: Note["kind"], time: number, overrides: Partial<Note> = {}): Note {
   return {
@@ -126,12 +125,12 @@ assert.equal(LYRIC_CHAR_BOUNDARY_EPSILON_MS, 80);
   assert.equal(notes[1].lyricChar, ""); // empty: lookback [1300, 1200) is degenerate → no steal
 }
 
-// ── real kotaete hard.mimi lyric notes (verbatim) against captured TextAlive timings ────
+// ── real kotaete hard.mimi lyric notes against kotaete-timings.json ─────────────────────
 function buildVideoFromPhrases(
   phrases: Array<{ startTime: number; endTime: number; chars: Array<{ text: string; startTime: number; endTime: number }> }>,
 ): TextAliveVideo {
   const byPhrase: TextAliveChar[][] = phrases.map(p =>
-    p.chars.map(c => ({ text: c.text, startTime: c.startTime, endTime: c.endTime, next: null })));
+    p.chars.map(c => ({ text: c.text, startTime: c.startTime, endTime: c.endTime, next: null, parent: null })));
   const all = byPhrase.flat();
   for (let i = 0; i < all.length - 1; i++) all[i].next = all[i + 1];
 
@@ -162,14 +161,19 @@ function parseMimiNote(line: string): Note | { endTime: number } | null {
   const kind = KIND[t[0]];
   if (!kind) return null;
   const n = note(kind, Number(t[1]));
-  if (kind === "lyric" && t[5]) n.lyricChar = t[5];
+  if (kind === "lyric") {
+    for (let i = 5; i < t.length; i++) {
+      if (t[i] === "endchar") n.includeEndChar = true;
+      else if (!t[i].includes("=")) n.lyricChar = t[i];
+    }
+  }
   return n;
 }
 
 {
   const dir = resolve(process.cwd(), "test/fixtures");
-  const timings = JSON.parse(readFileSync(resolve(dir, "kotaete-hard-timings.json"), "utf8"));
-  const fixture = JSON.parse(readFileSync(resolve(dir, "kotaete-hard-lyrics.json"), "utf8")) as {
+  const timings = JSON.parse(readFileSync(resolve(dir, "kotaete-timings.json"), "utf8"));
+  const fixture = JSON.parse(readFileSync(resolve(dir, "kotaete-lyrics.json"), "utf8")) as {
     notes: Array<{ mimi: string; expected?: string }>;
   };
 
@@ -186,7 +190,7 @@ function parseMimiNote(line: string): Note | { endTime: number } | null {
   notes.sort((a, b) => a.time - b.time);
 
   computeLyricHolds(notes, endTimes);
-  populateLyricChars(notes, makeCharLookup(buildVideoFromPhrases(timings)));
+  matchLyrics(collectTextAliveChars(buildVideoFromPhrases(timings)), notes, []);
 
   let checked = 0;
   for (const n of notes) {

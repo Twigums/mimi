@@ -82,3 +82,21 @@ npm run --silent trace:lyrics -- [chart.json] [--chars chars.json] [--json]
 Per lyric note: its chart time/position, computed `holdMs` and bounding event, the exact 80 ms epsilon-adjusted char window, the auto-filled text, the chars selected (each with its offset from the note time), and the chars **just outside** the window with their offset to the window bounds. Because a chart's note times need not match the API's char `startTime`s exactly, those nearby-char offsets let an empty or wrong syllable be reconciled by eye.
 
 It also reports a **dedup check**: the shipped `makeCharLookup` follows TextAlive's song-wide `char.next` list and de-dupes each char once, whereas the old unbounded cross-phrase walk re-collected later chars once per preceding phrase (a phrase-3 char three times) — the cause of duplicated/garbled syllables this tool was written to diagnose.
+
+---
+
+# build-kotaete-timings / build-kotaete-lyrics
+
+Regenerate the kotaete lyric test fixtures after a fresh TextAlive dump or chorus jsonc edit.
+
+```bash
+# Merged timings (TextAlive dump + staff chorus overlay) → test/fixtures/kotaete-timings.json
+npm run build:kotaete-timings
+
+# Expected lyric charsets for hard.mimi → test/fixtures/kotaete-lyrics.json
+npm run build:kotaete-lyrics
+```
+
+- Input API dump (default): `test/fixtures/kotaete-textalive-dump.json` — phrase-grouped capture from `textalive-dump` / the dump tool.
+- Chorus overlay: `src/songs/kotaete/chorus-timings.jsonc` (also loaded at runtime when `lyric-chorus-timings` is set on the song tab).
+- Output timings are what `test/lyrics.test.ts` feeds through `matchLyrics` (same path as the song page after merge).

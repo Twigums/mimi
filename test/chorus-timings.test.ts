@@ -11,7 +11,7 @@ import {
 } from "../src/ts/song/chorusTimings";
 import type { TextAliveChar, TextAlivePhrase, TextAliveVideo } from "../src/ts/song/textalive";
 
-const wikiJsonc = readFileSync(resolve(process.cwd(), "wiki/6W2N_chorus_timings.jsonc"), "utf8");
+const wikiJsonc = readFileSync(resolve(process.cwd(), "src/songs/kotaete/chorus-timings.jsonc"), "utf8");
 const { phrases, wordSizes } = loadChorusTimingsJsonc(wikiJsonc);
 
 assert.equal(phrases.length, 2);

@@ -8,17 +8,28 @@ export interface PhraseTimingData {
   chars: Array<{ text: string; startTime: number; endTime: number }>;
 }
 
+/** Phrase-grouped timings (test fixtures, tooling). */
+export interface PhraseGroup {
+  startTime: number;
+  endTime: number;
+  chars: Array<{ text: string; startTime: number; endTime: number }>;
+}
+
 type ChorusSlot = { startTime: number; endTime: number };
+
+function linesFrom(raw: string): string[] {
+  return raw.split(/\r?\n/).map(l => l.replace(/\r$/, ""));
+}
 
 /** Drop // comment lines so the staff jsonc parses as JSON. */
 export function stripJsoncComments(raw: string): string {
-  return raw.split(/\r?\n/).filter(line => !/^\s*\/\//.test(line)).join("\n");
+  return linesFrom(raw).filter(line => !/^\s*\/\//.test(line)).join("\n");
 }
 
 /** Pull Japanese lyric lines from // comments (phrase text, not file headers). */
 function phraseTextsFromComments(raw: string): string[] {
   const texts: string[] = [];
-  for (const line of raw.split(/\r?\n/)) {
+  for (const line of linesFrom(raw)) {
     const m = line.match(/^\s*\/\/\s+(.+)$/);
     if (!m) continue;
     const t = m[1].trim();
@@ -81,6 +92,16 @@ function walkPhraseChars(phrase: TextAlivePhrase): TextAliveChar[] {
 }
 
 /** TextAlive emits placeholder micro-timings when char sync failed for a phrase. */
+export function isDegeneratePhraseData(phrase: PhraseGroup): boolean {
+  if (phrase.chars.length === 0) return true;
+  const span = phrase.endTime - phrase.startTime;
+  if (span < 150 && phrase.chars.length >= 5) return true;
+  const durs = phrase.chars.map(c => c.endTime - c.startTime).sort((a, b) => a - b);
+  const med = durs[Math.floor(durs.length / 2)];
+  return med < 25;
+}
+
+/** TextAlive emits placeholder micro-timings when char sync failed for a phrase. */
 export function isDegeneratePhrase(phrase: TextAlivePhrase): boolean {
   const chars = walkPhraseChars(phrase);
   if (chars.length === 0) return true;
@@ -88,6 +109,35 @@ export function isDegeneratePhrase(phrase: TextAlivePhrase): boolean {
   if (span < 150 && chars.length >= 5) return true;
   const med = chars.map(c => c.endTime - c.startTime).sort((a, b) => a - b)[Math.floor(chars.length / 2)];
   return med < 25;
+}
+
+/** Drop degenerate API phrases and overlay staff chorus timings into phrase-grouped data. */
+export function mergeChorusIntoPhrases(basePhrases: PhraseGroup[], chorusRaw: string): PhraseGroup[] {
+  const { phrases: chorusPhrases } = loadChorusTimingsJsonc(chorusRaw);
+  if (chorusPhrases.length === 0) return basePhrases;
+
+  const chorusStart = Math.min(...chorusPhrases.map(p => p.startTime));
+  const chorusEnd = Math.max(...chorusPhrases.map(p => p.endTime));
+
+  const kept: PhraseGroup[] = [];
+  for (const phrase of basePhrases) {
+    if (isDegeneratePhraseData(phrase)) continue;
+    const chars = phrase.chars.filter(
+      c => c.startTime < chorusStart || c.startTime > chorusEnd,
+    );
+    if (chars.length === 0) continue;
+    kept.push({
+      startTime: chars[0].startTime,
+      endTime: chars[chars.length - 1].endTime,
+      chars,
+    });
+  }
+
+  for (const cp of chorusPhrases) {
+    kept.push({ startTime: cp.startTime, endTime: cp.endTime, chars: cp.chars });
+  }
+
+  return kept.sort((a, b) => a.startTime - b.startTime);
 }
 
 function buildPhraseNodeFromData(data: PhraseTimingData, wordSizes: number[], next: TextAlivePhrase | null): TextAlivePhrase {
