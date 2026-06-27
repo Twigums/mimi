@@ -1,6 +1,4 @@
-// Third-party origins the song page's load path hits (TextAlive SDK CDN, Songle
-// analysis API, TextAlive backend, Piapro audio). Mirrors the static preconnects
-// in song.html for the case where the player reaches a song via in-page nav.
+// third-party origins the song page's load path hits
 const SONG_ORIGINS = [
   "https://unpkg.com",
   "https://api.songle.jp",
@@ -10,11 +8,6 @@ const SONG_ORIGINS = [
 
 let warmed = false;
 
-/**
- * Open early DNS/TLS connections to the song-page origins so a subsequent
- * navigation can begin `createFromSongUrl` against warm sockets. Best-effort
- * (the browser may drop unused/idle connections); idempotent within a page.
- */
 export function warmSongOrigins(): void {
   if (warmed) return;
   warmed = true;

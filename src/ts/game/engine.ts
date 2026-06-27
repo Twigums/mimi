@@ -22,9 +22,6 @@ export const LOGICAL_H = 600;
 
 export const LYRIC_CHAR_MAX_DIST_MS = 80;
 
-// How far the ribbon bows through each flow anchor, as a fraction of the shorter
-// adjacent chord. Higher = rounder curves (less kinking at the waypoint) at the cost
-// of some overshoot risk on very uneven spacing.
 const FLOW_TANGENT_WEIGHT = 0.9;
 
 type NoteState         = "pending" | "hit" | "missed";
@@ -83,8 +80,6 @@ export interface GameStats {
   combo: number;
   maxCombo: number;
   hits: HitDetail[];
-  // Total notes of each kind in the chart (independent of how they were judged),
-  // surfaced as chart composition in the results screen.
   noteCounts: Record<NoteKind, number>;
 }
 
@@ -119,8 +114,6 @@ interface GameDeps {
   onComboChange:   (combo: number) => void;
   onPlayingChange: (playing: boolean) => void;
   hitSoundUrl?:    string;
-  // logical play-field span in gameplay px; a smaller span than the default
-  // 800×600 zooms the same notes in (used by the testplay surface)
   logicalW?:       number;
   logicalH?:       number;
 }
@@ -198,7 +191,6 @@ export function createGame(deps: GameDeps): GameHandle {
       : 0.6;
     source.connect(resultGain);
     if (result === "tier3") {
-      // brighten the perfect hit so it reads as distinctly sharper/crisper
       const bright = audioCtx.createBiquadFilter();
       bright.type = "highshelf";
       bright.frequency.value = 3200;
@@ -291,9 +283,6 @@ export function createGame(deps: GameDeps): GameHandle {
   let reportedDrawError = false;
   let reportedCursorError = false;
   let debugDrawOnce = true;
-
-  // After reset(), skip expiry until the song confirms it has rewound to the lead-in window,
-  // preventing stale mid-song positions from triggering immediate misses.
   let skipExpiry = false;
 
   const setScore = (v: number): void => { score = v; onScore(v); };
@@ -308,14 +297,6 @@ export function createGame(deps: GameDeps): GameHandle {
     while (pointerSamples.length > 64) pointerSamples.shift();
   };
 
-  // Flow anchors take their direction from the ribbon they trace. By default the
-  // tangent points along the bisector of the incoming (prev->this) and outgoing
-  // (this->next) unit chords; an anchor whose chart row authored a `degrees` value
-  // (`directionPinned`) instead pins that heading. Either way the length is the
-  // tension weight times the shorter adjacent chord, which keeps the cubic Hermite
-  // ribbon from overshooting where spacing is uneven. The arrow and the judged shape
-  // use the angle; `draw` uses the full vector. A lone anchor (no links) or a
-  // 180-degree cusp without a pin returns null and keeps its current direction.
   const flowTangent = (index: number): { x: number; y: number } | null => {
     const n = notes[index];
     let dirX = 0, dirY = 0;
@@ -330,14 +311,14 @@ export function createGame(deps: GameDeps): GameHandle {
       const dx = x.x - n.x, dy = x.y - n.y, len = Math.hypot(dx, dy);
       if (len > 0) { dirX += dx / len; dirY += dy / len; span = Math.min(span, len); }
     }
-    if (!Number.isFinite(span)) return null; // lone anchor: no ribbon, no magnitude
+    if (!Number.isFinite(span)) return null;
     let ux: number, uy: number;
     if (n.directionPinned) {
       ux = Math.cos(n.direction);
       uy = Math.sin(n.direction);
     } else {
       const dirLen = Math.hypot(dirX, dirY);
-      if (dirLen === 0) return null; // 180-degree cusp with no authored heading
+      if (dirLen === 0) return null;
       ux = dirX / dirLen;
       uy = dirY / dirLen;
     }
@@ -354,9 +335,6 @@ export function createGame(deps: GameDeps): GameHandle {
     n.direction = Math.atan2(t.y, t.x);
   };
 
-  // The local ribbon shape an anchor is judged against: sample the cubic Hermite over
-  // the half-segments on either side of the anchor (so the window is centred on it),
-  // then reduce to FLOW_SHAPE_BINS arc-length headings. A lone anchor has no shape.
   const SHAPE_HALF_STEPS = 5;
   const hermite = (
     ax: number, ay: number, tax: number, tay: number,
@@ -395,9 +373,6 @@ export function createGame(deps: GameDeps): GameHandle {
   };
 
   const linkFlowPhrases = (): void => {
-    // Phrases are explicit, not auto-detected: consecutive flow anchors link into one
-    // phrase until a `newCombo` anchor (a chart `break`) starts a new one, or a
-    // non-flow note interrupts the run.
     let prevFlowIndex: number | null = null;
     for (let i = 0; i < notes.length; i++) {
       const note = notes[i];
@@ -413,8 +388,8 @@ export function createGame(deps: GameDeps): GameHandle {
       }
       prevFlowIndex = i;
     }
-    // Links are now resolved for the whole chart; derive each anchor's tangent, then
-    // its local shape (which depends on the neighbours' tangents).
+
+    // links are now resolved for the whole chart
     for (let i = 0; i < notes.length; i++) {
       if (notes[i].kind === "flow") applyFlowTangent(i);
     }
@@ -486,7 +461,6 @@ export function createGame(deps: GameDeps): GameHandle {
   };
 
   const expireMisses = (songMs: number): void => {
-    // Notes are time-sorted: break as soon as a pending note can still finalize.
     for (let i = pendingStart; i < notes.length; i++) {
       const n = notes[i];
       if (n.state !== "pending") continue;
@@ -535,7 +509,6 @@ export function createGame(deps: GameDeps): GameHandle {
       const appearProgress = clamp(1 - dt / approachMs, 0, 1);
       drawFlowRibbon(ctx, note, next, scale, appearProgress);
     }
-    // Notes are time-sorted: break once a pending note is past the approach window
     for (let i = pendingStart; i < notes.length; i++) {
       const note = notes[i];
       if (note.state !== "pending") continue;
@@ -589,8 +562,6 @@ export function createGame(deps: GameDeps): GameHandle {
       onPlayingChange(true);
     },
 
-    // Reflect a playback state change that did NOT originate from start()/reset()
-    // (e.g. the player pausing or stopping on its own) without wiping the score.
     setPlaying(playing: boolean): void {
       onPlayingChange(playing);
     },
@@ -616,9 +587,6 @@ export function createGame(deps: GameDeps): GameHandle {
       approachMs = ms;
     },
 
-    // Append a single live note. Used by the testplay surface, which has no song
-    // timeline: callers pass an absolute `time` (the shared clock) so spawned
-    // notes stay time-sorted, preserving the early-break assumptions in tick/draw.
     spawnNote(spec: SpawnSpec): number {
       const note: Note = {
         kind: spec.kind,
@@ -637,13 +605,11 @@ export function createGame(deps: GameDeps): GameHandle {
         if (prev && prev.kind === "flow") {
           note.flowPrevIndex = spec.flowPrevIndex;
           prev.flowNextIndex = index;
-          applyFlowTangent(spec.flowPrevIndex); // prev gained an outgoing chord
+          applyFlowTangent(spec.flowPrevIndex);
         }
       }
       if (spec.kind === "flow") applyFlowTangent(index);
-      // Re-derive shapes for the new anchor and the neighbours whose tangents moved
-      // (the predecessor gained an outgoing chord; its own predecessor's outgoing
-      // segment now ends on a re-tangented anchor).
+
       if (spec.kind === "flow") {
         applyFlowShape(index);
         if (note.flowPrevIndex !== undefined) {
@@ -658,22 +624,18 @@ export function createGame(deps: GameDeps): GameHandle {
     tick(songMs: number): void {
       recordPointerSample(songMs);
       try {
-        // Only check notes within the hit window; notes are time-sorted so break early
         for (let i = pendingStart; i < notes.length; i++) {
           const n = notes[i];
           if (n.time > songMs + TIER1_MS) break;
           if (n.state === "pending") tryHit(n, songMs, notes[i - 1]?.time);
         }
         if (skipExpiry) {
-          // Clear only once the timer has actually rewound into the lead-in window.
-          // A stale, large mid-song position (the old play head right after reset(),
-          // before the async seek lands) must NOT re-enable expiry — otherwise the
-          // next tick mass-misses every freshly-pending note before the song restarts.
           if (songMs <= approachMs) skipExpiry = false;
         } else {
           expireMisses(songMs);
         }
-        // Advance past resolved notes (hit or missed) at the front
+
+        // Advance past resolved notes
         while (pendingStart < notes.length && notes[pendingStart].state !== "pending") pendingStart++;
       } catch (err) {
         if (!reportedUpdateError) {

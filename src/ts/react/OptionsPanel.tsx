@@ -1,13 +1,35 @@
 import { useCallback, useEffect, useRef, useState, type CSSProperties } from "react";
-import {
-  AR_MIN, AR_MAX, arToMs, VOLUME_MIN, VOLUME_MAX, VOLUME_STEP,
-  CURSOR_SIZE_MIN, CURSOR_SIZE_MAX,
-  TRAIL_FADE_MIN, TRAIL_FADE_MAX,
-  OFFSET_STEP,
-  TIMING_OFFSET_MIN, TIMING_OFFSET_MAX,
-  resetSettings,
-} from "../core/settings";
-import { useApproachRate, useVolume, useHitsoundVolume, useUiVolume, useHiddenMod, useCursorSize, useCursorR, useCursorG, useCursorB, useTrailFadeSpeed, useTrailShape, useTrailDecay, useMusicOffset } from "./hooks/useSettings";
+import { AR_MIN,
+         AR_MAX,
+         arToMs,
+         VOLUME_MIN,
+         VOLUME_MAX,
+         VOLUME_STEP,
+         CURSOR_SIZE_MIN,
+         CURSOR_SIZE_MAX,
+         TRAIL_FADE_MIN,
+         TRAIL_FADE_MAX,
+         OFFSET_STEP,
+         TIMING_OFFSET_MIN,
+         TIMING_OFFSET_MAX,
+         resetSettings,
+       } from "../core/settings";
+
+import { useApproachRate,
+         useVolume,
+         useHitsoundVolume,
+         useUiVolume,
+         useHiddenMod,
+         useCursorSize,
+         useCursorR,
+         useCursorG,
+         useCursorB,
+         useTrailFadeSpeed,
+         useTrailShape,
+         useTrailDecay,
+         useMusicOffset
+       } from "./hooks/useSettings";
+
 import { TestPlay } from "./TestPlay";
 import { ColorPicker } from "./ColorPicker";
 import { useLang } from "./hooks/useLang";
@@ -69,7 +91,7 @@ export function OptionsPanel({ isSongPage = false }: Props) {
     setCursorB(b);
   }, [setCursorR, setCursorG, setCursorB]);
 
-  // common settings stay open; only the rarely-touched trail tweaks fold away
+  // common settings stay open
   const [trailOpen, setTrailOpen] = useState(() => localStorage.getItem("trailAccordionOpen") === "true");
 
   if (!open) return null;
@@ -342,7 +364,6 @@ export function OptionsPanel({ isSongPage = false }: Props) {
           onClick={() => {
             const keepAr = ar;
             resetSettings();
-            // AR is locked on the song page, so don't let a reset jump it mid-song
             if (isSongPage) setAr(keepAr);
           }}
         >

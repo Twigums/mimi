@@ -14,10 +14,6 @@ function mikuSvg(grade: Grade): string {
   return withPath("/images/miku/miku_C.svg");
 }
 
-// Inline the Miku SVG (rather than <img src>) so the app's `html.theme-dark`
-// can reach inner paths — specifically miku_B's `.miku-zzz` sleep strokes, which
-// must follow the in-app theme toggle, not the OS `prefers-color-scheme` an
-// <img>-isolated SVG is limited to. Markup is a first-party build asset.
 function MikuFigure({ grade, anim }: { grade: Grade; anim: "bounce" | "sway" }) {
   const [markup, setMarkup] = useState("");
   const src = mikuSvg(grade);
@@ -25,7 +21,6 @@ function MikuFigure({ grade, anim }: { grade: Grade; anim: "bounce" | "sway" }) 
     let alive = true;
     fetch(src)
       .then(r => r.text())
-      // drop the XML prolog/comments so it parses cleanly in an HTML context
       .then(t => { if (alive) setMarkup(t.slice(Math.max(0, t.indexOf("<svg")))); })
       .catch(() => {});
     return () => { alive = false; };
@@ -63,8 +58,7 @@ const LABELS_JP = {
   share: "シェア", copied: "コピー済み！", failed: "失敗", tryAgain: "やり直す", back: "戻る",
 };
 
-// Ease a number from 0 to target over the mount (easeOutCubic); respects
-// prefers-reduced-motion by snapping straight to the target.
+// Ease a number from 0 to target over the mount
 function useCountUp(target: number, durationMs = 800): number {
   const [val, setVal] = useState(0);
   useEffect(() => {
@@ -102,8 +96,6 @@ function TimingHistogram({ offsets, labels }: { offsets: number[]; labels: typeo
   const W = HIST_BINS;
   const H = 30;
   const meanX = ((mean + range) / (range * 2)) * W;
-  // One-line coaching takeaway: a tendency word (only when meaningfully off) trailed
-  // by the precise average offset. "On time" carries no word — just the number.
   const tendency = !hasData || Math.abs(mean) < 8
     ? "" : mean < 0 ? labels.tendEarly : labels.tendLate;
   return (
@@ -147,9 +139,7 @@ function TimingHistogram({ offsets, labels }: { offsets: number[]; labels: typeo
   );
 }
 
-// Donut "basic" view: the four judgement tiers as proportional arcs around a
-// hollow centre that frames Miku. Counts sit just outside each arc; the legend
-// names the tiers. Mirrors the breakdown colours.
+// basic view
 type PieTierKey = "tier3" | "tier2" | "tier1" | "miss";
 const PIE_TIERS: { key: PieTierKey; cls: string }[] = [
   { key: "tier3", cls: "perfect" },
@@ -196,7 +186,7 @@ function JudgementPie(
             onPointerLeave={() => setHover(null)}
           />
         ))}
-        {/* start/end notch at 12 o'clock, spanning the ring thickness */}
+        {/* start/end notch at top */}
         <line
           className="results-pie__notch"
           x1={cx} y1={cy - r - sw / 2 - 2}
@@ -243,21 +233,15 @@ const ISSUE_ORDER: IssueReason[] = ["timing", "contact", "direction", "gesture"]
 const NOTE_LABELS_EN: Record<NoteKind, string> = { cut: "cut", flow: "flow", lyric: "lyric" };
 const NOTE_LABELS_JP: Record<NoteKind, string> = { cut: "カット", flow: "フロー", lyric: "歌詞" };
 const NOTE_ORDER: NoteKind[] = ["cut", "flow", "lyric"];
-
-// Accuracy thresholds for the "next grade" hint, ascending so the first entry
-// above the current accuracy is the next tier up. Mirrors computeGrade.
 const GRADE_STEPS: { grade: string; min: number }[] = [
   { grade: "C", min: 0.5 }, { grade: "B", min: 0.7 }, { grade: "A", min: 0.85 },
   { grade: "S", min: 0.95 }, { grade: "SS", min: 0.99 }, { grade: "SSS", min: 1.0 },
 ];
 
-// Tiers that can carry an issue (Tier 3 is clean by definition).
 type IssueTier = "tier2" | "tier1" | "miss";
 const ISSUE_TIERS: IssueTier[] = ["tier2", "tier1", "miss"];
 
-// Hover cross-filter. Three linked dimensions: tier (the breakdown row), note
-// kind (chart-data row, shown as chart totals but acting as a filter), and issue
-// reason. Hovering any cell scopes the dynamic dimensions to matching hits.
+// Hover cross filter
 type Dim = "tier" | "note" | "issue";
 type Focus =
   | { dim: "tier"; tier: IssueTier }
@@ -282,8 +266,6 @@ export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, artist
   const lang = useLang();
   const [shareStatus, setShareStatus] = useState<"idle" | "copied" | "failed">("idle");
   const [focus, setFocus] = useState<Focus>(null);
-  // Default to the at-a-glance donut; "Advanced Details" swaps to the full
-  // cross-filtering breakdown, "Basic Details" returns here.
   const [view, setView] = useState<"pie" | "detailed">("pie");
 
   useEffect(() => {
@@ -300,11 +282,7 @@ export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, artist
   const pct = (accuracy * 100).toFixed(2);
   const scoreView = useCountUp(stats.score);
   const accView = useCountUp(accuracy * 100);
-
-  // Distance to the next grade up — a concrete reason to retry. Mirrors the
-  // accuracy thresholds in computeGrade; undefined once already at the top.
   const nextStep = GRADE_STEPS.find(s => s.min > accuracy);
-  // Achievement badge: an all-PERFECT run, else a no-miss full combo.
   const badgeKey: "allPerfect" | "fullCombo" | null =
     stats.total === 0 ? null
     : stats.tier3 === stats.total ? "allPerfect"
@@ -316,9 +294,6 @@ export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, artist
   const noteLabels = lang === "jp" ? NOTE_LABELS_JP : NOTE_LABELS_EN;
   const difficultyName = difficulty ? difficulty.toUpperCase() : "";
   const acceptedHits = stats.hits.filter(hit => hit.result !== "miss");
-
-  // Every non-Tier-3 hit carries an issue; flatten them so each dimension's
-  // counts are a simple predicate over the same list.
   const npHits: NonPerfectHit[] = [];
   for (const hit of stats.hits) {
     if (hit.result === "tier3" || !hit.issue) continue;
@@ -330,9 +305,6 @@ export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, artist
         : focus.dim === "note" ? h.note === focus.note
         : h.issue === focus.issue);
   const countWhere = (pred: (h: NonPerfectHit) => boolean): number => npHits.filter(pred).length;
-
-  // Tier and issue counts scope to the active focus (unless it's their own
-  // dimension); the note row always shows the chart's fixed composition.
   const tierCount = (tier: IssueTier): number =>
     focus !== null && focus.dim !== "tier"
       ? countWhere(h => h.tier === tier && matchesFocus(h))
@@ -342,30 +314,20 @@ export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, artist
       ? countWhere(h => h.issue === issue && matchesFocus(h))
       : countWhere(h => h.issue === issue);
 
-  // Early/late counts, restricted to timing-issue hits (so they reflect rhythm
-  // errors only — never a mis-aimed-but-on-time hit, and never a PERFECT, which
-  // carries no issue). Revealed beside the Issues label on a timing hover.
   const timingEarly = stats.hits.filter(h => h.issue === "timing" && h.timing === "early").length;
   const timingLate = stats.hits.filter(h => h.issue === "timing" && h.timing === "late").length;
 
-  // A cell is active when it is the hovered cell (same dimension) or, while a
-  // different dimension is focused, it still has matching hits; everything else
-  // dims while any focus is held. A zero-count cell always reads dimmed (nothing
-  // to drill into) even at rest.
+  // A cell is active when it is the hovered cell
   const cellState = (dim: Dim, isHovered: boolean, count: number): string => {
     if (count === 0) return " is-dim";
     const active = focus?.dim === dim ? isHovered : focus !== null && count > 0;
     return (active ? " is-active" : "") + (focus !== null && !active ? " is-dim" : "");
   };
-  // The note row holds fixed chart totals, so it only highlights its own hover;
-  // a kind the chart never uses stays dimmed.
+
   const noteCellState = (note: NoteKind): string =>
     stats.noteCounts[note] === 0 ? " is-dim"
       : focus?.dim === "note" ? (focus.note === note ? " is-active" : " is-dim") : "";
 
-  // What currently scopes the issue rows, shown beside the Issues label. A timing
-  // hover additionally reveals its early/late split (kept off-row so the grid
-  // never reflows). Falls back to a quiet hint when nothing is focused.
   const issueIndicator: string =
     focus === null ? labels.hoverFilter
     : focus.dim === "tier" ? JUDGEMENT_LABEL[focus.tier]

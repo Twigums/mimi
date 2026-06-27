@@ -79,9 +79,7 @@ export function GameSurface({ onReady, returnHref, onTryAgain }: Props) {
   const [ar] = useApproachRate();
   const frameSize = useElementSize(gameAreaRef);
 
-  // Chart metadata for the results screen: difficulty from the URL (?d=), tempo
-  // and per-difficulty level map from the song-page dataset (injected by site.hs;
-  // the active difficulty's level is looked up since one page serves all of them).
+  // Chart metadata for the results screen
   const difficulty = new URL(window.location.href).searchParams.get("d") ?? "expert";
   const bpmRaw = document.body.dataset.songBpm;
   const bpm = bpmRaw ? Number(bpmRaw) : null;
@@ -121,8 +119,6 @@ export function GameSurface({ onReady, returnHref, onTryAgain }: Props) {
         const id = ++_toastId;
         setFeedbacks(prev => [...prev, { id, result: res, x, y }]);
         setTimeout(() => setFeedbacks(prev => prev.filter(f => f.id !== id)), 700);
-        // Route to the storyboard so the displayed lyric mapped to this note fills
-        // (hit) or stays empty (miss). Non-lyric notes match nothing and no-op.
         lyricOutcomeRef.current?.(res, x, y);
       },
     });

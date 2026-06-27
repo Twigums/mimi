@@ -14,17 +14,11 @@ export interface TestPlayHandle {
 }
 
 interface Props {
-  // when set, notes auto-spawn on a rolling loop (settings menu);
-  // otherwise notes appear only via the imperative spawnNote handle (tutorial)
   loop?: boolean;
   variant?: "tutorial" | "panel";
   frameScale?: number;
-  // gameplay-px span of the surface; smaller than the real 800×600 field so the
-  // same notes render zoomed in. keep the 4:3 ratio to match the canvas
   logicalW?: number;
   logicalH?: number;
-  // fixed AR (skips the live setting) — the tutorial pins this so its pace is
-  // independent of the player's chosen approach rate
   arOverride?: number;
 }
 
@@ -37,10 +31,8 @@ interface Toast {
 
 const DEMO_CHAR  = "か";
 const LOOP_KINDS: NoteKind[] = ["cut", "flow", "lyric"];
-const LOOP_GAP   = 900;            // pause after a note's approach before the next spawns
-const MARGIN     = NOTE_RADIUS * 2; // keep notes (and flow offsets) inside the play-field
-// the demo flow pair is spaced in time relative to the approach pace: 150 ms
-// reads well at AR 14, so scale that gap by approachMs / arToMs(14)
+const LOOP_GAP   = 900;
+const MARGIN     = NOTE_RADIUS * 2;
 const FLOW_GAP_RATIO = 150 / arToMs(14);
 
 let _toastId = 0;

@@ -151,7 +151,6 @@ function ensureArrowGlyph(): void {
 ensureArrowGlyph();
 
 // appearProgress: 0 = faint outline just appearing, 1 = fully filled at hit time
-// scale: canvas pixels per logical unit (canvas.width / LOGICAL_W)
 export function drawArrow(
   ctx: CanvasRenderingContext2D,
   note: Note,
@@ -176,7 +175,6 @@ export function drawArrow(
 
   const { base, darkBase } = style.colors;
 
-  // Outline snaps to full opacity quickly; fill grows from center after FILL_START
   const OUTLINE_SNAP = 0.12;
   const FILL_START   = 0.62;
   const outlineAlpha = Math.min(appearProgress / OUTLINE_SNAP, 1);
@@ -191,9 +189,6 @@ export function drawArrow(
     return;
   }
 
-  // Place the SVG arrow: center its viewBox on the note, rotate to `direction`, and
-  // scale so the arrow spans one note radius (matching the old hand-built footprint).
-  // Build once; reuse for both clip and stroke.
   const s = r / arrowGlyph.viewBoxW;
   const matrix = new DOMMatrix()
     .translateSelf(cx, cy)
@@ -203,7 +198,6 @@ export function drawArrow(
   const path = new Path2D();
   path.addPath(arrowGlyph.path, matrix);
 
-  // Radial fill clipped to arrow shape (skipped in hidden mod)
   if (!hidden) {
     ctx.save();
     ctx.clip(path);
@@ -215,7 +209,6 @@ export function drawArrow(
     ctx.restore();
   }
 
-  // Stroke outline (clip no longer active)
   ctx.save();
   ctx.strokeStyle = `rgba(${darkBase}, ${0.9 * outlineAlpha})`;
   ctx.lineWidth = 2.5 * scale;
@@ -225,9 +218,6 @@ export function drawArrow(
 }
 
 // appearProgress: 0 = faint outline just appearing, 1 = fully visible at hit time.
-// The lyric character itself is delivered by the storyboard's DOM funnel (it flies
-// from the source lyric onto the note); the canvas draws only the dashed target
-// circle and the glyph's stroke outline so the note's position and text are legible.
 export function drawLyricNote(
   ctx: CanvasRenderingContext2D,
   note: Note,
@@ -262,8 +252,6 @@ export function drawLyricNote(
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
 
-  // Multi-char lyrics (e.g. a whole word or 自分) must fit inside the circle; shrink
-  // the font when the measured width exceeds the dot's usable span.
   const maxWidth = dotR * 1.9;
   const measured = ctx.measureText(note.lyricChar).width;
   if (measured > maxWidth) {
@@ -286,9 +274,6 @@ export function drawFlowRibbon(
 ): void {
   const { base } = NOTE_STYLE.flow.colors;
 
-  // Cubic Hermite from `from` to `to` using each anchor's ribbon tangent, so the
-  // drawn ribbon matches the curve the anchors trace. Missing tangents (e.g. a lone
-  // link) fall back to the straight chord.
   const ax = from.x, ay = from.y, bx = to.x, by = to.y;
   const chordX = bx - ax, chordY = by - ay;
   const tax = from.flowTanX ?? chordX, tay = from.flowTanY ?? chordY;

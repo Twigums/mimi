@@ -3,8 +3,6 @@ import { MAX_POINTS } from "./engine";
 
 export type Grade = "SSS" | "SS" | "S" | "A" | "B" | "C" | "F";
 
-// Player-facing name for each judgement tier, shared by the in-game hit toasts
-// and the results screen.
 export const JUDGEMENT_LABEL: Record<HitResult, string> = {
   tier3: "PERFECT",
   tier2: "GREAT",

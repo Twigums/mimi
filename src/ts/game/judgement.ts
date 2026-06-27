@@ -18,48 +18,25 @@ export const CUT_CONTACT_TIER1   = 110;
 export const CUT_TRAVEL_TIER3    = 40;
 export const CUT_TRAVEL_TIER2    = 24;
 export const CUT_TRAVEL_TIER1    = 8;
-// Path straightness = net displacement / path length over the chosen sub-gesture
-// (1 = a clean straight slash, lower = the path wanders or doubles back). This is
-// what makes the selected gesture have to be *one coherent stroke*: contact and
-// direction can no longer be borrowed from different motions inside the window,
-// because any slice spanning a reversal scores low here. Cut only; reported in the
-// gesture issue slot alongside travel.
 export const CUT_STRAIGHT_TIER3  = 0.9;
 export const CUT_STRAIGHT_TIER2  = 0.8;
 export const CUT_STRAIGHT_TIER1  = 0.65;
-// Flow caps run looser than cut — flow rewards continuous traced motion. Contact
-// reuses the cut thresholds for now (FLOW_CONTACT_* kept for future tuning); flow
-// has no direction cap, folding heading into the shape metric below.
 export const FLOW_CONTACT_TIER3  = 65;
 export const FLOW_CONTACT_TIER2  = 95;
 export const FLOW_CONTACT_TIER1  = 130;
 export const FLOW_TRAVEL_TIER3   = 24;
 export const FLOW_TRAVEL_TIER2   = 12;
 export const FLOW_TRAVEL_TIER1   = 4;
-// Flow's perfect/great windows are more lenient than cut (gliding a phrase shouldn't
-// demand cut-level precision per anchor). Tier 1 stays at the shared TIER1_MS so the
-// engine's eligibility/expiry/draw windows are unchanged.
 export const FLOW_TIER3_MS       = 70;
 export const FLOW_TIER2_MS       = 120;
-// Flow's single shape metric: the RMS angle between the gesture's heading sequence
-// and the ribbon's local heading sequence (FLOW_SHAPE_BINS bins each). The perfect
-// threshold stays generous so smooth curves and corners keep full credit, but the
-// great/good boundaries are pulled in (issue #74) so a roughly perpendicular sweep
-// (~90°) no longer earns a GREAT — it drops to GOOD, and clearly-wrong motion
-// (sideways past ~100°, backward) misses outright.
 export const FLOW_SHAPE_BINS     = 4;
-export const FLOW_CONT_TIER3     = 35 * Math.PI / 180;
-export const FLOW_CONT_TIER2     = 50 * Math.PI / 180;
-export const FLOW_CONT_TIER1     = 70 * Math.PI / 180;
+export const FLOW_CONT_TIER3     = 60 * Math.PI / 180;
+export const FLOW_CONT_TIER2     = 75 * Math.PI / 180;
+export const FLOW_CONT_TIER1     = 100 * Math.PI / 180;
 
 export type NoteKind   = "cut" | "flow" | "lyric";
 export type HitResult  = "tier3" | "tier2" | "tier1" | "miss";
 export type HitTiming  = "early" | "late" | "on";
-// The four player-facing issue buckets. `gesture` captures whether the stroke
-// itself was good — a cut's travel/slash and a flow's traced shape both report
-// here (there is no separate `travel`/`flow`/`continuity` issue). `direction`
-// applies to cut only; lyric and flow have no direction issue (flow folds heading
-// into its shape, reported as `gesture`).
 export type IssueReason = "timing" | "contact" | "direction" | "gesture";
 
 export interface JudgementNote {
@@ -68,8 +45,6 @@ export interface JudgementNote {
   x: number;
   y: number;
   direction: number;
-  // Flow only: the ribbon's local heading sequence (FLOW_SHAPE_BINS entries) the
-  // gesture is matched against. Absent for a lone anchor (judged on motion only).
   flowShape?: number[];
 }
 
@@ -120,8 +95,6 @@ export function scoreFor(
   return { result: "miss", points: 0 };
 }
 
-// Per-kind timing windows. Flow widens tier3/tier2; tier1 stays shared so the engine
-// windows keyed to TIER1_MS hold for every kind.
 function timingTiers(kind: NoteKind): { t3: number; t2: number; t1: number } {
   return kind === "flow"
     ? { t3: FLOW_TIER3_MS, t2: FLOW_TIER2_MS, t1: TIER1_MS }
@@ -201,8 +174,6 @@ function clipSamples(pointerSamples: PointerSample[], windowStart: number, windo
 }
 
 // Arc-length-uniform resample of a polyline into `bins` segment headings (radians).
-// Each heading reflects the path's shape over its bin, so no single raw sample is
-// load-bearing. Returns null if the path has no length.
 export function resampleHeadings(points: { x: number; y: number }[], bins: number): number[] | null {
   const n = points.length;
   if (n < 2 || bins < 1) return null;
@@ -251,11 +222,6 @@ function contactForSegment(note: JudgementNote, start: PointerSample, end: Point
   };
 }
 
-// The issue is the binding constraint that held the note below Tier 3: the first
-// metric (in priority order) whose cap equals the final result. The result is the
-// minimum of all caps, so at least one matches for any non-Tier-3 note; a clean
-// Tier 3 has no issue. Travel (cut slash / flow motion) and the flow shape cap both
-// surface as the single `gesture` issue.
 function issueFor(
   result: HitResult,
   timingCap: HitResult,
@@ -273,11 +239,7 @@ function issueFor(
   return undefined;
 }
 
-// The flow shape cap: how well the gesture traces the ribbon's local shape. Gesture
-// and ribbon are both reduced to a heading sequence (resampled by arc length), and the
-// cap is the RMS per-bin heading error — position-invariant, so it measures shape, not
-// distance. A lone anchor has no ribbon shape and is left free (travel/contact still
-// require motion); the previous anchor's grade does not cascade into this one.
+// The flow shape cap
 function flowShapeCap(note: JudgementNote, samples: PointerSample[], startIndex: number, endIndex: number): HitResult {
   const target = note.flowShape;
   if (!target || target.length === 0) return "tier3";
@@ -308,16 +270,11 @@ function buildCandidate(
   const direction = Math.atan2(dy, dx);
   const durationMs = end.songMs - start.songMs;
   const offsetMs = impactSongMs - note.time;
-  // How directly the path connects its endpoints: 1 for a straight stroke, lower the
-  // more it wanders or doubles back. A degenerate (no-motion) slice is treated as
-  // straight so travel — not straightness — is what fails it.
   const straightness = pathLen > 1e-6 ? clamp(travel / pathLen, 0, 1) : 1;
 
   const isFlow = note.kind === "flow";
   const tt = timingTiers(note.kind);
   const timingScore = scoreFor(offsetMs, tt.t3, tt.t2, tt.t1);
-  // Contact uses the cut thresholds for both kinds until there's evidence to tune
-  // flow separately; FLOW_CONTACT_* are kept defined for that future tuning.
   const contactCap = capUpper(contactDistance, CUT_CONTACT_TIER3, CUT_CONTACT_TIER2, CUT_CONTACT_TIER1);
   const travelCap = isFlow
     ? capLower(travel, FLOW_TRAVEL_TIER3, FLOW_TRAVEL_TIER2, FLOW_TRAVEL_TIER1)
@@ -325,9 +282,6 @@ function buildCandidate(
   let directionError = 0;
   let directionCap: HitResult = "tier3";
   let flowCap: HitResult = "tier3";
-  // Straightness gates cut only: it forces the scored gesture to be one coherent
-  // slash so contact and direction describe the same motion. Flow ribbons bend by
-  // design and lyrics ignore shape, so both stay unconstrained here.
   let straightCap: HitResult = "tier3";
 
   if (note.kind === "cut") {
@@ -335,8 +289,6 @@ function buildCandidate(
     directionCap = capUpper(directionError, CUT_DIRECTION_TIER3, CUT_DIRECTION_TIER2, CUT_DIRECTION_TIER1);
     straightCap = capLower(straightness, CUT_STRAIGHT_TIER3, CUT_STRAIGHT_TIER2, CUT_STRAIGHT_TIER1);
   } else if (isFlow) {
-    // Flow has no separate direction cap: how the gesture follows the ribbon (heading
-    // and bend) is the shape metric, reported in the "flow" / flow slot.
     flowCap = flowShapeCap(note, samples, startIndex, endIndex);
   }
 
@@ -379,10 +331,6 @@ function candidateSortKey(candidate: Candidate): number[] {
     tierRank(candidate.result),
     tierRank(candidate.timingCap),
     tierRank(candidate.contactCap),
-    // Gesture substance (real travel + a coherent straight path) ranks ahead of
-    // direction so that, among equally-missing candidates, an actual reversed sweep
-    // beats a degenerate zero-travel one parked near the note — the binding issue is
-    // then the wrong direction, not a spurious "no gesture" from the parked point.
     tierRank(candidate.travelCap),
     tierRank(candidate.straightCap),
     tierRank(candidate.directionCap),
@@ -418,8 +366,6 @@ function selectBestCandidate(
   );
   if (samples.length < 2) return null;
 
-  // Cumulative path length so each slice's arc length (for the straightness metric)
-  // is an O(1) difference rather than an inner re-sum.
   const cum = [0];
   for (let i = 1; i < samples.length; i++) {
     cum.push(cum[i - 1] + Math.hypot(samples[i].x - samples[i - 1].x, samples[i].y - samples[i - 1].y));
@@ -469,18 +415,6 @@ function canStillImprove(
   return latestSongMs < noteTime + CUT_METRIC_WINDOW_MS;
 }
 
-// The gesture for a cut is "settled" once the pointer has left the contact zone:
-// no current motion is improving contact, and a better-timed re-cut would need a
-// physically implausible re-approach within the few ms left. Committing here
-// instead of holding for the timing window keeps non-perfect feedback from lagging
-// behind an early cut (issue #53). The gate is the LATER of two floors: the note's
-// own GOOD window opening (note.time − TIER1_MS — before that no result is even a
-// non-miss, so an early sweep that leaves the zone sooner is not yet this note's
-// gesture) and the previous note's time (a sweep toward an adjacent note must not
-// claim this note during the previous note's territory). Using the GOOD-window
-// floor — not the perfect-window start — keeps a legitimately early GOOD/GREAT cut
-// committing promptly, while stopping spam from locking a grade hundreds of ms
-// early off the back of a far-earlier previous note (issue #74).
 function cutEarliestCommitMs(note: JudgementNote, prevNoteTime: number | undefined): number {
   return Math.max(note.time - TIER1_MS, prevNoteTime ?? -Infinity);
 }

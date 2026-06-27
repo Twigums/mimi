@@ -23,15 +23,14 @@ interface TrailParticle {
 
 const MAX_PARTICLES      = 150;
 const SPAWN_INTERVAL_MS  = 8;
-const MAX_SCATTER_SPEED  = 0.15; // canvas px / ms
+const MAX_SCATTER_SPEED  = 0.15;
 
 export interface CursorRenderer {
   render(now: number): void;
   destroy(): void;
 }
 
-// getScale returns canvas device-px per logical (gameplay) px, so the cursor
-// and trail are sized in gameplay px and shrink/grow with the play-field
+// getScale returns canvas device-px per logical px
 export function createCursorRenderer(canvas: HTMLCanvasElement, getScale: () => number): CursorRenderer {
   const ctx = canvas.getContext("2d");
   if (!ctx) throw new Error("2D canvas context unavailable");

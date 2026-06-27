@@ -376,6 +376,44 @@ html.theme-dark .bg-sky .cloud-layer {
   }
 }
 
+.btn-main--play::after {
+  content: '';
+}
+
+.btn-play-icon {
+  position: absolute;
+  display: block;
+  width: 1.9rem;
+  height: 1.9rem;
+  top: -0.65rem;
+  left: 36%;
+  background: currentColor;
+  color: transparent;
+  pointer-events: none;
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 33.76 37.28'%3E%3Cpath d='M2.1 35.18L31.66 18.64L2.1 2.1Z'/%3E%3C/svg%3E") center / 45% no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 33.76 37.28'%3E%3Cpath d='M2.1 35.18L31.66 18.64L2.1 2.1Z'/%3E%3C/svg%3E") center / 45% no-repeat;
+  transition: transform 0.3s var(--motion-ease-bouncy), color 0.2s;
+}
+
+.btn-main--play:hover .btn-play-icon {
+  color: var(--miku-teal);
+  transform: translateY(-0.55rem) rotate(12deg);
+}
+
+.btn-main--tutorial::after {
+  content: '?';
+  font-size: 1.2rem;
+  -webkit-font-smoothing: antialiased;
+}
+
+.btn-main--info::after {
+  content: 'i';
+  font-size: 1.2rem;
+  font-style: oblique -12deg;
+  font-weight: 700;
+  -webkit-font-smoothing: antialiased;
+}
+
 .btn-back {
   position: relative;
   padding: 0.6rem 1.6rem;
