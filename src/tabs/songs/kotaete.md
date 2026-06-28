@@ -1,7 +1,7 @@
 ---
 title: Answer Me
 song-name: Answer Me
-song-name-jp: πüôπüƒπüêπüª
+song-name-jp: こたえて
 song-author: imie
 song-author-jp: imie
 song-mapper: Twigums

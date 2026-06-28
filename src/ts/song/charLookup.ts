@@ -1,4 +1,4 @@
-import type { TextAliveChar, TextAliveVideo } from "./textalive";
+import type { TextAliveChar, TextAlivePhrase, TextAliveVideo } from "./textalive";
 import type { CharLookup } from "../game/lyrics";
 
 // TextAlive's `char.next` is a song-wide linked list. A phrase's `firstChar` points into
@@ -36,12 +36,24 @@ export function collectTextAliveChars(video: TextAliveVideo): TextAliveChar[] {
   );
 }
 
+/** Chars belonging to one phrase — bounded so a song-wide `char.next` chain cannot bleed in. */
+export function walkPhraseChars(phrase: TextAlivePhrase): TextAliveChar[] {
+  const out: TextAliveChar[] = [];
+  let c = phrase.firstChar;
+  while (c) {
+    if (c.startTime > phrase.endTime) break;
+    if (c.startTime >= phrase.startTime) out.push(c);
+    c = c.next;
+  }
+  return out;
+}
+
 // Build a range lookup over the song's characters (a fixed, time-ordered list once the
 // video is ready): returns the text of every character whose start time falls in
 // [startMs, endMs), concatenated in order. Used to auto-fill a lyric note from its hold
-// window. Deterministic given the loaded video ΓÇö the only input is the time range.
+// window. Deterministic given the loaded video — the only input is the time range.
 //
-// With `includePrevChar`, the syllable still in progress at startMs is prepended ΓÇö the
+// With `includePrevChar`, the syllable still in progress at startMs is prepended — the
 // character whose onset precedes startMs but whose end is after it (still sounding when the
 // window opens), which a window opening after that syllable's onset would otherwise miss.
 // A character that already ended before startMs is not in progress, so it is not pulled in

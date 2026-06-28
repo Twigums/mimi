@@ -145,7 +145,7 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPre
   const tryApplyChart = (): void => {
     if (chartApplied || !loadedNotes || storyPending) return;
     // When the song has a TextAlive video, wait for it before applying the chart so
-    // lyric matching runs ΓÇö otherwise the (fast) local chart/story fetches would set
+    // lyric matching runs — otherwise the (fast) local chart/story fetches would set
     // the chart first and the matcher (which needs the video chars) would be skipped.
     // Playback can't start before the video is ready anyway, so this never stalls.
     if (hasVideoIds && !videoForMatch) return;

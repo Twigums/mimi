@@ -18,7 +18,7 @@ export interface TextAliveChar {
   startTime: number;
   endTime: number;
   next: TextAliveChar | null;
-  // The word this character belongs to (TextAlive Phrase ΓåÆ Word ΓåÆ Char). Used to
+  // The word this character belongs to (TextAlive Phrase → Word → Char). Used to
   // shine a whole word once all its mapped lyric notes are hit.
   parent: TextAliveWord | null;
 }
