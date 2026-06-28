@@ -601,6 +601,31 @@ export function drawCursorParticle(
   }
 }
 
+function drawLyricFireworks(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  progress: number,
+  scale: number,
+  color: string,
+): void {
+  const alpha = 1 - progress;
+  const r = LYRIC_RADIUS * 1.35 * scale * (1 - Math.pow(1 - progress, 1.6));
+
+  ctx.save();
+  ctx.strokeStyle = `rgba(${color}, ${alpha})`;
+  ctx.lineWidth = 3 * scale * (1 - progress);
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.65})`;
+  ctx.lineWidth = 1.5 * scale * (1 - progress);
+  ctx.beginPath();
+  ctx.arc(cx, cy, r * 0.72, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
+}
+
 export function drawFireworks(
   ctx: CanvasRenderingContext2D,
   x: number, y: number,
@@ -628,6 +653,11 @@ export function drawFireworks(
   const color = style.colors.base;
   const cx = x * scale;
   const cy = y * scale;
+
+  if (kind === "lyric") {
+    drawLyricFireworks(ctx, cx, cy, progress, scale, color);
+    return;
+  }
 
   ctx.save();
   ctx.strokeStyle = `rgba(${color}, ${alpha})`;
