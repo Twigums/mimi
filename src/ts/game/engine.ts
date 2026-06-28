@@ -623,10 +623,11 @@ export function createGame(deps: GameDeps): GameHandle {
         const visualScale = songMs >= note.time
           ? lyricVisualScale(holdMs, songMs, note.time, holding, approachPulse)
           : approachPulse;
+        const elapsedSinceHitMs = Math.max(0, songMs - note.time);
         drawLyricNote(
           ctx, note, appearProgress, scale, hiddenMod,
           holdProgress, holding, visualScale, fillProgress,
-          holdMs,
+          holdMs, elapsedSinceHitMs,
         );
         if (lyricDemoFunnel && dt > 0 && fillProgress < 1) {
           drawLyricDemoFunnel(

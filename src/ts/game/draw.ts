@@ -4,13 +4,15 @@ import { withPath } from "../core/sitePath";
 import {
   layoutLyricGlyphs,
   LYRIC_AURA_EXTEND_PX,
-  LYRIC_BOUND_RATIO,
   LYRIC_END_BURST_MS,
   LYRIC_FUNNEL_BLEND_MS,
   LYRIC_HOLD_GREY_SETTLE_MS,
   LYRIC_RADIUS,
   LYRIC_RELEASE_CUE_MS,
   LYRIC_SOLID_RING_RATIO,
+  lyricBoundApproachAlpha,
+  lyricBoundApproachRotation,
+  lyricBoundRadiusRatio,
   lyricCharLandTime,
   lyricGlyphOffsetYPx,
   lyricHoldBlueBlend,
@@ -312,11 +314,14 @@ function drawLyricBound(
   alpha: number,
   rgb = "255, 255, 255",
   dashed = true,
+  rotation = 0,
 ): void {
   if (alpha <= 0.01) return;
   ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(rotation);
   ctx.beginPath();
-  ctx.arc(cx, cy, boundR, 0, Math.PI * 2);
+  ctx.arc(0, 0, boundR, 0, Math.PI * 2);
   if (dashed) ctx.setLineDash([3 * scale, 4 * scale]);
   ctx.strokeStyle = `rgba(${rgb}, ${alpha})`;
   ctx.lineWidth = 1.5 * scale;
@@ -351,6 +356,7 @@ function drawLyricSolidRing(
 // visualScale: approach pulse or sustain shrink/burst from lyricHoldScale
 // fillProgress: 0 = hollow stroke only; 1 = funnel landed and the note glyph is filled
 // holdMs: full hold length (drives release-cue shading and end burst)
+// elapsedSinceHitMs: ms after note time (drives dotted-bound shrink to steady state)
 export function drawLyricNote(
   ctx: CanvasRenderingContext2D,
   note: Note,
@@ -362,13 +368,14 @@ export function drawLyricNote(
   visualScale = 1,
   fillProgress = 0,
   holdMs = 0,
+  elapsedSinceHitMs = 0,
 ): void {
   if (note.lyricChar == null) return;
 
   const cx = note.x * scale;
   const r  = LYRIC_RADIUS * scale * visualScale;
-  const boundR = r * LYRIC_BOUND_RATIO;
   const solidR = r * LYRIC_SOLID_RING_RATIO;
+  const boundR = r * lyricBoundRadiusRatio(appearProgress, elapsedSinceHitMs);
 
   const OUTLINE_SNAP = 0.12;
   const outlineAlpha = Math.min(appearProgress / OUTLINE_SNAP, 1);
@@ -407,12 +414,16 @@ export function drawLyricNote(
     drawLyricSolidRing(ctx, cx, noteCy, solidR, scale, solidAlpha, boundRgb);
     ctx.restore();
   } else {
-    const boundAlpha = (0.28 + 0.22 * outlineAlpha) * outlineAlpha;
-    const solidAlpha = boundAlpha * 0.75;
+    const ringAlpha = (0.28 + 0.22 * outlineAlpha) * outlineAlpha;
+    const solidAlpha = ringAlpha * 0.75;
+    const boundAlpha = lyricBoundApproachAlpha(appearProgress) * ringAlpha;
+    const boundRotation = lyricBoundApproachRotation(appearProgress);
 
     ctx.save();
-    drawLyricBound(ctx, cx, noteCy, boundR, scale, boundAlpha);
     drawLyricSolidRing(ctx, cx, noteCy, solidR, scale, solidAlpha);
+    if (boundAlpha > 0.01) {
+      drawLyricBound(ctx, cx, noteCy, boundR, scale, boundAlpha, "255, 255, 255", true, boundRotation);
+    }
     ctx.restore();
   }
 
@@ -601,6 +612,31 @@ export function drawCursorParticle(
   }
 }
 
+function drawLyricFireworks(
+  ctx: CanvasRenderingContext2D,
+  cx: number,
+  cy: number,
+  progress: number,
+  scale: number,
+  color: string,
+): void {
+  const alpha = 1 - progress;
+  const r = LYRIC_RADIUS * 1.35 * scale * (1 - Math.pow(1 - progress, 1.6));
+
+  ctx.save();
+  ctx.strokeStyle = `rgba(${color}, ${alpha})`;
+  ctx.lineWidth = 3 * scale * (1 - progress);
+  ctx.beginPath();
+  ctx.arc(cx, cy, r, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.65})`;
+  ctx.lineWidth = 1.5 * scale * (1 - progress);
+  ctx.beginPath();
+  ctx.arc(cx, cy, r * 0.72, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.restore();
+}
+
 export function drawFireworks(
   ctx: CanvasRenderingContext2D,
   x: number, y: number,
@@ -628,6 +664,11 @@ export function drawFireworks(
   const color = style.colors.base;
   const cx = x * scale;
   const cy = y * scale;
+
+  if (kind === "lyric") {
+    drawLyricFireworks(ctx, cx, cy, progress, scale, color);
+    return;
+  }
 
   ctx.save();
   ctx.strokeStyle = `rgba(${color}, ${alpha})`;
