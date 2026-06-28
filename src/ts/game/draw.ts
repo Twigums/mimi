@@ -611,42 +611,120 @@ export function drawLyricDemoFunnel(
   ctx.restore();
 }
 
+// Flow ribbon: a cubic-Hermite band between linked anchors. RIBBON_STEPS sets the polyline
+// resolution used for both drawing and the arc-length table.
+const RIBBON_STEPS      = 24;
+const RIBBON_BAND_ALPHA = 0.22;
+const RIBBON_CORE_ALPHA = 0.18;
+// The leading edge glows: over the last RIBBON_TIP_FRAC of the revealed length an additive
+// brightness ramps from 0 (seamless join into the body) up to these alphas at the tip.
+const RIBBON_TIP_FRAC       = 0.15;
+const RIBBON_TIP_BAND_ALPHA = 0.5;
+const RIBBON_TIP_CORE_ALPHA = 0.55;
+
+// revealFront: 0..1 fraction of the ribbon's arc length currently drawn, keyed to the
+// destination anchor's approach. The band reveals from `from` toward `to` with a brighter
+// leading tip, so it reads as drawing itself forward toward the upcoming anchor.
 export function drawFlowRibbon(
   ctx: CanvasRenderingContext2D,
   from: Note,
   to: Note,
   scale: number,
-  alpha: number,
+  revealFront: number,
 ): void {
-  const { base } = NOTE_STYLE.flow.colors;
+  const reveal = Math.max(0, Math.min(1, revealFront));
+  if (reveal <= 0) return;
 
+  const { base } = NOTE_STYLE.flow.colors;
   const ax = from.x, ay = from.y, bx = to.x, by = to.y;
   const chordX = bx - ax, chordY = by - ay;
   const tax = from.flowTanX ?? chordX, tay = from.flowTanY ?? chordY;
   const tbx = to.flowTanX   ?? chordX, tby = to.flowTanY   ?? chordY;
-  const STEPS = 14;
 
-  ctx.save();
-  ctx.lineCap = "round";
-  ctx.lineJoin = "round";
-  ctx.beginPath();
-  for (let i = 0; i <= STEPS; i++) {
-    const s  = i / STEPS;
+  // Hermite polyline (canvas space) with a cumulative arc-length table.
+  const xs: number[] = [], ys: number[] = [], cum: number[] = [];
+  let total = 0;
+  for (let i = 0; i <= RIBBON_STEPS; i++) {
+    const s  = i / RIBBON_STEPS;
     const s2 = s * s, s3 = s2 * s;
     const h00 = 2 * s3 - 3 * s2 + 1;
     const h10 = s3 - 2 * s2 + s;
     const h01 = -2 * s3 + 3 * s2;
     const h11 = s3 - s2;
-    const px = (h00 * ax + h10 * tax + h01 * bx + h11 * tbx) * scale;
-    const py = (h00 * ay + h10 * tay + h01 * by + h11 * tby) * scale;
-    if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    const x = (h00 * ax + h10 * tax + h01 * bx + h11 * tbx) * scale;
+    const y = (h00 * ay + h10 * tay + h01 * by + h11 * tby) * scale;
+    if (i > 0) total += Math.hypot(x - xs[i - 1], y - ys[i - 1]);
+    xs.push(x); ys.push(y); cum.push(total);
   }
-  ctx.strokeStyle = `rgba(${base}, ${0.22 * alpha})`;
+  if (total <= 0) return;
+
+  // Point at a target arc length (interpolated within the crossing segment).
+  const at = (target: number): [number, number] => {
+    if (target <= 0) return [xs[0], ys[0]];
+    if (target >= total) return [xs[xs.length - 1], ys[ys.length - 1]];
+    let i = 1;
+    while (i < cum.length && cum[i] < target) i++;
+    const seg = cum[i] - cum[i - 1];
+    const f = seg > 0 ? (target - cum[i - 1]) / seg : 0;
+    return [xs[i - 1] + (xs[i] - xs[i - 1]) * f, ys[i - 1] + (ys[i] - ys[i - 1]) * f];
+  };
+
+  // Sub-path between two arc lengths, following the polyline vertices in between.
+  const subPath = (fromLen: number, toLen: number): Path2D => {
+    const path = new Path2D();
+    const [sx, sy] = at(fromLen);
+    path.moveTo(sx, sy);
+    for (let i = 0; i < cum.length; i++) {
+      if (cum[i] <= fromLen) continue;
+      if (cum[i] >= toLen) break;
+      path.lineTo(xs[i], ys[i]);
+    }
+    const [ex, ey] = at(toLen);
+    path.lineTo(ex, ey);
+    return path;
+  };
+
+  const revealLen = reveal * total;
+
+  ctx.save();
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+
+  // Revealed band at its steady alpha (no whole-ribbon fade any more).
+  const body = subPath(0, revealLen);
+  ctx.strokeStyle = `rgba(${base}, ${RIBBON_BAND_ALPHA})`;
   ctx.lineWidth = 10 * scale;
-  ctx.stroke();
-  ctx.strokeStyle = `rgba(255, 255, 255, ${0.18 * alpha})`;
+  ctx.stroke(body);
+  ctx.strokeStyle = `rgba(255, 255, 255, ${RIBBON_CORE_ALPHA})`;
   ctx.lineWidth = 2 * scale;
-  ctx.stroke();
+  ctx.stroke(body);
+
+  // Brightening ramp over the leading tip (additive; the gradient starts transparent so the
+  // join into the body is seamless, and a soft glow blooms the front edge).
+  const tipLen = revealLen * RIBBON_TIP_FRAC;
+  if (tipLen > 0.5) {
+    const [tsx, tsy] = at(revealLen - tipLen);
+    const [tex, tey] = at(revealLen);
+    const tip = subPath(revealLen - tipLen, revealLen);
+
+    ctx.shadowColor = `rgba(${base}, 0.6)`;
+    ctx.shadowBlur  = 6 * scale;
+
+    const bandGrad = ctx.createLinearGradient(tsx, tsy, tex, tey);
+    bandGrad.addColorStop(0, `rgba(${base}, 0)`);
+    bandGrad.addColorStop(1, `rgba(${base}, ${RIBBON_TIP_BAND_ALPHA})`);
+    ctx.strokeStyle = bandGrad;
+    ctx.lineWidth = 10 * scale;
+    ctx.stroke(tip);
+
+    const coreGrad = ctx.createLinearGradient(tsx, tsy, tex, tey);
+    coreGrad.addColorStop(0, "rgba(255, 255, 255, 0)");
+    coreGrad.addColorStop(1, `rgba(255, 255, 255, ${RIBBON_TIP_CORE_ALPHA})`);
+    ctx.strokeStyle = coreGrad;
+    ctx.lineWidth = 2 * scale;
+    ctx.stroke(tip);
+  }
+
   ctx.restore();
 }
 

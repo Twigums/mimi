@@ -601,8 +601,9 @@ export function createGame(deps: GameDeps): GameHandle {
       const dt = next.time - songMs;
       if (dt > approachMs) break;
       if (dt < -TIER1_MS) continue;
-      const appearProgress = clamp(1 - dt / approachMs, 0, 1);
-      drawFlowRibbon(ctx, note, next, scale, appearProgress);
+      // Ribbon reveals along its arc length as the destination anchor approaches.
+      const revealFront = clamp(1 - dt / approachMs, 0, 1);
+      drawFlowRibbon(ctx, note, next, scale, revealFront);
     }
     for (let i = pendingStart; i < notes.length; i++) {
       const note = notes[i];
