@@ -92,10 +92,6 @@ const collectPhrases = (video: TextAliveVideo): TextAlivePhrase[] => {
   return phrases;
 };
 
-/** Phrase span that can claim an `m` row (allows early moves with delay before phrase onset). */
-const phraseSpansMove = (phrase: TextAlivePhrase, move: StoryMove): boolean =>
-  move.time <= phrase.endTime && move.time >= phrase.startTime - MOVE_TEXT_ALIGN_MS;
-
 /** Ms gap allowed between `text=` anchor onset and the authored move time. */
 const MOVE_TEXT_ALIGN_MS = 2000;
 
@@ -120,7 +116,7 @@ const moveTextAnchorDist = (move: StoryMove, phrase: TextAlivePhrase): number =>
 const moveTextMatchesPhrase = (move: StoryMove, phrase: TextAlivePhrase): boolean =>
   moveTextAnchorDist(move, phrase) <= MOVE_TEXT_ALIGN_MS;
 
-/** Which phrase owns an `m` row — `text=` first, then nearest phrase onset (wiki). */
+/** Which phrase owns an `m` row — `text=` when phrases overlap; else `time` containment. */
 const moveOwnsPhrase = (move: StoryMove, phrase: TextAlivePhrase, phrases: TextAlivePhrase[]): boolean => {
   const anchor = move.style?.text?.trim();
   if (anchor) {
@@ -130,14 +126,7 @@ const moveOwnsPhrase = (move: StoryMove, phrase: TextAlivePhrase, phrases: TextA
     return matches.some(p => p === phrase && moveTextAnchorDist(move, p) === bestDist);
   }
 
-  let best: TextAlivePhrase | null = null;
-  let bestDist = Infinity;
-  for (const p of phrases) {
-    if (!phraseSpansMove(p, move)) continue;
-    const dist = Math.abs(p.startTime - move.time);
-    if (dist < bestDist) { bestDist = dist; best = p; }
-  }
-  return best === phrase;
+  return move.time >= phrase.startTime && move.time <= phrase.endTime;
 };
 
 interface StoryboardRenderer {
@@ -302,16 +291,13 @@ export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElem
     if (chars.length === 0) return mounted;
 
     const relevantMoves = moves.filter(m => moveOwnsPhrase(m, phrase, allPhrases));
-    const fallbackMove = relevantMoves.length > 0
-      ? relevantMoves.reduce((a, b) => (a.time <= b.time ? a : b))
-      : null;
 
     const getMoveForChar = (ch: TextAliveChar): StoryMove | null => {
       let best: StoryMove | null = null;
       for (const m of relevantMoves) {
         if (m.time <= ch.startTime && (best === null || m.time > best.time)) best = m;
       }
-      return best ?? fallbackMove;
+      return best;
     };
 
     const groups = new Map<StoryMove | null, TextAliveChar[]>();
@@ -355,7 +341,7 @@ export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElem
     };
 
     const defaultChars = groups.get(null) ?? [];
-    if (defaultChars.length > 0 && relevantMoves.length === 0) {
+    if (defaultChars.length > 0) {
       mountLine("storyboard-line", defaultChars, undefined, null, phrase.startTime);
     }
 
