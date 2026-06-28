@@ -133,7 +133,8 @@ parseNote toMs line =
                 Right (normalizeAngle (-(deg * pi / 180.0)), True)
         let kind = normalizeKind k
         let timeMs  = toMs t'
-        -- newCombo is set later by `parseEntries` when a `break` precedes this note.
+        -- newCombo is set by `parseEntries` when a `break` precedes this note (phrase
+        -- boundary and combo-side hint for flow tangent heading).
         Right $ NoteEntry kind timeMs nx ny radians pinned False
             (loChar lyricOpts) (loSpan lyricOpts) (loSrcTime lyricOpts) (loIncludeEndChar lyricOpts)
 

@@ -54,6 +54,9 @@ export interface Note {
   newCombo?: boolean;
   flowPrevIndex?: number;
   flowNextIndex?: number;
+  // Non-flow neighbours used only for auto tangent at phrase boundaries (no ribbon link).
+  flowHintPrevIndex?: number;
+  flowHintNextIndex?: number;
   flowTanX?: number;
   flowTanY?: number;
   flowShape?: number[];
@@ -325,23 +328,28 @@ export function createGame(deps: GameDeps): GameHandle {
 
   // Flow anchors take their direction from the ribbon they trace. By default the
   // tangent points along the bisector of the incoming (prev->this) and outgoing
-  // (this->next) unit chords; an anchor whose chart row authored a `degrees` value
-  // (`directionPinned`) instead pins that heading. Either way the length is the
-  // tension weight times the shorter adjacent chord, which keeps the cubic Hermite
-  // ribbon from overshooting where spacing is uneven. The arrow and the judged shape
-  // use the angle; `draw` uses the full vector. A lone anchor (no links) or a
-  // 180-degree cusp without a pin returns null and keeps its current direction.
+  // (this->next) unit chords; at a phrase boundary, a neighbouring non-flow object
+  // may stand in when the chart has no `break` (`newCombo`) on that side — it
+  // influences auto heading only (no ribbon is drawn to it). An anchor whose chart
+  // row authored a `degrees` value (`directionPinned`) instead pins that heading.
+  // Either way the length is the tension weight times the shorter adjacent chord,
+  // which keeps the cubic Hermite ribbon from overshooting where spacing is uneven.
+  // The arrow and the judged shape use the angle; `draw` uses the full vector. A
+  // lone anchor (no links or hints) or a 180-degree cusp without a pin returns null
+  // and keeps its current direction.
   const flowTangent = (index: number): { x: number; y: number } | null => {
     const n = notes[index];
     let dirX = 0, dirY = 0;
     let span = Infinity;
-    if (n.flowPrevIndex !== undefined) {
-      const p = notes[n.flowPrevIndex];
+    const prevIndex = n.flowPrevIndex ?? n.flowHintPrevIndex;
+    if (prevIndex !== undefined) {
+      const p = notes[prevIndex];
       const dx = n.x - p.x, dy = n.y - p.y, len = Math.hypot(dx, dy);
       if (len > 0) { dirX += dx / len; dirY += dy / len; span = Math.min(span, len); }
     }
-    if (n.flowNextIndex !== undefined) {
-      const x = notes[n.flowNextIndex];
+    const nextIndex = n.flowNextIndex ?? n.flowHintNextIndex;
+    if (nextIndex !== undefined) {
+      const x = notes[nextIndex];
       const dx = x.x - n.x, dy = x.y - n.y, len = Math.hypot(dx, dy);
       if (len > 0) { dirX += dx / len; dirY += dy / len; span = Math.min(span, len); }
     }
@@ -412,6 +420,8 @@ export function createGame(deps: GameDeps): GameHandle {
       const note = notes[i];
       note.flowPrevIndex = undefined;
       note.flowNextIndex = undefined;
+      note.flowHintPrevIndex = undefined;
+      note.flowHintNextIndex = undefined;
       if (note.kind !== "flow") {
         prevFlowIndex = null;
         continue;
@@ -421,6 +431,18 @@ export function createGame(deps: GameDeps): GameHandle {
         notes[prevFlowIndex].flowNextIndex = i;
       }
       prevFlowIndex = i;
+    }
+
+    for (let i = 0; i < notes.length; i++) {
+      const note = notes[i];
+      if (note.kind !== "flow") continue;
+      if (note.flowPrevIndex === undefined && !note.newCombo && i > 0) {
+        note.flowHintPrevIndex = i - 1;
+      }
+      if (note.flowNextIndex === undefined) {
+        const next = notes[i + 1];
+        if (next && !next.newCombo) note.flowHintNextIndex = i + 1;
+      }
     }
 
     // links are now resolved for the whole chart
