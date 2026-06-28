@@ -3,7 +3,6 @@ import type { TrailShape } from "../core/settings";
 import { withPath } from "../core/sitePath";
 import {
   layoutLyricGlyphs,
-  LYRIC_APPROACH_FILL_START,
   LYRIC_AURA_EXTEND_PX,
   LYRIC_BOUND_RATIO,
   LYRIC_END_BURST_MS,
@@ -14,6 +13,7 @@ import {
   LYRIC_SOLID_RING_RATIO,
   lyricCharLandTime,
   lyricGlyphOffsetYPx,
+  lyricHoldBlueBlend,
 } from "./lyricLayout";
 
 export { LYRIC_RADIUS };
@@ -258,11 +258,6 @@ function mixRgb(a: string, b: string, t: number): string {
   return pa.map((v, i) => Math.round(v * (1 - u) + pb[i] * u)).join(", ");
 }
 
-function easeInQuad(t: number): number {
-  const u = Math.max(0, Math.min(1, t));
-  return u * u;
-}
-
 function easeOutCubic(t: number): number {
   const u = Math.max(0, Math.min(1, t));
   const v = 1 - u;
@@ -395,17 +390,15 @@ export function drawLyricNote(
     const greyBlend = easeOutCubic(
       holdMs > 0 ? elapsedMs / LYRIC_HOLD_GREY_SETTLE_MS : holdProgress / 0.3,
     );
-    const releaseBlend = holdMs > 0 && remainingMs < LYRIC_RELEASE_CUE_MS
-      ? easeInQuad(1 - remainingMs / LYRIC_RELEASE_CUE_MS)
-      : 0;
+    const blueBlend = lyricHoldBlueBlend(holdProgress, remainingMs, holdMs);
 
     const sustainRgb = mixRgb(LYRIC_INVITE, LYRIC_HOLD_GREY, greyBlend);
-    const auraRgb = mixRgb(sustainRgb, LYRIC_RELEASE_BLUE, releaseBlend);
+    const auraRgb = mixRgb(sustainRgb, LYRIC_RELEASE_BLUE, blueBlend);
     const sustainCurve = Math.pow(holdProgress, 0.65);
     const fillAlpha = (0.1 + sustainCurve * 0.2) * holdBright * (1 + burstBlend * 0.35);
-    const whisperAlpha = fillAlpha * (0.35 + releaseBlend * 0.2);
+    const whisperAlpha = fillAlpha * (0.35 + blueBlend * 0.35);
     const boundAlpha = (0.32 + sustainCurve * 0.16) * holdBright * (1 + burstBlend * 0.25);
-    const boundRgb = mixRgb("255, 255, 255", LYRIC_RELEASE_BLUE, releaseBlend * 0.85);
+    const boundRgb = mixRgb("255, 255, 255", LYRIC_RELEASE_BLUE, blueBlend * 0.9);
     const solidAlpha = boundAlpha * 0.85;
 
     ctx.save();
@@ -414,17 +407,10 @@ export function drawLyricNote(
     drawLyricSolidRing(ctx, cx, noteCy, solidR, scale, solidAlpha, boundRgb);
     ctx.restore();
   } else {
-    const discFill = easeOutCubic(Math.max(
-      0,
-      (appearProgress - LYRIC_APPROACH_FILL_START) / (1 - LYRIC_APPROACH_FILL_START),
-    ));
-    const fillAlpha = (0.08 + 0.22 * discFill) * outlineAlpha;
-    const whisperAlpha = fillAlpha * 0.4;
-    const boundAlpha = (0.28 + 0.22 * discFill) * outlineAlpha;
+    const boundAlpha = (0.28 + 0.22 * outlineAlpha) * outlineAlpha;
     const solidAlpha = boundAlpha * 0.75;
 
     ctx.save();
-    drawLyricDisc(ctx, cx, noteCy, boundR, scale, LYRIC_INVITE, fillAlpha, whisperAlpha);
     drawLyricBound(ctx, cx, noteCy, boundR, scale, boundAlpha);
     drawLyricSolidRing(ctx, cx, noteCy, solidR, scale, solidAlpha);
     ctx.restore();

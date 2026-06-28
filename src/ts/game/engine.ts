@@ -2,7 +2,7 @@ import { clamp } from "../core/utils";
 import { drawArrow, drawLyricDemoFunnel, drawLyricNote, drawFireworks, drawFlowRibbon, notePulseScale } from "./draw";
 import { arToMs, loadAr, loadHitsoundVolume, subscribeHitsoundVolume, volToFactor, loadHiddenMod, subscribeHiddenMod } from "../core/settings";
 import { createCursorRenderer, type CursorRenderer } from "./cursor";
-import { lyricDemoFunnelOrigin, lyricFillProgress, lyricHoldScale } from "./lyricLayout";
+import { lyricDemoFunnelOrigin, lyricFillProgress, lyricVisualScale } from "./lyricLayout";
 import { computeLyricHolds, noteEndMs } from "./lyrics";
 import {
   createLyricHoldState,
@@ -620,8 +620,8 @@ export function createGame(deps: GameDeps): GameHandle {
           Math.hypot(pointer.x - note.x, pointer.y - note.y) <= LYRIC_HOLD_RADIUS;
         const fillProgress = lyricFillProgress(note.lyricChar ?? "", note.time, songMs, approachMs);
         const approachPulse = notePulseScale(dt);
-        const visualScale = holdProgress > 0
-          ? lyricHoldScale(holdMs, songMs, note.time, holding)
+        const visualScale = songMs >= note.time
+          ? lyricVisualScale(holdMs, songMs, note.time, holding, approachPulse)
           : approachPulse;
         drawLyricNote(
           ctx, note, appearProgress, scale, hiddenMod,

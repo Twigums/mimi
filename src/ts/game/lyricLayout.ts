@@ -12,11 +12,17 @@ export const LYRIC_AURA_EXTEND_PX = 10;
 /** Ms after hit time to ease the approach wash into hold greyscale. */
 export const LYRIC_HOLD_GREY_SETTLE_MS = 80;
 /** Hold window tail when the aura shifts greyscale → blue to cue release. */
-export const LYRIC_RELEASE_CUE_MS = 300;
+export const LYRIC_RELEASE_CUE_MS = 500;
 /** Ms at hold end for the release burst swell (inside the release-cue window). */
 export const LYRIC_END_BURST_MS = 110;
+/** Max blue tint reached by gradual hold fade (release cue spikes to full). */
+export const LYRIC_HOLD_BLUE_CAP = 0.42;
+/** Ms to decay the approach swell into sustain scale after hit. */
+export const LYRIC_APPROACH_PULSE_DECAY_MS = 110;
+/** Scale the disc eases down to over the main hold body (before release cue). */
+export const LYRIC_HOLD_SUSTAIN_SHRINK = 0.93;
 /** Minimum disc scale during the pre-burst release-cue shrink. */
-export const LYRIC_PRE_RELEASE_SHRINK = 0.90;
+export const LYRIC_PRE_RELEASE_SHRINK = 0.88;
 /** Peak scale at the hold end burst. */
 export const LYRIC_END_BURST_PEAK = 1.17;
 /** Dashed inner bound as a fraction of LYRIC_RADIUS (matches glyph layout). */
@@ -76,6 +82,7 @@ export function lyricHoldScale(
   if (elapsed < 0) return 1;
 
   const remaining = holdMs - elapsed;
+  const sustainBodyMs = Math.max(0, holdMs - LYRIC_RELEASE_CUE_MS);
   let phase = 1;
 
   if (remaining <= LYRIC_END_BURST_MS) {
@@ -84,7 +91,11 @@ export function lyricHoldScale(
   } else if (remaining < LYRIC_RELEASE_CUE_MS) {
     const shrinkSpan = LYRIC_RELEASE_CUE_MS - LYRIC_END_BURST_MS;
     const t = clamp(1 - (remaining - LYRIC_END_BURST_MS) / shrinkSpan, 0, 1);
-    phase = 1 - (1 - LYRIC_PRE_RELEASE_SHRINK) * (t * t);
+    phase = LYRIC_HOLD_SUSTAIN_SHRINK
+      - (LYRIC_HOLD_SUSTAIN_SHRINK - LYRIC_PRE_RELEASE_SHRINK) * (t * t);
+  } else if (sustainBodyMs > 0) {
+    const t = lyricHoldSmoothstep(Math.min(elapsed, sustainBodyMs) / sustainBodyMs);
+    phase = 1 - (1 - LYRIC_HOLD_SUSTAIN_SHRINK) * t;
   }
 
   if (!holding) return phase;
@@ -92,6 +103,30 @@ export function lyricHoldScale(
     || !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   if (!animate) return phase;
   return phase * (1 + 0.035 * Math.sin(songMs * 0.014));
+}
+
+/** Approach swell decays into sustain scale so hit-time size carries through seamlessly. */
+export function lyricVisualScale(
+  holdMs: number,
+  songMs: number,
+  noteTime: number,
+  holding: boolean,
+  approachPulse: number,
+): number {
+  const elapsed = songMs - noteTime;
+  if (elapsed < 0) return approachPulse;
+  const holdScale = lyricHoldScale(holdMs, songMs, noteTime, holding);
+  const decay = clamp(1 - elapsed / LYRIC_APPROACH_PULSE_DECAY_MS, 0, 1);
+  return holdScale + (approachPulse - 1) * decay;
+}
+
+/** Blue builds through the hold, then spikes to full intensity in the release cue. */
+export function lyricHoldBlueBlend(holdProgress: number, remainingMs: number, holdMs: number): number {
+  if (holdMs <= 0 || holdProgress <= 0) return 0;
+  const holdBlue = lyricHoldSmoothstep(holdProgress) * LYRIC_HOLD_BLUE_CAP;
+  if (remainingMs >= LYRIC_RELEASE_CUE_MS) return holdBlue;
+  const releaseT = (1 - remainingMs / LYRIC_RELEASE_CUE_MS) ** 2;
+  return holdBlue + releaseT * (1 - holdBlue);
 }
 
 export function lyricFillProgress(
