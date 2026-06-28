@@ -282,28 +282,33 @@ export function drawArrow(
   drawApproachGlyph(ctx, path, cx, cy, fillMaxR, base, darkBase, appearProgress, scale, hidden);
 }
 
-// Flow anchor: the same arrowhead as the cut arrow with the boxy shaft replaced by a tail
-// tapering to a single back point, ~FLOW_SCALE the size, with a soft blue glow that sets
-// flow apart from the crisp cut. Procedural (built from arrow.svg proportions so the head
-// is identical) and rotated to note.direction; reuses the shared approach fill/outline.
-const FLOW_SCALE      = 0.9;
+// Flow anchor: a smaller version of the cut arrowhead with the boxy shaft replaced by a
+// tail tapering to a single back point, ~FLOW_SCALE the size, with a soft blue glow that
+// sets flow apart from the crisp cut. Procedural (built from arrow.svg proportions) and
+// rotated to note.direction; reuses the shared approach fill/outline.
+const FLOW_SCALE      = 0.85;
 const FLOW_GLOW_ALPHA = 0.5;
 const FLOW_GLOW_BLUR  = 0.28; // × NOTE_RADIUS × scale
 
 // Arrow aspect ratio (height / width) from arrow.svg's viewBox, so the normalized glyph
-// keeps the exact arrowhead proportions instead of squashing toward a square.
+// keeps the arrowhead proportions instead of squashing toward a square.
 const FLOW_ASPECT = 59.231922 / 80.620979;
 
-// Normalized outline (viewBox 0..1, +x = note.direction), clockwise: top barb → tip →
-// bottom barb → bottom junction → tail back point → top junction. Points 1-2-3 + the head
-// base are the exact arrowhead/notch; 4-5-6 are the tapered tail.
+// Flow glyph outline in a normalized viewBox (0..1, +x = note.direction). The head base
+// line sits at x = FLOW_HEAD_BASE_X; the tail body meets it between the two junctions and
+// tapers to a single back point at (0, 0.5). FLOW_HEAD_SCALE shrinks just the arrowhead
+// (tip length + barb spread) about its base centre (FLOW_HEAD_BASE_X, 0.5) so the head
+// reads lighter than the cut block arrow while the tail stays put; 1 = arrow.svg's head.
+const FLOW_HEAD_BASE_X = 0.573;
+const FLOW_HEAD_SCALE  = 0.85;
+// Clockwise: top barb → tip → bottom barb → bottom junction → tail back point → top junction.
 const FLOW_GLYPH: ReadonlyArray<readonly [number, number]> = [
-  [0.573, 0.017],
-  [0.988, 0.500],
-  [0.573, 0.983],
-  [0.573, 0.736],
-  [0.000, 0.500],
-  [0.573, 0.264],
+  [FLOW_HEAD_BASE_X,                                      0.5 + (0.017 - 0.5) * FLOW_HEAD_SCALE],
+  [FLOW_HEAD_BASE_X + (0.988 - FLOW_HEAD_BASE_X) * FLOW_HEAD_SCALE, 0.5],
+  [FLOW_HEAD_BASE_X,                                      0.5 + (0.983 - 0.5) * FLOW_HEAD_SCALE],
+  [FLOW_HEAD_BASE_X, 0.736],
+  [0.000,            0.500],
+  [FLOW_HEAD_BASE_X, 0.264],
 ];
 
 export function drawFlowAnchor(
