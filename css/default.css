@@ -432,11 +432,10 @@ html.theme-dark .bg-sky .cloud-layer {
 }
 .home-title .site-name {
   align-self: flex-start;
-  font-size: 1.8rem;
-  font-family: var(--font-display);
-  font-weight: 800;
-  letter-spacing: 0.05em;
+  display: block;
+  width: clamp(5.1rem, 11vw, 7rem);
   color: var(--page-ink);
+  line-height: 0;
   text-decoration: none;
   transition: color 0.2s, transform 0.3s var(--motion-ease-bouncy);
 }
@@ -444,6 +443,37 @@ html.theme-dark .bg-sky .cloud-layer {
   color: var(--page-accent);
   background: transparent;
   transform: rotate(-2deg) scale(1.05);
+}
+.home-title .site-logo {
+  display: block;
+  width: 100%;
+  height: auto;
+  color: currentColor;
+  overflow: visible;
+}
+.home-title .site-logo__shadow {
+  --site-logo-wordmark: var(--cloud-glow);
+  --site-logo-cut-fill: var(--cloud-glow);
+  --site-logo-cut-stroke: var(--cloud-glow);
+  --site-logo-flow-fill: var(--cloud-glow);
+  --site-logo-flow-stroke: var(--cloud-glow);
+  opacity: 0.9;
+  transform: translate(1px, 3px);
+  transition: opacity 0.3s var(--motion-ease-standard), transform 0.3s var(--motion-ease-standard);
+}
+.home-title .site-logo__shadow, .home-title .site-logo__face {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.home-title .site-logo__face {
+  transition: transform 0.3s var(--motion-ease-bouncy);
+}
+.home-title .site-name:hover .site-logo__shadow {
+  opacity: 1;
+  transform: translate(1px, 5px);
+}
+.home-title .site-name:hover .site-logo__face {
+  transform: translateY(-1px);
 }
 .home-title .site-subtitle {
   font-size: 1rem;
@@ -1832,23 +1862,59 @@ html.theme-dark .game-frame .frame-star {
   text-shadow: 0 0 8px var(--miku-teal, #39c5bb);
   will-change: left, top, transform, opacity;
 }
+.game-area.paused .game-canvas, .game-area.paused .song-storyboard, .game-area.paused .song-funnel {
+  filter: blur(6px);
+}
 
 .song-page .site-name-link {
   position: fixed;
   top: 1rem;
   left: 1.5rem;
   z-index: var(--z-hud);
-  font-size: 1.1rem;
-  font-family: var(--font-display);
-  font-weight: bold;
+  display: block;
+  width: clamp(3.6rem, 7vw, 5rem);
   color: var(--song-text);
-  text-decoration: none;
-  letter-spacing: 0.05em;
+  line-height: 0;
   opacity: 0.85;
+  text-decoration: none;
+  transition: color 0.2s ease, opacity 0.2s ease, transform 0.3s var(--motion-ease-bouncy);
 }
 .song-page .site-name-link:hover {
+  background: transparent;
   opacity: 1;
-  text-decoration: underline;
+  text-decoration: none;
+  transform: rotate(-1deg) scale(1.04);
+}
+.song-page .site-name-link .site-logo {
+  display: block;
+  width: 100%;
+  height: auto;
+  color: currentColor;
+  overflow: visible;
+}
+.song-page .site-name-link .site-logo__shadow {
+  --site-logo-wordmark: var(--game-frame-glow);
+  --site-logo-cut-fill: var(--game-frame-glow);
+  --site-logo-cut-stroke: var(--game-frame-glow);
+  --site-logo-flow-fill: var(--game-frame-glow);
+  --site-logo-flow-stroke: var(--game-frame-glow);
+  opacity: 0.85;
+  transform: translate(0.8px, 2.5px);
+  transition: opacity 0.3s var(--motion-ease-standard), transform 0.3s var(--motion-ease-standard);
+}
+.song-page .site-name-link .site-logo__shadow, .song-page .site-name-link .site-logo__face {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+.song-page .site-name-link .site-logo__face {
+  transition: transform 0.3s var(--motion-ease-bouncy);
+}
+.song-page .site-name-link:hover .site-logo__shadow {
+  opacity: 1;
+  transform: translate(0.8px, 4px);
+}
+.song-page .site-name-link:hover .site-logo__face {
+  transform: translateY(-1px);
 }
 
 .game-start-surface {
@@ -2672,10 +2738,10 @@ html.theme-dark .results-overlay {
   transition: opacity 0.15s ease, text-shadow 0.15s ease;
 }
 .results-breakdown__tier3 {
-  color: var(--rp-ink);
+  color: var(--rp-perfect);
 }
 .results-breakdown__tier2 {
-  color: var(--rp-ink-soft);
+  color: var(--rp-good);
 }
 .results-breakdown__tier1 {
   color: var(--rp-ink-dim);
@@ -3206,7 +3272,11 @@ html.theme-dark .theme-toggle .theme-mask-bite {
   max-width: 92vw;
   max-height: 90vh;
   overflow-y: auto;
+  scrollbar-width: none;
   color: var(--panel-ink);
+}
+.options-panel::-webkit-scrollbar {
+  display: none;
 }
 
 html.theme-dark .options-panel {
@@ -3264,6 +3334,59 @@ html.theme-dark .options-panel {
 }
 
 .options-setting-value {
+  font-weight: bold;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.9rem;
+}
+
+.options-setting-value--button {
+  appearance: none;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-weight: bold;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.9rem;
+  padding: 0;
+  cursor: text;
+  text-align: right;
+}
+.options-setting-value--button:hover, .options-setting-value--button:focus-visible {
+  color: var(--page-accent);
+  outline: none;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.options-offset-editor {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.15rem;
+  margin-left: 0.75rem;
+}
+
+.options-offset-input {
+  box-sizing: border-box;
+  width: 4.4rem;
+  border: 1px solid var(--panel-line);
+  border-radius: 4px;
+  background: var(--panel-fill);
+  color: var(--panel-ink);
+  font: inherit;
+  font-weight: bold;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.9rem;
+  line-height: 1.2;
+  padding: 0.05rem 0.25rem;
+  text-align: right;
+}
+.options-offset-input:focus {
+  border-color: var(--page-accent);
+  outline: none;
+}
+
+.options-offset-unit {
   font-weight: bold;
   font-variant-numeric: tabular-nums;
   font-size: 0.9rem;
