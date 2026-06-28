@@ -47,6 +47,7 @@ export function OptionsPanel({ isSongPage = false }: Props) {
   const [open, setOpen] = useState(false);
   const [exiting, setExiting] = useState(false);
   const exitTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const panelRef = useRef<HTMLDivElement | null>(null);
 
   const close = useCallback(() => {
     setExiting(true);
@@ -106,6 +107,30 @@ export function OptionsPanel({ isSongPage = false }: Props) {
     offsetInputRef.current?.select();
   }, [open, offsetEditing]);
 
+  // scroll fade mask
+  useEffect(() => {
+    if (!open) return;
+    const el = panelRef.current;
+    if (!el) return;
+    const update = (): void => {
+      const top    = el.scrollTop > 0;
+      const bottom = el.scrollTop + el.clientHeight < el.scrollHeight - 1;
+      const t = top    ? "transparent 0, black 2rem," : "";
+      const b = bottom ? ", black calc(100% - 2rem), transparent" : "";
+      const mask = `linear-gradient(to bottom, ${t}black${b})`;
+      el.style.setProperty("mask-image", mask);
+      el.style.setProperty("-webkit-mask-image", mask);
+    };
+    const raf = requestAnimationFrame(update);
+    el.addEventListener("scroll", update);
+    window.addEventListener("resize", update);
+    return () => {
+      cancelAnimationFrame(raf);
+      el.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+    };
+  }, [open]);
+
   // common settings stay open
   const [trailOpen, setTrailOpen] = useState(() => localStorage.getItem("trailAccordionOpen") === "true");
 
@@ -129,7 +154,7 @@ export function OptionsPanel({ isSongPage = false }: Props) {
 
   return (
     <div className={`options-backdrop${exiting ? " exiting" : ""}`} onClick={close}>
-      <div className={`options-panel${exiting ? " exiting" : ""}`} onClick={e => e.stopPropagation()}>
+      <div ref={panelRef} className={`options-panel${exiting ? " exiting" : ""}`} onClick={e => e.stopPropagation()}>
 
         <button
           className="options-close"

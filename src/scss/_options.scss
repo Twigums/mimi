@@ -122,7 +122,12 @@ html.theme-dark .theme-toggle {
   max-width: 92vw;
   max-height: 90vh;
   overflow-y: auto;
+  scrollbar-width: none;
   color: var(--panel-ink);
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
 }
 
 html.theme-dark .options-panel {
