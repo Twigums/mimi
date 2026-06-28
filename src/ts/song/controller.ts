@@ -278,8 +278,21 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPre
     lastSongMs = 0;
   };
 
+  let autoPaused = false;
+
   document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState !== "visible") return;
+    if (document.visibilityState === "hidden") {
+      if (player && isPlaying) {
+        player.requestPause();
+        autoPaused = true;
+      }
+      return;
+    }
+    if (autoPaused) {
+      autoPaused = false;
+      player?.requestPlay();
+      return;
+    }
     if (songLengthMs > 0 && lastSongMs >= songLengthMs) triggerFinish();
   });
 
