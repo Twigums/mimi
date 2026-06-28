@@ -54,5 +54,9 @@
   { "kind": "flow", "time": 17309, "x": 420, "y": 205, "direction": 0.0, "state": "pending" },
   { "kind": "flow", "time": 17540, "x": 585, "y": 300, "direction": 0.0, "state": "pending" },
   { "kind": "flow", "time": 17771, "x": 420, "y": 395, "direction": 0.0, "state": "pending" },
-  { "kind": "flow", "time": 18001, "x": 220, "y": 400, "direction": 0.0, "state": "pending" }
+  { "kind": "flow", "time": 18001, "x": 220, "y": 400, "direction": 0.0, "state": "pending" },
+  { "kind": "lyric", "time": 19200, "x": 400, "y": 300, "direction": 0.0, "newCombo": true, "lyricChar": "長", "state": "pending" },
+  { "kind": "flow", "time": 22000, "x": 520, "y": 300, "direction": 0.0, "state": "pending" },
+  { "kind": "lyric", "time": 22600, "x": 280, "y": 250, "direction": 0.0, "newCombo": true, "lyricChar": "試", "state": "pending" },
+  { "kind": "flow", "time": 48200, "x": 400, "y": 350, "direction": 0.0, "state": "pending" }
 ]
