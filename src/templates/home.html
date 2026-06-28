@@ -24,7 +24,9 @@
 
     <header class="home-header">
         <div class="home-title">
-            <a href="$path$/" class="site-name">mimi</a>
+            <a href="$path$/" class="site-name" aria-label="mimi">
+                $partial("src/templates/logo.html")$
+            </a>
         </div>
         <div class="home-lang">
             $partial("src/templates/lang_toggle.html")$
