@@ -92,8 +92,9 @@ const collectPhrases = (video: TextAliveVideo): TextAlivePhrase[] => {
   return phrases;
 };
 
-const phraseContainsTime = (phrase: TextAlivePhrase, t: number): boolean =>
-  t >= phrase.startTime && t <= phrase.endTime;
+/** Phrase span that can claim an `m` row (allows early moves with delay before phrase onset). */
+const phraseSpansMove = (phrase: TextAlivePhrase, move: StoryMove): boolean =>
+  move.time <= phrase.endTime && move.time >= phrase.startTime - MOVE_TEXT_ALIGN_MS;
 
 /** Ms gap allowed between `text=` anchor onset and the authored move time. */
 const MOVE_TEXT_ALIGN_MS = 2000;
@@ -119,7 +120,7 @@ const moveTextAnchorDist = (move: StoryMove, phrase: TextAlivePhrase): number =>
 const moveTextMatchesPhrase = (move: StoryMove, phrase: TextAlivePhrase): boolean =>
   moveTextAnchorDist(move, phrase) <= MOVE_TEXT_ALIGN_MS;
 
-/** Which phrase owns an `m` row — `text=` first, then time containment (wiki). */
+/** Which phrase owns an `m` row — `text=` first, then nearest phrase onset (wiki). */
 const moveOwnsPhrase = (move: StoryMove, phrase: TextAlivePhrase, phrases: TextAlivePhrase[]): boolean => {
   const anchor = move.style?.text?.trim();
   if (anchor) {
@@ -129,15 +130,18 @@ const moveOwnsPhrase = (move: StoryMove, phrase: TextAlivePhrase, phrases: TextA
     return matches.some(p => p === phrase && moveTextAnchorDist(move, p) === bestDist);
   }
 
-  const containing = phrases.filter(p => phraseContainsTime(p, move.time));
-  if (!containing.some(p => p === phrase)) return false;
-  const atStart = containing.filter(p => p.startTime === move.time);
-  if (atStart.length === 1) return atStart[0] === phrase;
-  if (containing.length === 1) return containing[0] === phrase;
-  const nearest = containing.reduce((a, b) =>
-    Math.abs(a.startTime - move.time) <= Math.abs(b.startTime - move.time) ? a : b);
-  return nearest === phrase;
+  let best: TextAlivePhrase | null = null;
+  let bestDist = Infinity;
+  for (const p of phrases) {
+    if (!phraseSpansMove(p, move)) continue;
+    const dist = Math.abs(p.startTime - move.time);
+    if (dist < bestDist) { bestDist = dist; best = p; }
+  }
+  return best === phrase;
 };
+
+const movePosKey = (move: StoryMove): string =>
+  `${move.x},${move.y},${move.style?.scale ?? ""},${move.style?.motion ?? ""},${move.style?.font ?? ""}`;
 
 interface StoryboardRenderer {
   setVideo(video: TextAliveVideo): void;
@@ -301,13 +305,16 @@ export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElem
     if (chars.length === 0) return mounted;
 
     const relevantMoves = moves.filter(m => moveOwnsPhrase(m, phrase, allPhrases));
+    const fallbackMove = relevantMoves.length > 0
+      ? relevantMoves.reduce((a, b) => (a.time <= b.time ? a : b))
+      : null;
 
     const getMoveForChar = (ch: TextAliveChar): StoryMove | null => {
       let best: StoryMove | null = null;
       for (const m of relevantMoves) {
         if (m.time <= ch.startTime && (best === null || m.time > best.time)) best = m;
       }
-      return best;
+      return best ?? fallbackMove;
     };
 
     const groups = new Map<StoryMove | null, TextAliveChar[]>();
@@ -351,13 +358,26 @@ export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElem
     };
 
     const defaultChars = groups.get(null) ?? [];
-    if (defaultChars.length > 0) {
+    if (defaultChars.length > 0 && relevantMoves.length === 0) {
       mountLine("storyboard-line", defaultChars, undefined, null, phrase.startTime);
     }
 
+    const coalesced = new Map<string, { move: StoryMove; chars: TextAliveChar[]; displayStart: number }>();
     for (const [move, mChars] of groups) {
       if (move === null) continue;
-      mountLine("storyboard-segment", mChars, move.style, { x: move.x, y: move.y }, moveDisplayStart(move, phrase));
+      const key = movePosKey(move);
+      const displayStart = moveDisplayStart(move, phrase);
+      const existing = coalesced.get(key);
+      if (!existing) {
+        coalesced.set(key, { move, chars: [...mChars], displayStart });
+      } else {
+        existing.chars.push(...mChars);
+        existing.displayStart = Math.min(existing.displayStart, displayStart);
+      }
+    }
+    for (const { move, chars, displayStart } of coalesced.values()) {
+      chars.sort((a, b) => a.startTime - b.startTime);
+      mountLine("storyboard-segment", chars, move.style, { x: move.x, y: move.y }, displayStart);
     }
     updateLineVisibility(mounted, songMs);
     return mounted;

@@ -182,7 +182,22 @@ export interface MergedChorusVideos {
 }
 
 function activePhrasesAt(chain: TextAlivePhrase[], t: number): TextAlivePhrase[] {
-  return chain.filter(p => t >= p.startTime && t <= p.endTime);
+  const active = chain.filter(p => t >= p.startTime && t < p.endTime);
+  if (active.length <= 1) return active;
+
+  const overlays = active.filter(p => p.overlay);
+  const bases = active.filter(p => !p.overlay);
+  if (bases.length === 0) return overlays;
+
+  // One lead/base column on the right; overlay chorus lines stack on the left.
+  const primaryBase = bases.length === 1 ? bases[0] : bases.find(p => {
+    for (const c of walkPhraseChars(p)) {
+      if (t >= c.startTime && t <= c.endTime) return true;
+    }
+    return false;
+  }) ?? bases.reduce((a, b) => (b.endTime - b.startTime) >= (a.endTime - a.startTime) ? b : a);
+
+  return [...overlays, primaryBase];
 }
 
 function buildPhraseFromChars(
@@ -253,9 +268,9 @@ export function mergeChorusTimings(
     findActivePhrases: t => activePhrasesAt(matchPhraseChain, t),
     findPhrase: (t: number) => {
       for (const p of chorusPhraseNodes) {
-        if (t >= p.startTime && t <= p.endTime) return p;
+        if (t >= p.startTime && t < p.endTime) return p;
       }
-      return matchPhraseChain.find(p => !matchChorusSet.has(p) && t >= p.startTime && t <= p.endTime) ?? null;
+      return matchPhraseChain.find(p => !matchChorusSet.has(p) && t >= p.startTime && t < p.endTime) ?? null;
     },
     findChar: (t: number) => matchChars.find(c => t >= c.startTime && t <= c.endTime) ?? null,
   };
@@ -279,7 +294,7 @@ export function mergeChorusTimings(
     charCount: displayPhraseChain.flatMap(p => walkPhraseChars(p)).length,
     firstPhrase: displayPhraseChain[0] ?? null,
     findActivePhrases: t => activePhrasesAt(displayPhraseChain, t),
-    findPhrase: (t: number) => displayPhraseChain.find(p => t >= p.startTime && t <= p.endTime) ?? null,
+    findPhrase: (t: number) => displayPhraseChain.find(p => t >= p.startTime && t < p.endTime) ?? null,
     findChar: (t: number) => {
       for (const p of [...displayPhraseChain].reverse()) {
         const c = walkPhraseChars(p).find(ch => t >= ch.startTime && t <= ch.endTime);
