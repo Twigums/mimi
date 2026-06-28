@@ -598,11 +598,16 @@ export function createGame(deps: GameDeps): GameHandle {
       if (note.state !== "pending" || note.kind !== "flow" || note.flowNextIndex === undefined) continue;
       const next = notes[note.flowNextIndex];
       if (!next || next.state !== "pending") continue;
-      const dt = next.time - songMs;
-      if (dt > approachMs) break;
-      if (dt < -TIER1_MS) continue;
-      // Ribbon reveals along its arc length as the destination anchor approaches.
-      const revealFront = clamp(1 - dt / approachMs, 0, 1);
+      const dtFrom = note.time - songMs;
+      if (dtFrom > approachMs) break;
+      if (next.time - songMs < -TIER1_MS) continue;
+      // Reveal the ribbon over the inter-anchor gap (starting when `note` appears) so its
+      // leading edge reaches `next` just as `next` appears — one approach window before
+      // next's hit — rather than crawling toward it across next's whole approach. Smoothstep
+      // per segment so the band eases out of `note` and settles gently into `next`.
+      const gap = next.time - note.time;
+      const lin = gap > 0 ? clamp((songMs - note.time + approachMs) / gap, 0, 1) : 1;
+      const revealFront = lin * lin * (3 - 2 * lin);
       drawFlowRibbon(ctx, note, next, scale, revealFront);
     }
     for (let i = pendingStart; i < notes.length; i++) {

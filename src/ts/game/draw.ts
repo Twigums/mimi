@@ -616,6 +616,8 @@ export function drawLyricDemoFunnel(
 const RIBBON_STEPS      = 24;
 const RIBBON_BAND_ALPHA = 0.22;
 const RIBBON_CORE_ALPHA = 0.18;
+// Reveal fraction over which a fresh segment fades up to full opacity (softens the entrance).
+const RIBBON_FADE_IN    = 0.5;
 // The leading edge glows: over the last RIBBON_TIP_FRAC of the revealed length an additive
 // brightness ramps from 0 (seamless join into the body) up to these alphas at the tip.
 const RIBBON_TIP_FRAC       = 0.15;
@@ -634,6 +636,11 @@ export function drawFlowRibbon(
 ): void {
   const reveal = Math.max(0, Math.min(1, revealFront));
   if (reveal <= 0) return;
+
+  // Fade a fresh segment up as it reveals (full by RIBBON_FADE_IN of the reveal) so it
+  // materialises softly instead of popping in at full opacity.
+  const ft   = Math.min(1, reveal / RIBBON_FADE_IN);
+  const fade = ft * ft * (3 - 2 * ft);
 
   const { base } = NOTE_STYLE.flow.colors;
   const ax = from.x, ay = from.y, bx = to.x, by = to.y;
@@ -690,12 +697,12 @@ export function drawFlowRibbon(
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
 
-  // Revealed band at its steady alpha (no whole-ribbon fade any more).
+  // Revealed band, faded in over the start of the reveal.
   const body = subPath(0, revealLen);
-  ctx.strokeStyle = `rgba(${base}, ${RIBBON_BAND_ALPHA})`;
+  ctx.strokeStyle = `rgba(${base}, ${RIBBON_BAND_ALPHA * fade})`;
   ctx.lineWidth = 10 * scale;
   ctx.stroke(body);
-  ctx.strokeStyle = `rgba(255, 255, 255, ${RIBBON_CORE_ALPHA})`;
+  ctx.strokeStyle = `rgba(255, 255, 255, ${RIBBON_CORE_ALPHA * fade})`;
   ctx.lineWidth = 2 * scale;
   ctx.stroke(body);
 
@@ -707,19 +714,19 @@ export function drawFlowRibbon(
     const [tex, tey] = at(revealLen);
     const tip = subPath(revealLen - tipLen, revealLen);
 
-    ctx.shadowColor = `rgba(${base}, 0.6)`;
+    ctx.shadowColor = `rgba(${base}, ${0.6 * fade})`;
     ctx.shadowBlur  = 6 * scale;
 
     const bandGrad = ctx.createLinearGradient(tsx, tsy, tex, tey);
     bandGrad.addColorStop(0, `rgba(${base}, 0)`);
-    bandGrad.addColorStop(1, `rgba(${base}, ${RIBBON_TIP_BAND_ALPHA})`);
+    bandGrad.addColorStop(1, `rgba(${base}, ${RIBBON_TIP_BAND_ALPHA * fade})`);
     ctx.strokeStyle = bandGrad;
     ctx.lineWidth = 10 * scale;
     ctx.stroke(tip);
 
     const coreGrad = ctx.createLinearGradient(tsx, tsy, tex, tey);
     coreGrad.addColorStop(0, "rgba(255, 255, 255, 0)");
-    coreGrad.addColorStop(1, `rgba(255, 255, 255, ${RIBBON_TIP_CORE_ALPHA})`);
+    coreGrad.addColorStop(1, `rgba(255, 255, 255, ${RIBBON_TIP_CORE_ALPHA * fade})`);
     ctx.strokeStyle = coreGrad;
     ctx.lineWidth = 2 * scale;
     ctx.stroke(tip);
