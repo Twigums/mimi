@@ -1,4 +1,9 @@
 import { angleDiff, clamp } from "../core/utils";
+import {
+  type HoldAnalysis,
+  type LyricHoldState,
+  toHoldAnalysis,
+} from "./holdTracker";
 
 export const TIER3_MS               = 40;
 export const TIER2_MS               = 80;
@@ -451,14 +456,14 @@ function gestureSettled(
 // buckets without adding a new one — timing (when you entered), contact (how close to
 // center you got), gesture (the held fraction). Direction does not apply.
 
-interface HoldAnalysis {
+interface SampleHoldAnalysis {
   entered: boolean;       // the pointer reached inside LYRIC_HOLD_RADIUS at some point
   closest: number;        // closest distance to center over the window
   offsetMs: number;       // timing offset; early presence (before note.time) counts as 0
   heldDuration: number;   // longest contiguous span inside the radius within the window
 }
 
-function analyzeHold(note: JudgementNote, samples: PointerSample[], holdEnd: number): HoldAnalysis {
+function analyzeHold(note: JudgementNote, samples: PointerSample[], holdEnd: number): SampleHoldAnalysis {
   let closest = Infinity;
   let closestMs = note.time;
   let firstInsideMs = Infinity;
@@ -495,18 +500,17 @@ function analyzeHold(note: JudgementNote, samples: PointerSample[], holdEnd: num
   return { entered, closest, offsetMs, heldDuration: Math.max(0, bestHeld) };
 }
 
-function buildHoldJudgement(note: JudgementNote, samples: PointerSample[], holdMs: number, holdEnd: number): {
+function buildHoldJudgement(note: JudgementNote, analysis: HoldAnalysis, holdMs: number): {
   judgement: Judgement;
   timingCap: HitResult;
   entered: boolean;
   held: boolean;
 } {
-  const a = analyzeHold(note, samples, holdEnd);
   const required = Math.max(1, holdMs - LYRIC_RELEASE_GRACE);
-  const heldFraction = clamp(a.heldDuration / required, 0, 1);
+  const heldFraction = clamp(analysis.heldDuration / required, 0, 1);
 
-  const timingCap  = scoreFor(a.offsetMs).result;
-  const contactCap = capUpper(a.closest, CUT_CONTACT_TIER3, CUT_CONTACT_TIER2, CUT_CONTACT_TIER1);
+  const timingCap  = scoreFor(analysis.offsetMs).result;
+  const contactCap = capUpper(analysis.closest, CUT_CONTACT_TIER3, CUT_CONTACT_TIER2, CUT_CONTACT_TIER1);
   const holdCap    = capLower(heldFraction, LYRIC_HOLD_TIER3, LYRIC_HOLD_TIER2, LYRIC_HOLD_TIER1);
 
   const result = minTier(minTier(timingCap, contactCap), holdCap);
@@ -522,18 +526,22 @@ function buildHoldJudgement(note: JudgementNote, samples: PointerSample[], holdM
     judgement: {
       result,
       points,
-      offsetMs: a.offsetMs,
-      timing: timingFor(a.offsetMs),
+      offsetMs: analysis.offsetMs,
+      timing: timingFor(analysis.offsetMs),
       issue,
-      gesture: { travel: 0, direction: 0, impactSongMs: note.time + a.offsetMs, contactDistance: a.closest },
+      gesture: { travel: 0, direction: 0, impactSongMs: note.time + analysis.offsetMs, contactDistance: analysis.closest },
     },
     timingCap,
-    entered: a.entered,
-    held: a.heldDuration > 0,
+    entered: analysis.entered,
+    held: analysis.heldDuration > 0,
   };
 }
 
-function judgeHold(note: JudgementNote, pointerSamples: PointerSample[]): JudgementAttempt {
+function judgeHold(
+  note: JudgementNote,
+  pointerSamples: PointerSample[],
+  holdState?: LyricHoldState,
+): JudgementAttempt {
   const latest = pointerSamples[pointerSamples.length - 1];
   if (latest === undefined) return { status: "noGesture" };
 
@@ -541,29 +549,26 @@ function judgeHold(note: JudgementNote, pointerSamples: PointerSample[]): Judgem
   // load): the zero-length window holds nothing, so it resolves as a miss.
   const holdMs = note.holdMs ?? 0;
   const holdEnd = note.time + holdMs;
-  const samples = clipSamples(
-    pointerSamples,
-    note.time - TIER1_MS,
-    Math.min(latest.songMs, holdEnd),
-  );
+  const analysis = holdState !== undefined
+    ? toHoldAnalysis(holdState)
+    : analyzeHold(
+      note,
+      clipSamples(
+        pointerSamples,
+        note.time - TIER1_MS,
+        Math.min(latest.songMs, holdEnd),
+      ),
+      holdEnd,
+    );
 
-  const { judgement, timingCap, entered, held } = buildHoldJudgement(note, samples, holdMs, holdEnd);
+  const { judgement, held } = buildHoldJudgement(note, analysis, holdMs);
   const latestInside = Math.hypot(latest.x - note.x, latest.y - note.y) <= LYRIC_HOLD_RADIUS;
 
-  // Finalize as soon as the outcome can no longer improve: the hold window has fully
-  // elapsed, the full hold is already achieved, timing has lapsed past a savable miss,
-  // or the player has released a started hold (left the circle after holding into the
-  // scored window) so the held fraction is fixed. This keeps feedback on the beat the
-  // hold ends rather than at holdEnd. A mere early brush before the note start (no
-  // scored hold yet) is not a release — the player can still enter and hold.
+  // Finalize at the hold end so feedback lands on the beat, or early when the player
+  // releases after having held (the held fraction is then fixed). A mere early brush
+  // before the note start is not a release — the player can still enter and hold.
   if (latest.songMs >= holdEnd) return { status: "judged", judgement };
-  if (timingCap === "miss") return { status: "judged", judgement };
-  if (judgement.result === "tier3") return { status: "judged", judgement };
   if (held && !latestInside) return { status: "judged", judgement };
-  // Never reached inside and the late window has lapsed: it can never keep a hold.
-  if (!entered && !latestInside && latest.songMs >= note.time + TIER1_MS) {
-    return { status: "judged", judgement };
-  }
   return { status: "pending", best: judgement };
 }
 
@@ -571,8 +576,9 @@ export function judgeGesture(
   note: JudgementNote,
   pointerSamples: PointerSample[],
   prevNoteTime?: number,
+  lyricHoldState?: LyricHoldState,
 ): JudgementAttempt {
-  if (note.kind === "lyric") return judgeHold(note, pointerSamples);
+  if (note.kind === "lyric") return judgeHold(note, pointerSamples, lyricHoldState);
 
   const latest = pointerSamples[pointerSamples.length - 1];
   if (latest === undefined) return { status: "noGesture" };

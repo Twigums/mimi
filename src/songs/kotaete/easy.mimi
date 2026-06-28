@@ -87,3 +87,11 @@ flow, 17309, auto, 420, 205
 flow, 17540, auto, 585, 300
 flow, 17771, auto, 420, 395
 flow, 18001, auto, 220, 400
+
+break
+# long lyric hold regression (2+ measures each; exceeds sample-buffer span)
+lyric, 19200, auto, 400, 300, char=長
+flow, 22000, auto, 520, 300
+break
+lyric, 22600, auto, 280, 250, char=試
+flow, 48200, auto, 400, 350

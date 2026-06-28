@@ -223,7 +223,7 @@ Style tokens are optional trailing fields on `m` and `l` entries:
 | `out=<type>` | `rise`, `fade`, `fall`, or `rise(<seconds>)` | Exit animation when the segment is removed. `rise` slowly lifts the lyric straight upward and fades it out; `fall` accelerates it downward and fades it out. Add a parenthesized duration to `rise` to override its default speed, e.g. `out=rise(1)` lasts 1 second. |
 | `motion=<type>` | `sway`, `drift`, or `rotate` | Continuous motion animation. |
 | `pulse=beat` | `beat` | Pulses active chars on the beat. |
-| `delay=<signed ms>` | `500`, `+500`, `-500`, `{500}`, or `{-500}` | Positive values show early; negative values show late. On `m`, delay shifts only that moved segment relative to the phrase display, not the whole phrase; lyric-note funneling waits until the source segment is visible. On `l`, delay shifts the manual lyric's display relative to `from`; the segment still ends at `to`. |
+| `delay=<signed ms>` | `500`, `+500`, `-500`, `{500}`, or `{-500}` | Positive values show early; negative values show late. On `m`, delay shifts only that moved segment relative to the phrase display, not the whole phrase; the funnel still launches from that segment's eventual position once the phrase is mounted for an approaching note. On `l`, delay shifts the manual lyric's display relative to `from`; the segment still ends at `to`. |
 | `autotime` | Bare flag, `l` only | Sets `"autotime": "true"` and derives manual lyric char activation from TextAlive instead of manual `char_time` fields. |
 
 Examples:
