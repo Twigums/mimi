@@ -623,19 +623,18 @@ const RIBBON_FADE_IN    = 0.5;
 const RIBBON_TIP_FRAC       = 0.15;
 const RIBBON_TIP_BAND_ALPHA = 0.5;
 const RIBBON_TIP_CORE_ALPHA = 0.55;
-// Post-hit roll (fixed wall-clock, NOT AR-locked): once the source anchor is hit a bright bead
-// races to the next anchor over RIBBON_PULSE_MS while the tail erases behind it — starting
-// RIBBON_ERASE_LAG_MS after the hit and clearing over RIBBON_ERASE_MS. Exported so engine.ts
-// derives the pulse/erase fractions it feeds back into drawFlowRibbon.
-export const RIBBON_PULSE_MS     = 230;
+// Post-hit erase (fixed wall-clock, NOT AR-locked): once the source anchor is hit, its ribbon
+// tail retreats toward the next anchor — starting RIBBON_ERASE_LAG_MS after the hit and clearing
+// over RIBBON_ERASE_MS — dissolving into a soft poof at the retreating edge. Exported so engine.ts
+// derives the erase fraction it feeds back into drawFlowRibbon.
 export const RIBBON_ERASE_LAG_MS = 70;
 export const RIBBON_ERASE_MS     = 260;
 
 // Drawn band bounded by arc-length fractions [eraseBack, revealFront] (each 0..1). During
 // approach the band reveals from `from` toward `to` (eraseBack 0) with a brighter, glowing
-// leading edge. After the source anchor is hit it rolls: a bright bead races to `to` (pulseS)
-// while the tail erases behind it (eraseBack climbs) on a fixed wall-clock timescale. pulseS < 0
-// (the default) draws no bead.
+// leading edge. After the source anchor is hit it erases: the tail retreats toward `to`
+// (eraseBack climbs) on a fixed wall-clock timescale, dissolving into a soft poof at the
+// retreating edge.
 export function drawFlowRibbon(
   ctx: CanvasRenderingContext2D,
   from: Note,
@@ -643,7 +642,6 @@ export function drawFlowRibbon(
   scale: number,
   revealFront: number,
   eraseBack = 0,
-  pulseS = -1,
 ): void {
   const front = Math.max(0, Math.min(1, revealFront));
   const back  = Math.max(0, Math.min(1, eraseBack));
@@ -746,21 +744,34 @@ export function drawFlowRibbon(
     ctx.stroke(tip);
   }
 
-  // Rolling pulse bead racing toward `to` after the hit; fades out as it arrives.
-  if (pulseS >= 0 && pulseS < 1) {
-    const [pbx, pby] = at(pulseS * total);
-    const beadAlpha  = Math.min(1, (1 - pulseS) / 0.15);
-    const beadR      = 7 * scale;
-    ctx.shadowColor  = `rgba(${base}, ${0.9 * beadAlpha})`;
-    ctx.shadowBlur   = 10 * scale;
-    const bead = ctx.createRadialGradient(pbx, pby, 0, pbx, pby, beadR);
-    bead.addColorStop(0,   `rgba(255, 255, 255, ${0.95 * beadAlpha})`);
-    bead.addColorStop(0.5, `rgba(${base}, ${0.85 * beadAlpha})`);
-    bead.addColorStop(1,   `rgba(${base}, 0)`);
-    ctx.fillStyle = bead;
-    ctx.beginPath();
-    ctx.arc(pbx, pby, beadR, 0, Math.PI * 2);
-    ctx.fill();
+  // Soft poof at the retreating erase edge: the ribbon dissolves into a small cloud-puff as it
+  // is consumed (no bead — the disappearance itself is the feedback). `pp` tracks how far the
+  // erase has eaten into the revealed band, so the puff swells and fades as the segment clears.
+  if (back > 0) {
+    const pp        = back / front;
+    const poofAlpha = Math.min(pp / 0.12, 1) * (1 - pp) * fade;
+    if (poofAlpha > 0.01) {
+      const [ex, ey] = at(startLen);
+      const spread   = (4 + pp * 8) * scale;
+      const puffR    = (6 + pp * 5) * scale;
+      ctx.shadowColor = `rgba(${base}, ${0.5 * poofAlpha})`;
+      ctx.shadowBlur  = 8 * scale;
+      for (let k = 0; k < 4; k++) {
+        const ang = k === 0 ? 0 : (k - 1) * (Math.PI * 2 / 3) + pp * 1.5;
+        const d   = k === 0 ? 0 : spread;
+        const px  = ex + Math.cos(ang) * d;
+        const py  = ey + Math.sin(ang) * d;
+        const a   = poofAlpha * (k === 0 ? 0.9 : 0.6);
+        const puff = ctx.createRadialGradient(px, py, 0, px, py, puffR);
+        puff.addColorStop(0,    `rgba(255, 255, 255, ${0.7 * a})`);
+        puff.addColorStop(0.45, `rgba(${base}, ${0.8 * a})`);
+        puff.addColorStop(1,    `rgba(${base}, 0)`);
+        ctx.fillStyle = puff;
+        ctx.beginPath();
+        ctx.arc(px, py, puffR, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
   }
 
   ctx.restore();

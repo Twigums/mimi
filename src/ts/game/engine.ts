@@ -1,5 +1,5 @@
 import { clamp } from "../core/utils";
-import { drawArrow, drawFlowAnchor, drawLyricDemoFunnel, drawLyricNote, drawFireworks, drawFlowRibbon, notePulseScale, RIBBON_PULSE_MS, RIBBON_ERASE_LAG_MS, RIBBON_ERASE_MS } from "./draw";
+import { drawArrow, drawFlowAnchor, drawLyricDemoFunnel, drawLyricNote, drawFireworks, drawFlowRibbon, notePulseScale, RIBBON_ERASE_LAG_MS, RIBBON_ERASE_MS } from "./draw";
 import { arToMs, loadAr, loadHitsoundVolume, subscribeHitsoundVolume, volToFactor, loadHiddenMod, subscribeHiddenMod } from "../core/settings";
 import { createCursorRenderer, type CursorRenderer } from "./cursor";
 import { lyricDemoFunnelOrigin, lyricFillProgress, lyricVisualScale } from "./lyricLayout";
@@ -66,8 +66,8 @@ export interface Note {
   flowTanX?: number;
   flowTanY?: number;
   flowShape?: number[];
-  // Flow only: wall-clock ms when this anchor was hit, driving the ribbon's post-hit roll
-  // (the pulse bead racing to the next anchor while the tail erases). Cleared on reset.
+  // Flow only: wall-clock ms when this anchor was hit, driving the ribbon's post-hit erase
+  // (the tail retreating toward the next anchor, dissolving into a poof). Cleared on reset.
   flowHitMs?: number;
 }
 
@@ -304,9 +304,9 @@ export function createGame(deps: GameDeps): GameHandle {
   let pendingStart = 0;
   let animations: HitAnimation[] = [];
   let animStart = 0;
-  // Indices of flow anchors whose post-hit ribbon roll is still in flight (bead racing toward
-  // the next anchor while the tail erases); culled in draw() once a segment is fully consumed.
-  let flowRolls: number[] = [];
+  // Indices of flow anchors whose post-hit ribbon erase is still in flight (the tail retreating
+  // toward the next anchor, dissolving into a poof); culled in draw() once fully consumed.
+  let flowErasing: number[] = [];
   let score = 0;
   let tier3Count = 0;
   let tier2Count = 0;
@@ -542,10 +542,10 @@ export function createGame(deps: GameDeps): GameHandle {
         x: note.x, y: note.y, kind: note.kind, startMs: songMs,
         seed: Math.floor(note.x * 7919 + note.y * 6271),
       });
-      // A hit flow anchor with a linked successor starts its ribbon rolling toward it.
+      // A hit flow anchor with a linked successor starts its ribbon erasing toward it.
       if (note.kind === "flow" && note.flowNextIndex !== undefined) {
         note.flowHitMs = songMs;
-        flowRolls.push(noteIndex);
+        flowErasing.push(noteIndex);
       }
     }
     hitDetails.push({
@@ -624,12 +624,11 @@ export function createGame(deps: GameDeps): GameHandle {
       if (next.time - songMs < -TIER1_MS) continue;
       drawFlowRibbon(ctx, note, next, scale, ribbonReveal(note, next, songMs));
     }
-    // Rolling ribbons: a hit anchor's segment keeps drawing while its bead races toward the next
-    // anchor and the tail erases behind it (fixed wall-clock; see RIBBON_* in draw.ts). A segment
-    // is dropped once the erase overtakes the revealed front (fully consumed). pulseS is capped
-    // to the revealed front so the bead never outruns the drawn band on a sparse segment.
-    const survivingRolls: number[] = [];
-    for (const fromIdx of flowRolls) {
+    // Erasing ribbons: a hit anchor's segment keeps drawing while its tail erases toward the next
+    // anchor (fixed wall-clock; see RIBBON_* in draw.ts), dissolving into a poof at the retreating
+    // edge. A segment is dropped once the erase overtakes the revealed front (fully consumed).
+    const stillErasing: number[] = [];
+    for (const fromIdx of flowErasing) {
       const from = notes[fromIdx];
       const nextIdx = from?.flowNextIndex;
       if (!from || nextIdx === undefined || from.flowHitMs === undefined) continue;
@@ -639,10 +638,10 @@ export function createGame(deps: GameDeps): GameHandle {
       const revealFront = ribbonReveal(from, next, songMs);
       const eraseBack = clamp((el - RIBBON_ERASE_LAG_MS) / RIBBON_ERASE_MS, 0, 1);
       if (eraseBack >= revealFront) continue;
-      drawFlowRibbon(ctx, from, next, scale, revealFront, eraseBack, clamp(el / RIBBON_PULSE_MS, 0, revealFront));
-      survivingRolls.push(fromIdx);
+      drawFlowRibbon(ctx, from, next, scale, revealFront, eraseBack);
+      stillErasing.push(fromIdx);
     }
-    flowRolls = survivingRolls;
+    flowErasing = stillErasing;
     for (let i = pendingStart; i < notes.length; i++) {
       const note = notes[i];
       if (note.state !== "pending") continue;
@@ -709,7 +708,7 @@ export function createGame(deps: GameDeps): GameHandle {
       }
       notes = normalizeChartNotes(playable);
       pendingStart = 0;
-      flowRolls = [];
+      flowErasing = [];
       debugDrawOnce = true;
       linkFlowPhrases();
       computeLyricHolds(notes, endTimes);
@@ -722,7 +721,7 @@ export function createGame(deps: GameDeps): GameHandle {
       for (const n of notes) { n.state = "pending"; n.hitResult = undefined; n.flowHitMs = undefined; }
       animations = [];
       animStart = 0;
-      flowRolls = [];
+      flowErasing = [];
       score = 0;
       tier3Count = 0;
       tier2Count = 0;
