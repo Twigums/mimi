@@ -331,18 +331,17 @@ html.theme-dark .bg-sky .cloud-layer {
 
   // music note pop out on hover
   &::after {
-    content: '♪';
-    display: flex;
-    align-items: flex-start;
-    justify-content: center;
+    content: '';
+    display: block;
     width: 1.9rem;
     height: 1.9rem;
     top: -0.65rem;
     left: 36%;
-    font-size: 1rem;
-    line-height: 1.1;
-    color: transparent;
-    transition: transform 0.3s var(--motion-ease-bouncy), color 0.2s, background-color 0.4s ease;
+    border-radius: 0;
+    background: transparent;
+    mask: url("../images/music_notes/eighth_note.svg") center / contain no-repeat;
+    -webkit-mask: url("../images/music_notes/eighth_note.svg") center / contain no-repeat;
+    transition: transform 0.3s var(--motion-ease-bouncy), background-color 0.4s ease;
   }
 
   &:hover {
@@ -352,9 +351,12 @@ html.theme-dark .bg-sky .cloud-layer {
     filter: drop-shadow(0 6px 0 var(--cloud-glow)) drop-shadow(0 14px 24px rgba(57, 197, 187, 0.3));
 
     &::after {
-      color: var(--miku-teal);
       transform: translateY(-0.55rem) rotate(12deg);
     }
+  }
+
+  &:not(.btn-main--play):not(.btn-main--tutorial):not(.btn-main--info):hover::after {
+    background: var(--miku-teal);
   }
 
   &:active {
@@ -378,6 +380,10 @@ html.theme-dark .bg-sky .cloud-layer {
 
 .btn-main--play::after {
   content: '';
+  border-radius: 50%;
+  background: inherit;
+  mask: none;
+  -webkit-mask: none;
 }
 
 .btn-play-icon {
@@ -402,16 +408,44 @@ html.theme-dark .bg-sky .cloud-layer {
 
 .btn-main--tutorial::after {
   content: '?';
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
   font-size: 1.2rem;
+  line-height: 1.1;
+  color: transparent;
+  border-radius: 50%;
+  background: inherit;
+  mask: none;
+  -webkit-mask: none;
+  transition: transform 0.3s var(--motion-ease-bouncy), color 0.2s, background-color 0.4s ease;
   -webkit-font-smoothing: antialiased;
+}
+
+.btn-main--tutorial:hover::after {
+  color: var(--miku-teal);
 }
 
 .btn-main--info::after {
   content: 'i';
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
   font-size: 1.2rem;
+  line-height: 1.1;
+  color: transparent;
   font-style: oblique -12deg;
   font-weight: 700;
+  border-radius: 50%;
+  background: inherit;
+  mask: none;
+  -webkit-mask: none;
+  transition: transform 0.3s var(--motion-ease-bouncy), color 0.2s, background-color 0.4s ease;
   -webkit-font-smoothing: antialiased;
+}
+
+.btn-main--info:hover::after {
+  color: var(--miku-teal);
 }
 
 .btn-back {
