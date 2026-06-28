@@ -3,6 +3,11 @@ import { drawArrow, drawLyricNote, drawFireworks, drawFlowRibbon, notePulseScale
 import { arToMs, loadAr, loadHitsoundVolume, subscribeHitsoundVolume, volToFactor, loadHiddenMod, subscribeHiddenMod } from "../core/settings";
 import { createCursorRenderer, type CursorRenderer } from "./cursor";
 import { computeLyricHolds, noteEndMs } from "./lyrics";
+import {
+  createLyricHoldState,
+  updateLyricHoldState,
+  type LyricHoldState,
+} from "./holdTracker";
 import { hashChart } from "./personalBest";
 import {
   CUT_METRIC_WINDOW_MS,
@@ -264,6 +269,7 @@ export function createGame(deps: GameDeps): GameHandle {
 
   const pointer = { x: 0, y: 0, prevX: 0, prevY: 0 };
   const pointerSamples: PointerSample[] = [];
+  const lyricHoldStates = new Map<number, LyricHoldState>();
 
   const setPointer = (clientX: number, clientY: number): void => {
     const rect = canvas.getBoundingClientRect();
@@ -321,9 +327,28 @@ export function createGame(deps: GameDeps): GameHandle {
       songMs,
       wallMs: performance.now(),
     });
-    // Keep enough history to span a lyric hold plus the metric windows even at high
-    // refresh rates, since a held lyric is judged across its whole duration.
+    // Cut/flow gesture windows only; lyric holds use per-note trackers instead.
     while (pointerSamples.length > 256) pointerSamples.shift();
+  };
+
+  const updateLyricHoldTrackers = (songMs: number): void => {
+    for (let i = pendingStart; i < notes.length; i++) {
+      const n = notes[i];
+      if (n.state !== "pending" || n.kind !== "lyric") continue;
+      const holdMs = n.holdMs ?? 0;
+      if (holdMs <= 0) continue;
+
+      const windowStart = n.time - TIER1_MS;
+      const holdEnd = n.time + holdMs;
+      if (songMs < windowStart) continue;
+
+      let state = lyricHoldStates.get(i);
+      if (state === undefined) {
+        state = createLyricHoldState(n.time, holdMs);
+        lyricHoldStates.set(i, state);
+      }
+      updateLyricHoldState(state, n.x, n.y, pointer.x, pointer.y, Math.min(songMs, holdEnd));
+    }
   };
 
   // Flow anchors take their direction from the ribbon they trace. By default the
@@ -473,11 +498,13 @@ export function createGame(deps: GameDeps): GameHandle {
     onFeedback("miss", note.x, note.y);
   };
 
-  const tryHit = (note: Note, songMs: number, prevNoteTime?: number): void => {
+  const tryHit = (note: Note, songMs: number, noteIndex: number, prevNoteTime?: number): void => {
     if (note.state !== "pending") return;
 
-    const attempt = judgeGesture(note, pointerSamples, prevNoteTime);
+    const attempt = judgeGesture(note, pointerSamples, prevNoteTime, lyricHoldStates.get(noteIndex));
     if (attempt.status !== "judged") return;
+
+    lyricHoldStates.delete(noteIndex);
 
     const { result, points, offsetMs, timing, issue } = attempt.judgement;
     if (result === "miss") {
@@ -528,6 +555,7 @@ export function createGame(deps: GameDeps): GameHandle {
       if (n.state !== "pending") continue;
       if (songMs - noteEndMs(n) <= CUT_METRIC_WINDOW_MS) continue;
       resolveMiss(n, songMs - n.time, "timing");
+      lyricHoldStates.delete(i);
     }
   };
 
@@ -620,6 +648,7 @@ export function createGame(deps: GameDeps): GameHandle {
       debugDrawOnce = true;
       linkFlowPhrases();
       computeLyricHolds(notes, endTimes);
+      lyricHoldStates.clear();
     },
 
     reset(): void {
@@ -637,6 +666,7 @@ export function createGame(deps: GameDeps): GameHandle {
       maxCombo   = 0;
       hitDetails = [];
       pointerSamples.length = 0;
+      lyricHoldStates.clear();
       emitAccuracy();
       onComboChange(0);
       onPlayingChange(false);
@@ -712,10 +742,11 @@ export function createGame(deps: GameDeps): GameHandle {
     tick(songMs: number): void {
       recordPointerSample(songMs);
       try {
+        updateLyricHoldTrackers(songMs);
         for (let i = pendingStart; i < notes.length; i++) {
           const n = notes[i];
           if (n.time > songMs + TIER1_MS) break;
-          if (n.state === "pending") tryHit(n, songMs, notes[i - 1]?.time);
+          if (n.state === "pending") tryHit(n, songMs, i, notes[i - 1]?.time);
         }
         if (skipExpiry) {
           if (songMs <= approachMs) skipExpiry = false;

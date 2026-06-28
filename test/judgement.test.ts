@@ -11,6 +11,7 @@ import {
   type PointerSample,
   judgeGesture,
 } from "../src/ts/game/judgement";
+import { createLyricHoldState, updateLyricHoldState } from "../src/ts/game/holdTracker";
 
 const NOTE_TIME = 1000;
 const CENTER_X = 400;
@@ -243,6 +244,19 @@ check("an early brush before the note start does not finalize the lyric", () => 
   // The same player then returns and holds it out: a clean tier 3.
   const recovered = [...brush, ...holdAt(CENTER_X, CENTER_Y, 1000, NOTE_TIME + HOLD_MS)];
   assert.equal(resultFor(judgeGesture(lyric(), recovered)), "tier3");
+});
+
+check("a long lyric hold judged via incremental tracker earns tier 3", () => {
+  const LONG_HOLD_MS = 1847;
+  const longLyric = lyric({ holdMs: LONG_HOLD_MS });
+  const state = createLyricHoldState(longLyric.time, LONG_HOLD_MS);
+  for (let t = longLyric.time - 160; t <= longLyric.time + LONG_HOLD_MS; t += 7) {
+    updateLyricHoldState(state, longLyric.x, longLyric.y, CENTER_X, CENTER_Y, t);
+  }
+  const latest = [{ songMs: longLyric.time + LONG_HOLD_MS, x: CENTER_X, y: CENTER_Y }];
+  const judgement = judged(judgeGesture(longLyric, latest, undefined, state));
+  assert.equal(judgement.result, "tier3");
+  assert.equal(judgement.offsetMs, 0);
 });
 
 check("a flow gesture tracing the ribbon shape earns tier 3", () => {
