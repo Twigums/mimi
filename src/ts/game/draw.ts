@@ -180,6 +180,60 @@ function ensureArrowGlyph(): void {
 
 ensureArrowGlyph();
 
+// Approach-fill tuning shared by the cut arrow and the flow anchor so they can't drift:
+// the outline snaps in over the first OUTLINE_SNAP of the approach, then a center-out
+// radial fill grows from FILL_START to hit time.
+const OUTLINE_SNAP = 0.12;
+const FILL_START   = 0.62;
+
+interface GlyphGlow {
+  rgb: string;
+  alpha: number;
+  blur: number;
+}
+
+// Shared render for the directional notes: a center-out radial fill clipped to the glyph
+// outline (Hidden = outline only) plus the outline stroke, with an optional soft glow on
+// the stroke. `fillMaxR` is the radius that fully covers the glyph (half its bounding
+// diagonal). Cut passes no glow (crisp); flow passes its blue glow (personality split).
+function drawApproachGlyph(
+  ctx: CanvasRenderingContext2D,
+  path: Path2D,
+  cx: number,
+  cy: number,
+  fillMaxR: number,
+  base: string,
+  darkBase: string,
+  appearProgress: number,
+  scale: number,
+  hidden: boolean,
+  glow?: GlyphGlow,
+): void {
+  const outlineAlpha = Math.min(appearProgress / OUTLINE_SNAP, 1);
+  const fillProgress = Math.max(0, (appearProgress - FILL_START) / (1 - FILL_START));
+
+  if (!hidden) {
+    ctx.save();
+    ctx.clip(path);
+    ctx.beginPath();
+    ctx.arc(cx, cy, fillProgress * fillMaxR, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(${base}, 1.0)`;
+    ctx.fill();
+    ctx.restore();
+  }
+
+  ctx.save();
+  if (glow) {
+    ctx.shadowColor = `rgba(${glow.rgb}, ${glow.alpha})`;
+    ctx.shadowBlur  = glow.blur;
+  }
+  ctx.strokeStyle = `rgba(${darkBase}, ${0.9 * outlineAlpha})`;
+  ctx.lineWidth = 2.5 * scale;
+  ctx.lineJoin  = "round";
+  ctx.stroke(path);
+  ctx.restore();
+}
+
 // appearProgress: 0 = faint outline just appearing, 1 = fully filled at hit time
 export function drawArrow(
   ctx: CanvasRenderingContext2D,
@@ -206,11 +260,6 @@ export function drawArrow(
 
   const { base, darkBase } = style.colors;
 
-  const OUTLINE_SNAP = 0.12;
-  const FILL_START   = 0.62;
-  const outlineAlpha = Math.min(appearProgress / OUTLINE_SNAP, 1);
-  const fillProgress = Math.max(0, (appearProgress - FILL_START) / (1 - FILL_START));
-
   ensureArrowGlyph();
   if (!arrowGlyph) {
     if (!arrowGlyphWarningShown) {
@@ -229,23 +278,71 @@ export function drawArrow(
   const path = new Path2D();
   path.addPath(arrowGlyph.path, matrix);
 
-  if (!hidden) {
-    ctx.save();
-    ctx.clip(path);
-    const fillMaxR = (Math.hypot(arrowGlyph.viewBoxW, arrowGlyph.viewBoxH) / 2) * s;
-    ctx.beginPath();
-    ctx.arc(cx, cy, fillProgress * fillMaxR, 0, Math.PI * 2);
-    ctx.fillStyle = `rgba(${base}, 1.0)`;
-    ctx.fill();
-    ctx.restore();
-  }
+  const fillMaxR = (Math.hypot(arrowGlyph.viewBoxW, arrowGlyph.viewBoxH) / 2) * s;
+  drawApproachGlyph(ctx, path, cx, cy, fillMaxR, base, darkBase, appearProgress, scale, hidden);
+}
 
-  ctx.save();
-  ctx.strokeStyle = `rgba(${darkBase}, ${0.9 * outlineAlpha})`;
-  ctx.lineWidth = 2.5 * scale;
-  ctx.lineJoin  = "round";
-  ctx.stroke(path);
-  ctx.restore();
+// Flow anchor: the same arrowhead as the cut arrow with the boxy shaft replaced by a tail
+// tapering to a single back point, ~FLOW_SCALE the size, with a soft blue glow that sets
+// flow apart from the crisp cut. Procedural (built from arrow.svg proportions so the head
+// is identical) and rotated to note.direction; reuses the shared approach fill/outline.
+const FLOW_SCALE      = 0.9;
+const FLOW_GLOW_ALPHA = 0.5;
+const FLOW_GLOW_BLUR  = 0.28; // × NOTE_RADIUS × scale
+
+// Arrow aspect ratio (height / width) from arrow.svg's viewBox, so the normalized glyph
+// keeps the exact arrowhead proportions instead of squashing toward a square.
+const FLOW_ASPECT = 59.231922 / 80.620979;
+
+// Normalized outline (viewBox 0..1, +x = note.direction), clockwise: top barb → tip →
+// bottom barb → bottom junction → tail back point → top junction. Points 1-2-3 + the head
+// base are the exact arrowhead/notch; 4-5-6 are the tapered tail.
+const FLOW_GLYPH: ReadonlyArray<readonly [number, number]> = [
+  [0.573, 0.017],
+  [0.988, 0.500],
+  [0.573, 0.983],
+  [0.573, 0.736],
+  [0.000, 0.500],
+  [0.573, 0.264],
+];
+
+export function drawFlowAnchor(
+  ctx: CanvasRenderingContext2D,
+  note: Note,
+  appearProgress: number,
+  scale: number,
+  hidden = false,
+  pulse = 1,
+): void {
+  const cx = note.x * scale;
+  const cy = note.y * scale;
+  const r  = NOTE_RADIUS * scale * pulse;
+  const { base, darkBase } = FLOW_STYLE.colors;
+
+  const w = r * FLOW_SCALE;
+  const h = w * FLOW_ASPECT;
+
+  const local = new Path2D();
+  FLOW_GLYPH.forEach(([px, py], i) => {
+    if (i === 0) local.moveTo(px, py);
+    else local.lineTo(px, py);
+  });
+  local.closePath();
+
+  const matrix = new DOMMatrix()
+    .translateSelf(cx, cy)
+    .rotateSelf((note.direction * 180) / Math.PI)
+    .scaleSelf(w, h)
+    .translateSelf(-0.5, -0.5);
+  const path = new Path2D();
+  path.addPath(local, matrix);
+
+  const fillMaxR = Math.hypot(w, h) / 2;
+  drawApproachGlyph(ctx, path, cx, cy, fillMaxR, base, darkBase, appearProgress, scale, hidden, {
+    rgb: base,
+    alpha: FLOW_GLOW_ALPHA,
+    blur: FLOW_GLOW_BLUR * NOTE_RADIUS * scale,
+  });
 }
 
 const LYRIC_FUNNEL_GLOW = "57, 197, 187";
@@ -377,7 +474,6 @@ export function drawLyricNote(
   const solidR = r * LYRIC_SOLID_RING_RATIO;
   const boundR = r * lyricBoundRadiusRatio(appearProgress, elapsedSinceHitMs);
 
-  const OUTLINE_SNAP = 0.12;
   const outlineAlpha = Math.min(appearProgress / OUTLINE_SNAP, 1);
 
   const { fontPx } = layoutLyricGlyphs(note.lyricChar, scale, visualScale);

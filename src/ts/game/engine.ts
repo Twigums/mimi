@@ -1,5 +1,5 @@
 import { clamp } from "../core/utils";
-import { drawArrow, drawLyricDemoFunnel, drawLyricNote, drawFireworks, drawFlowRibbon, notePulseScale } from "./draw";
+import { drawArrow, drawFlowAnchor, drawLyricDemoFunnel, drawLyricNote, drawFireworks, drawFlowRibbon, notePulseScale } from "./draw";
 import { arToMs, loadAr, loadHitsoundVolume, subscribeHitsoundVolume, volToFactor, loadHiddenMod, subscribeHiddenMod } from "../core/settings";
 import { createCursorRenderer, type CursorRenderer } from "./cursor";
 import { lyricDemoFunnelOrigin, lyricFillProgress, lyricVisualScale } from "./lyricLayout";
@@ -638,7 +638,11 @@ export function createGame(deps: GameDeps): GameHandle {
       } else {
         if (dt < -TIER1_MS) continue;
         const appearProgress = clamp(1 - dt / approachMs, 0, 1);
-        drawArrow(ctx, note, appearProgress, scale, hiddenMod, notePulseScale(dt));
+        if (note.kind === "flow") {
+          drawFlowAnchor(ctx, note, appearProgress, scale, hiddenMod, notePulseScale(dt));
+        } else {
+          drawArrow(ctx, note, appearProgress, scale, hiddenMod, notePulseScale(dt));
+        }
       }
     }
     for (let i = animStart; i < animations.length; i++) {
