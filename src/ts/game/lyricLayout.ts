@@ -1,3 +1,5 @@
+import { clamp } from "../core/utils";
+
 // Lyric notes are held targets, drawn as a larger circle than the old brush dot.
 export const LYRIC_RADIUS = 48;
 
@@ -5,8 +7,22 @@ export const LYRIC_FUNNEL_BLEND_MS = 180;
 
 /** Approach disc fill begins at this appearProgress (mirrors cut notes). */
 export const LYRIC_APPROACH_FILL_START = 0.62;
-/** Faint stroke for the judgement-zone ghost ring during approach/hold. */
-export const LYRIC_ZONE_GHOST_ALPHA = 0.08;
+/** Logical px the aura gradient extends past the visible disc edge. */
+export const LYRIC_AURA_EXTEND_PX = 10;
+/** Ms after hit time to ease the approach wash into hold greyscale. */
+export const LYRIC_HOLD_GREY_SETTLE_MS = 80;
+/** Hold window tail when the aura shifts greyscale → blue to cue release. */
+export const LYRIC_RELEASE_CUE_MS = 300;
+/** Ms at hold end for the release burst swell (inside the release-cue window). */
+export const LYRIC_END_BURST_MS = 110;
+/** Minimum disc scale during the pre-burst release-cue shrink. */
+export const LYRIC_PRE_RELEASE_SHRINK = 0.90;
+/** Peak scale at the hold end burst. */
+export const LYRIC_END_BURST_PEAK = 1.17;
+/** Dashed inner bound as a fraction of LYRIC_RADIUS (matches glyph layout). */
+export const LYRIC_BOUND_RATIO = 0.62;
+/** Solid outer ring, slightly larger than the dashed bound. */
+export const LYRIC_SOLID_RING_RATIO = 0.72;
 /** Logical px inset from the right edge for the TestPlay demo funnel origin. */
 export const LYRIC_FUNNEL_ORIGIN_INSET = 8;
 
@@ -14,12 +30,19 @@ export function lyricDemoFunnelOrigin(logicalW: number, logicalH: number): { x: 
   return { x: logicalW - LYRIC_FUNNEL_ORIGIN_INSET, y: logicalH / 4 };
 }
 
-/** Vertical nudge for funnel landing position only (em of font size; negative = up). */
-export const LYRIC_FUNNEL_DEST_Y_OFFSET_EM = -0.1;
+/** Vertical nudge for storyboard funnel landing only (em of font size; positive = down). */
+export const LYRIC_FUNNEL_DEST_Y_OFFSET_EM = -0.05;
 
-/** Canvas-pixel offset applied to the flying char's destination (negative = up). */
-export function lyricFunnelDestOffsetYPx(fontPx: number): number {
-  return LYRIC_FUNNEL_DEST_Y_OFFSET_EM * fontPx;
+/** Vertical nudge for the canvas lyric glyph (em of font size; positive = down). */
+export const LYRIC_GLYPH_Y_OFFSET_EM = 0.05;
+
+export function lyricGlyphOffsetYPx(fontPx: number): number {
+  return LYRIC_GLYPH_Y_OFFSET_EM * fontPx;
+}
+
+/** Canvas-pixel offset for the storyboard funnel destination (song gameplay only). */
+export function lyricFunnelDestOffsetYPx(fontPx: number, gameplay: boolean): number {
+  return gameplay ? LYRIC_FUNNEL_DEST_Y_OFFSET_EM * fontPx : 0;
 }
 
 export function lyricFunnelStep(charCount: number, approachMs: number): number {
@@ -34,6 +57,41 @@ export function lyricCharLandTime(
 ): number {
   const step = lyricFunnelStep(charCount, approachMs);
   return noteTime - (charCount - 1 - charIndex) * step;
+}
+
+function lyricHoldSmoothstep(t: number): number {
+  const u = clamp(t, 0, 1);
+  return u * u * (3 - 2 * u);
+}
+
+/** Sustain scale: breathe while held, ease-in shrink through release cue, burst at hold end. */
+export function lyricHoldScale(
+  holdMs: number,
+  songMs: number,
+  noteTime: number,
+  holding: boolean,
+): number {
+  if (holdMs <= 0) return 1;
+  const elapsed = songMs - noteTime;
+  if (elapsed < 0) return 1;
+
+  const remaining = holdMs - elapsed;
+  let phase = 1;
+
+  if (remaining <= LYRIC_END_BURST_MS) {
+    const t = lyricHoldSmoothstep(1 - remaining / LYRIC_END_BURST_MS);
+    phase = LYRIC_PRE_RELEASE_SHRINK + (LYRIC_END_BURST_PEAK - LYRIC_PRE_RELEASE_SHRINK) * t;
+  } else if (remaining < LYRIC_RELEASE_CUE_MS) {
+    const shrinkSpan = LYRIC_RELEASE_CUE_MS - LYRIC_END_BURST_MS;
+    const t = clamp(1 - (remaining - LYRIC_END_BURST_MS) / shrinkSpan, 0, 1);
+    phase = 1 - (1 - LYRIC_PRE_RELEASE_SHRINK) * (t * t);
+  }
+
+  if (!holding) return phase;
+  const animate = typeof window === "undefined"
+    || !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  if (!animate) return phase;
+  return phase * (1 + 0.035 * Math.sin(songMs * 0.014));
 }
 
 export function lyricFillProgress(
@@ -74,7 +132,7 @@ export function layoutLyricGlyphs(text: string, scale: number, pulse = 1): Lyric
 
   const ctx = measureCtx_();
   const r = LYRIC_RADIUS * scale * pulse;
-  const dotR = r * 0.62;
+  const dotR = r * LYRIC_BOUND_RATIO;
   let fontPx = r * 0.9 * Math.min(1, 1.4 / chars.length);
   let font = `bold ${fontPx.toFixed(1)}px sans-serif`;
 

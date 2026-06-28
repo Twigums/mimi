@@ -211,12 +211,20 @@ check("a lyric entered late is capped by timing", () => {
 });
 
 check("a lyric the cursor never reaches misses on contact", () => {
-  // Nearest approach is on time but well outside the hold radius the whole time.
-  const gesture = holdAt(CENTER_X, CENTER_Y + 200, 960, NOTE_TIME + 200);
+  // Nearest approach is on time but well outside the hold radius the whole window.
+  const gesture = holdAt(CENTER_X, CENTER_Y + 200, 960, NOTE_TIME + HOLD_MS);
   const judgement = judged(judgeGesture(lyric(), gesture));
 
   assert.equal(judgement.result, "miss");
   assert.equal(judgement.issue, "contact");
+});
+
+check("a perfect lyric hold stays pending until the hold end", () => {
+  const gesture = holdAt(CENTER_X, CENTER_Y, 960, NOTE_TIME + HOLD_MS - 40);
+  assert.equal(judgeGesture(lyric(), gesture).status, "pending");
+
+  const atEnd = holdAt(CENTER_X, CENTER_Y, 960, NOTE_TIME + HOLD_MS);
+  assert.equal(resultFor(judgeGesture(lyric(), atEnd)), "tier3");
 });
 
 check("a lyric stays pending while the hold is still in progress", () => {
