@@ -561,23 +561,14 @@ function judgeHold(
       holdEnd,
     );
 
-  const { judgement, timingCap, entered, held } = buildHoldJudgement(note, analysis, holdMs);
+  const { judgement, held } = buildHoldJudgement(note, analysis, holdMs);
   const latestInside = Math.hypot(latest.x - note.x, latest.y - note.y) <= LYRIC_HOLD_RADIUS;
 
-  // Finalize as soon as the outcome can no longer improve: the hold window has fully
-  // elapsed, the full hold is already achieved, timing has lapsed past a savable miss,
-  // or the player has released a started hold (left the circle after holding into the
-  // scored window) so the held fraction is fixed. This keeps feedback on the beat the
-  // hold ends rather than at holdEnd. A mere early brush before the note start (no
-  // scored hold yet) is not a release — the player can still enter and hold.
+  // Finalize at the hold end so feedback lands on the beat, or early when the player
+  // releases after having held (the held fraction is then fixed). A mere early brush
+  // before the note start is not a release — the player can still enter and hold.
   if (latest.songMs >= holdEnd) return { status: "judged", judgement };
-  if (timingCap === "miss") return { status: "judged", judgement };
-  if (judgement.result === "tier3") return { status: "judged", judgement };
   if (held && !latestInside) return { status: "judged", judgement };
-  // Never reached inside and the late window has lapsed: it can never keep a hold.
-  if (!entered && !latestInside && latest.songMs >= note.time + TIER1_MS) {
-    return { status: "judged", judgement };
-  }
   return { status: "pending", best: judgement };
 }
 

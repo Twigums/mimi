@@ -1,6 +1,11 @@
 import type { TextAliveChar, TextAlivePhrase, TextAliveVideo, TextAliveWord } from "./textalive";
 import type { HitResult, Note } from "../game/engine";
-import { LYRIC_RADIUS } from "../game/draw";
+import {
+  layoutLyricGlyphs,
+  lyricCharLandTime,
+  lyricFunnelDestOffsetYPx,
+  LYRIC_FUNNEL_BLEND_MS,
+} from "../game/lyricLayout";
 import { loadHiddenMod, subscribeHiddenMod } from "../core/settings";
 import { collectTextAliveChars, walkPhraseChars } from "./charLookup";
 
@@ -93,6 +98,7 @@ interface Flight {
   dx: number; dy: number;   // destination %, the note's logical position
   t0: number; t1: number;   // song-ms launch -> landing
   note: Note;
+  charIndex: number;
 }
 
 interface ActiveLyric {
@@ -124,6 +130,7 @@ export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElem
   let noteOutcome: Map<Note, "hit" | "miss"> = new Map();
   let noteToMatchKeys: Map<Note, string[]> = new Map();
   let wordNotesByKey: Map<string, Set<Note>> = new Map();
+  let charByKey: Map<string, TextAliveChar> = new Map();
   const charElMap: Map<TextAliveChar, HTMLElement> = new Map();
   const charKey = (c: TextAliveChar): string => `${c.startTime}\0${c.endTime}\0${c.text}`;
   // Funnel: characters detach from their source storyboard glyph and fly to the note.
@@ -321,15 +328,33 @@ export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElem
     mountedPhrases.delete(phrase);
   };
 
+  const phraseForChar = (ch: TextAliveChar): TextAlivePhrase | undefined =>
+    allPhrases.find(p => ch.startTime >= p.startTime && ch.startTime < p.endTime);
+
+  const phrasesForFunnel = (songMs: number): TextAlivePhrase[] => {
+    const out = new Set<TextAlivePhrase>();
+    for (const note of noteToMatchKeys.keys()) {
+      if (songMs < note.time - approachMs || songMs >= note.time) continue;
+      for (const key of noteToMatchKeys.get(note) ?? []) {
+        const ch = charByKey.get(key);
+        const phrase = ch ? phraseForChar(ch) : undefined;
+        if (phrase) out.add(phrase);
+      }
+    }
+    return [...out];
+  };
+
   const syncActivePhrases = (songMs: number): void => {
     const active = displayPhrases(songMs);
     const activeSet = new Set(active);
+    for (const phrase of phrasesForFunnel(songMs)) activeSet.add(phrase);
+    const activeList = [...activeSet];
 
     for (const [phrase, els] of [...mountedPhrases]) {
       if (!activeSet.has(phrase)) clearPhrase(phrase, els);
     }
 
-    for (const phrase of active) {
+    for (const phrase of activeList) {
       if (!mountedPhrases.has(phrase)) {
         const els = renderPhrase(phrase, songMs);
         if (els.length > 0) mountedPhrases.set(phrase, els);
@@ -354,13 +379,30 @@ export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElem
     launched = new Set();
   };
 
-  const visibleSourceGlyph = (key: string): HTMLElement | undefined => {
+  const LINE_SLIDE_PX = 12;
+
+  const sourceGlyph = (key: string): HTMLElement | undefined => {
     for (const { ch, el } of charEls) {
-      if (charKey(ch) !== key) continue;
-      const container = el.closest<HTMLElement>(".storyboard-line, .storyboard-segment");
-      if (!container || container.classList.contains("visible")) return el;
+      if (charKey(ch) === key) return el;
     }
     return undefined;
+  };
+
+  // Phrase lines slide in on appear; use their settled position when the segment
+  // is still pre-visible so early funnel flights launch from where the glyph will be.
+  const glyphCenterPct = (glyph: HTMLElement, rect: DOMRect): { x: number; y: number } => {
+    const gr = glyph.getBoundingClientRect();
+    const container = glyph.closest<HTMLElement>(".storyboard-line, .storyboard-segment");
+    let cx = gr.left + gr.width / 2;
+    const cy = gr.top + gr.height / 2;
+    if (container && !container.classList.contains("visible")) {
+      if (container.classList.contains("storyboard-line--overlay")) cx += LINE_SLIDE_PX;
+      else if (container.classList.contains("storyboard-line")) cx -= LINE_SLIDE_PX;
+    }
+    return {
+      x: ((cx - rect.left) / rect.width) * 100,
+      y: ((cy - rect.top) / rect.height) * 100,
+    };
   };
 
   // Spawn the funnel characters for a note: each flies from its source storyboard
@@ -374,25 +416,20 @@ export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElem
     const rect = flightRoot.getBoundingClientRect();
     if (rect.width === 0) return;
     const baseDx = (note.x / LOGICAL_W) * 100;
-    const dy = (note.y / LOGICAL_H) * 100;
     const n = text.length;
-    const step = Math.min(140, approachMs / (n + 1));
-    // Size the flying glyph to match the note's on-canvas character (LYRIC_RADIUS * 0.9
-    // at the canvas scale), so it grows into exactly the note's lyric size on landing.
     const scale = rect.width / LOGICAL_W;
-    const fontPx = LYRIC_RADIUS * 0.9 * scale;
-    const charPct = ((fontPx * 0.62) / rect.width) * 100;
+    const layout = layoutLyricGlyphs(note.lyricChar ?? "", scale);
+    const fontPx = layout.fontPx;
+    const dy = (note.y / LOGICAL_H) * 100 + (lyricFunnelDestOffsetYPx(fontPx, true) / rect.height) * 100;
     for (let i = 0; i < n; i++) {
       const srcKey = srcKeys[Math.min(i, srcKeys.length - 1)];
-      const glyph = srcKey ? visibleSourceGlyph(srcKey) : undefined;
+      const glyph = srcKey ? sourceGlyph(srcKey) : undefined;
       if (!glyph) continue;
-      const gr = glyph.getBoundingClientRect();
-      // Multi-char notes land their glyphs side by side, centred on the note.
-      const dx = baseDx + (i - (n - 1) / 2) * charPct;
-      // Reduced motion: start at the destination so the char appears on the note
-      // without travelling.
-      const sx = reducedMotion ? dx : ((gr.left + gr.width / 2 - rect.left) / rect.width) * 100;
-      const sy = reducedMotion ? dy : ((gr.top + gr.height / 2 - rect.top) / rect.height) * 100;
+      const glyphPos = glyphCenterPct(glyph, rect);
+      const dx = baseDx + (layout.charOffsets[i] / rect.width) * 100;
+      const sx = reducedMotion ? dx : glyphPos.x;
+      const sy = reducedMotion ? dy : glyphPos.y;
+      const landTime = lyricCharLandTime(note.time, i, n, approachMs);
       const el = document.createElement("div");
       el.className = "sb-fly";
       el.textContent = text[i];
@@ -401,7 +438,7 @@ export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElem
       el.style.top  = `${sy}%`;
       el.style.transform = "translate(-50%, -50%) scale(0.5)";
       flightRoot.appendChild(el);
-      flights.push({ el, sx, sy, dx, dy, t0: songMs, t1: note.time - (n - 1 - i) * step, note });
+      flights.push({ el, sx, sy, dx, dy, t0: songMs, t1: landTime, note, charIndex: i });
     }
   };
 
@@ -411,15 +448,12 @@ export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElem
         if (launched.has(note)) continue;
         if (songMs < note.time - approachMs || songMs >= note.time) continue;
         const srcKeys = noteToMatchKeys.get(note) ?? [];
-        if (!srcKeys.some(visibleSourceGlyph)) continue; // wait until the source segment is visible
+        if (!srcKeys.every(sourceGlyph)) continue;
         launched.add(note);
         launchFlight(note, songMs);
       }
     }
     flights = flights.filter(f => {
-      // Once the note resolves (or is long past), retire the flying char; the
-      // storyboard word now carries the result. Inline transform overrides the class,
-      // so the fade-out is set inline too.
       if (noteOutcome.has(f.note) || songMs > f.note.time + 1500) {
         const el = f.el;
         el.style.transition = "opacity 0.2s ease, transform 0.2s ease";
@@ -428,14 +462,19 @@ export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElem
         setTimeout(() => el.remove(), 220);
         return false;
       }
+      const landBlend = Math.min(1, (songMs - f.t1) / LYRIC_FUNNEL_BLEND_MS);
+      if (landBlend >= 1) {
+        f.el.remove();
+        return false;
+      }
       const t = Math.max(0, Math.min(1, (songMs - f.t0) / Math.max(1, f.t1 - f.t0)));
       const ease = 1 - (1 - t) * (1 - t);
-      // Grow from half size to the note's full glyph size over the back half of the trip.
       const grow = t < 0.5 ? 0.5 : 0.5 + ((t - 0.5) / 0.5) * 0.5;
       f.el.style.left = `${f.sx + (f.dx - f.sx) * ease}%`;
       f.el.style.top  = `${f.sy + (f.dy - f.sy) * ease}%`;
       f.el.style.transform = `translate(-50%, -50%) scale(${grow.toFixed(3)})`;
-      f.el.style.opacity = `${Math.min(1, t * 3)}`;
+      const approachOpacity = Math.min(1, t * 3);
+      f.el.style.opacity = `${approachOpacity * (1 - landBlend)}`;
       return true;
     });
   };
@@ -445,6 +484,7 @@ export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElem
       video = v;
       allChars = collectTextAliveChars(v);
       allPhrases = collectPhrases(v);
+      charByKey = new Map(allChars.map(ch => [charKey(ch), ch]));
     },
 
     setStoryData(entries): void {

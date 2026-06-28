@@ -74,6 +74,7 @@ export const TestPlay = forwardRef<TestPlayHandle, Props>(
         gameArea: wrap,
         logicalW,
         logicalH,
+        lyricDemoFunnel: true,
         hitSoundUrl: withPath("/audio/snare.mp3"),
         onAccuracy:      () => {},
         onComboChange:   () => {},

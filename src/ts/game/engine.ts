@@ -1,7 +1,8 @@
 import { clamp } from "../core/utils";
-import { drawArrow, drawLyricNote, drawFireworks, drawFlowRibbon, notePulseScale } from "./draw";
+import { drawArrow, drawLyricDemoFunnel, drawLyricNote, drawFireworks, drawFlowRibbon, notePulseScale } from "./draw";
 import { arToMs, loadAr, loadHitsoundVolume, subscribeHitsoundVolume, volToFactor, loadHiddenMod, subscribeHiddenMod } from "../core/settings";
 import { createCursorRenderer, type CursorRenderer } from "./cursor";
+import { lyricDemoFunnelOrigin, lyricFillProgress, lyricVisualScale } from "./lyricLayout";
 import { computeLyricHolds, noteEndMs } from "./lyrics";
 import {
   createLyricHoldState,
@@ -140,6 +141,8 @@ interface GameDeps {
   hitSoundUrl?:    string;
   logicalW?:       number;
   logicalH?:       number;
+  /** Draw a canvas lyric funnel (TestPlay/tutorial; song pages use the storyboard). */
+  lyricDemoFunnel?: boolean;
 }
 
 function normalizeNoteKind(kind: unknown): NoteKind | null {
@@ -191,6 +194,8 @@ export function createGame(deps: GameDeps): GameHandle {
 
   const logicalW = deps.logicalW ?? LOGICAL_W;
   const logicalH = deps.logicalH ?? LOGICAL_H;
+  const lyricDemoFunnel = deps.lyricDemoFunnel ?? false;
+  const funnelOrigin = lyricDemoFunnelOrigin(logicalW, logicalH);
   const getScale = (): number => canvas.width / logicalW;
 
   const cursor: CursorRenderer = createCursorRenderer(canvas, getScale);
@@ -613,7 +618,22 @@ export function createGame(deps: GameDeps): GameHandle {
         const holdProgress = holdMs > 0 ? clamp((songMs - note.time) / holdMs, 0, 1) : 0;
         const holding = holdMs > 0 && songMs >= note.time && songMs <= note.time + holdMs &&
           Math.hypot(pointer.x - note.x, pointer.y - note.y) <= LYRIC_HOLD_RADIUS;
-        drawLyricNote(ctx, note, appearProgress, scale, hiddenMod, holdProgress, holding, notePulseScale(dt));
+        const fillProgress = lyricFillProgress(note.lyricChar ?? "", note.time, songMs, approachMs);
+        const approachPulse = notePulseScale(dt);
+        const visualScale = songMs >= note.time
+          ? lyricVisualScale(holdMs, songMs, note.time, holding, approachPulse)
+          : approachPulse;
+        drawLyricNote(
+          ctx, note, appearProgress, scale, hiddenMod,
+          holdProgress, holding, visualScale, fillProgress,
+          holdMs,
+        );
+        if (lyricDemoFunnel && dt > 0 && fillProgress < 1) {
+          drawLyricDemoFunnel(
+            ctx, note, songMs, approachMs, scale,
+            funnelOrigin.x, funnelOrigin.y, approachPulse,
+          );
+        }
       } else {
         if (dt < -TIER1_MS) continue;
         const appearProgress = clamp(1 - dt / approachMs, 0, 1);
