@@ -62,56 +62,23 @@ m, 49120, 650, 375, scale=1.6, in=grow, motion=sway
 # 耳
 h, 49973, 53307
 
-# TODO: probably hardcode each section
-# overlap
-# 自分を重ねて聞いてた
-
-
-# どれほどの苦しみも悲しみの向こうに
-x, 54887, 65379.99999999999
-
-
-# きっと私の目指す私がいると信じ続けていた
-# き
-m, 65464, 600, 170, scale=1, in=grow, motion=sway, pulse=beat, delay=7561
-# っ
-m, 65465, 600, 170, scale=1, in=grow, motion=sway, pulse=beat, delay=7561
-# と
-m, 65465, 600, 170, scale=1, in=grow, motion=sway, pulse=beat, delay=7561
-# 私
-m, 65467, 600, 170, scale=1, in=grow, motion=sway, pulse=beat, delay=7561
-# の
-m, 65471, 600, 170, scale=1, in=grow, motion=sway, pulse=beat, delay=7561
-# 目
-m, 65471, 600, 170, scale=1, in=grow, motion=sway, pulse=beat, delay=7561
-# 指
-m, 65483.99999999999, 600, 170, scale=1, in=grow, motion=sway, pulse=beat, delay=7561
-# す
-m, 65486.99999999999, 600, 170, scale=1, in=grow, motion=sway, pulse=beat, delay=7561
-# 私
-m, 65488, 600, 170, scale=1, in=grow, motion=sway, pulse=beat, delay=7561
-# が
-m, 65495.99999999999, 600, 170, scale=1, in=grow, motion=sway, pulse=beat, delay=7561
-# い
-m, 65497, 600, 170, scale=1, in=grow, motion=sway, pulse=beat, delay=7561
-# る
-m, 65498.00000000001, 600, 170, scale=1, in=grow, motion=sway, pulse=beat, delay=7561
-# と
-m, 65503, 600, 170, scale=1, in=grow, motion=sway, pulse=beat, delay=7561
-# 信
-m, 65504.00000000001, 600, 170, scale=1, in=grow, motion=sway, pulse=beat, delay=7561
-# じ
-m, 65507.00000000001, 600, 170, scale=1, in=grow, motion=sway, pulse=beat, delay=7561
-# 続
-m, 65507.99999999999, 600, 170, scale=1, in=grow, motion=sway, pulse=beat, delay=7561
-# け
-m, 65525.99999999999, 600, 170, scale=1, in=grow, motion=sway, pulse=beat, delay=7561
-# て
-m, 65528.00000000001, 600, 170, scale=1, in=grow, motion=sway, pulse=beat, delay=7561
-# い
-m, 65533, 600, 170, scale=1, in=grow, motion=sway, pulse=beat, delay=7561
-# た
-m, 65537, 600, 170, scale=1, in=grow, motion=sway, pulse=beat, delay=7561
+# overlap — alternating left / right segments (`text=` anchors each `m` to its phrase)
+# どれほどの苦しみも
+m, 52140, 100, 100, text=どれほどの苦しみも, scale=1, in=grow, motion=sway, pulse=beat
+# 悲しみの向こうに
+m, 53490, 100, 100, text=悲しみの向こうに, scale=1, in=grow, motion=sway, pulse=beat
+# 自分を
+m, 54887, 700, 150, text=自分を, scale=1.6, in=grow, motion=sway, pulse=beat
+# きっと
+m, 57903, 100, 100, text=きっと, scale=1, in=grow, motion=sway, pulse=beat
+# 重ねて
+m, 58553, 700, 150, text=重ねて, scale=1.6, in=grow, motion=sway, pulse=beat
+# 私の目指す私が
+m, 59444, 100, 100, text=私の目指す私が, scale=1, in=grow, motion=sway, pulse=beat
+# 聞いてた
+m, 62254, 700, 150, text=聞いてた, scale=1.6, in=grow, motion=sway, pulse=beat
+# いると信じ続けていた
+m, 63058, 100, 100, text=いると信じ続けていた, scale=1, in=grow, motion=sway, pulse=beat
 
 # 目覚めた僕の心がざわつく
 # 目

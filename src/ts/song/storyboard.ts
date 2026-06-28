@@ -21,6 +21,8 @@ export interface StoryStyle extends Record<string, string> {
   delay?: string;
   until?: string;
   sticky?: string;
+  /** Move anchor: lyric substring (exact kanji) that this `m` row positions. */
+  text?: string;
 }
 
 export interface StoryHighlight { type: "highlight"; from: number; to: number; }
@@ -88,6 +90,53 @@ const collectPhrases = (video: TextAliveVideo): TextAlivePhrase[] => {
     phrases.push(phrase);
   }
   return phrases;
+};
+
+const phraseContainsTime = (phrase: TextAlivePhrase, t: number): boolean =>
+  t >= phrase.startTime && t <= phrase.endTime;
+
+/** Ms gap allowed between `text=` anchor onset and the authored move time. */
+const MOVE_TEXT_ALIGN_MS = 2000;
+
+/** Distance from move.time to the onset of `text=` inside a phrase (Infinity when no match). */
+const moveTextAnchorDist = (move: StoryMove, phrase: TextAlivePhrase): number => {
+  const anchor = move.style?.text?.trim();
+  if (!anchor) return Infinity;
+  const chars = walkPhraseChars(phrase);
+  const full = chars.map(c => c.text).join("");
+  let best = Infinity;
+  let at = 0;
+  while (at < full.length) {
+    const idx = full.indexOf(anchor, at);
+    if (idx < 0) break;
+    const onset = chars[idx]?.startTime;
+    if (onset !== undefined) best = Math.min(best, Math.abs(onset - move.time));
+    at = idx + 1;
+  }
+  return best;
+};
+
+const moveTextMatchesPhrase = (move: StoryMove, phrase: TextAlivePhrase): boolean =>
+  moveTextAnchorDist(move, phrase) <= MOVE_TEXT_ALIGN_MS;
+
+/** Which phrase owns an `m` row — `text=` first, then time containment (wiki). */
+const moveOwnsPhrase = (move: StoryMove, phrase: TextAlivePhrase, phrases: TextAlivePhrase[]): boolean => {
+  const anchor = move.style?.text?.trim();
+  if (anchor) {
+    const matches = phrases.filter(p => moveTextMatchesPhrase(move, p));
+    if (matches.length === 0) return false;
+    const bestDist = Math.min(...matches.map(p => moveTextAnchorDist(move, p)));
+    return matches.some(p => p === phrase && moveTextAnchorDist(move, p) === bestDist);
+  }
+
+  const containing = phrases.filter(p => phraseContainsTime(p, move.time));
+  if (!containing.some(p => p === phrase)) return false;
+  const atStart = containing.filter(p => p.startTime === move.time);
+  if (atStart.length === 1) return atStart[0] === phrase;
+  if (containing.length === 1) return containing[0] === phrase;
+  const nearest = containing.reduce((a, b) =>
+    Math.abs(a.startTime - move.time) <= Math.abs(b.startTime - move.time) ? a : b);
+  return nearest === phrase;
 };
 
 interface StoryboardRenderer {
@@ -191,7 +240,7 @@ export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElem
   const phraseDisplayStart = (phrase: TextAlivePhrase): number => {
     let start = phrase.startTime;
     for (const move of moves) {
-      if (move.time < phrase.startTime || move.time > phrase.endTime) continue;
+      if (!moveOwnsPhrase(move, phrase, allPhrases)) continue;
       start = Math.min(start, moveDisplayStart(move, phrase));
     }
     return start;
@@ -251,7 +300,7 @@ export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElem
     const chars = walkPhraseChars(phrase);
     if (chars.length === 0) return mounted;
 
-    const relevantMoves = moves.filter(m => m.time >= phrase.startTime && m.time <= phrase.endTime);
+    const relevantMoves = moves.filter(m => moveOwnsPhrase(m, phrase, allPhrases));
 
     const getMoveForChar = (ch: TextAliveChar): StoryMove | null => {
       let best: StoryMove | null = null;
