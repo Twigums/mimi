@@ -3,6 +3,14 @@ export const LYRIC_RADIUS = 48;
 
 export const LYRIC_FUNNEL_BLEND_MS = 180;
 
+/** Vertical nudge for funnel landing position only (em of font size; negative = up). */
+export const LYRIC_FUNNEL_DEST_Y_OFFSET_EM = -0.1;
+
+/** Canvas-pixel offset applied to the flying char's destination (negative = up). */
+export function lyricFunnelDestOffsetYPx(fontPx: number): number {
+  return LYRIC_FUNNEL_DEST_Y_OFFSET_EM * fontPx;
+}
+
 export function lyricFunnelStep(charCount: number, approachMs: number): number {
   return Math.min(140, approachMs / (charCount + 1));
 }

@@ -3,6 +3,7 @@ import type { HitResult, Note } from "../game/engine";
 import {
   layoutLyricGlyphs,
   lyricCharLandTime,
+  lyricFunnelDestOffsetYPx,
   LYRIC_FUNNEL_BLEND_MS,
 } from "../game/lyricLayout";
 import { loadHiddenMod, subscribeHiddenMod } from "../core/settings";
@@ -415,11 +416,11 @@ export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElem
     const rect = flightRoot.getBoundingClientRect();
     if (rect.width === 0) return;
     const baseDx = (note.x / LOGICAL_W) * 100;
-    const dy = (note.y / LOGICAL_H) * 100;
     const n = text.length;
     const scale = rect.width / LOGICAL_W;
     const layout = layoutLyricGlyphs(note.lyricChar ?? "", scale);
     const fontPx = layout.fontPx;
+    const dy = (note.y / LOGICAL_H) * 100 + (lyricFunnelDestOffsetYPx(fontPx) / rect.height) * 100;
     for (let i = 0; i < n; i++) {
       const srcKey = srcKeys[Math.min(i, srcKeys.length - 1)];
       const glyph = srcKey ? sourceGlyph(srcKey) : undefined;

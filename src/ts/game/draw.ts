@@ -233,8 +233,6 @@ export function drawArrow(
   ctx.restore();
 }
 
-import { layoutLyricGlyphs } from "./lyricLayout";
-
 // appearProgress: 0 = faint outline just appearing, 1 = fully visible at hit time
 // hidden: suppresses the lyric char (circle outline remains)
 // holdProgress: 0..1 fraction of the hold elapsed (drives the progress ring)
