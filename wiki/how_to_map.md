@@ -207,7 +207,7 @@ Entry requirements:
 | Entry | Required format | Requirements and behavior |
 |-------|-----------------|---------------------------|
 | Highlight | `h, time1, time2` | Exactly 2 numeric times after `h`. Use `time1 <= time2`. While song time is inside `[time1, time2]`, TextAlive chars whose `startTime` is also inside that range get the technicolor highlight. |
-| Move | `m, time, x, y[, style...]` | `time`, `x`, and `y` are numeric. The move only affects the TextAlive phrase containing `time`; characters in that phrase with `startTime >= time` move into a separate vertical segment at `(x, y)`. When several phrases overlap in time, add `text=<substring>` (exact lyric characters, kanji included) so the move binds to the right line; without `text=`, ownership falls back to phrase start time, then nearest phrase onset. Multiple `m` entries in one phrase split the phrase; each char uses the latest owned move whose `time <= char.startTime`. Optional style tokens apply only to that moved segment. |
+| Move | `m, time, x, y[, style...]` | `time`, `x`, and `y` are numeric. The move only affects the TextAlive phrase whose span contains `time` (`phrase.startTime <= time <= phrase.endTime`); characters in that phrase with `startTime >= time` move into a separate vertical segment at `(x, y)`. When several phrases overlap in time, add `text=<substring>` (exact lyric characters, kanji included) so the move binds to the right line. Multiple `m` entries in one phrase split the phrase; each char uses the latest owned move whose `time <= char.startTime`. Unmoved prefix chars stay on the default `.storyboard-line`. Optional style tokens apply only to that moved segment. |
 | Exclude | `x, time1, time2` | Exactly 2 numeric times after `x`. Use `time1 <= time2`. TextAlive chars whose `startTime` is inside `[time1, time2]` are skipped by lyric-note matching. This does not hide the storyboard lyric; it only prevents those chars from being claimed by notes. |
 | Manual lyric | `l, from, to, x, y, text[, char_time/style...]` | `from`, `to`, `x`, and `y` are numeric; use `from < to`. `text` is required and must not contain commas. The segment is independent of TextAlive and is positioned at `(x, y)`. Printable ASCII glyphs in `text` rotate `-90deg` so English reads upright inside the vertical storyboard layout. Extra comma fields after `text` are either numeric `char_time` values or style tokens. Without `autotime`, provide one `char_time` per displayed character that should become active; missing character times leave later chars inactive. With `autotime`, char activation times are derived from TextAlive chars at or after `from`, so manual `char_time` fields are optional. |
 | Reactive header | `reactive: mode1 mode2 ...` | Use a colon, not commas. Supported modes are `amplitude`, `mood`, and `chorus`; unknown modes are ignored. Use at most one `reactive:` line, because the runtime reads the first one. `pulse=beat` on styled segments can still pulse without a `reactive:` line. |
@@ -241,6 +241,9 @@ m, 70000, 200, 420, color=#ff629d, font=handwriting, scale=1.4, in=grow, motion=
 
 # Move segment shown 400 ms after the phrase appears; only this moved segment is delayed
 m, 74000, 560, 220, scale=1.2, delay=-400
+
+# Overlapping lead + chorus: bind each move to its lyric line (omit `text=` when only one phrase spans `time`)
+m, 54887, 690, 180, text=自分を, scale=1.6, in=grow, motion=sway, pulse=beat
 
 # Exclude: keep backing-vocal characters in this range out of note matching
 x, 80000, 82000
