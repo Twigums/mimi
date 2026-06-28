@@ -78,7 +78,7 @@ for (const line of mimi.split("\n")) {
 
 notes.sort((a, b) => a.time - b.time);
 computeLyricHolds(notes, endTimes);
-matchLyrics(collectTextAliveChars(buildVideo(timings)), notes, []);
+matchLyrics(buildVideo(timings), notes, []);
 
 const expectedByTime = new Map<number, string>();
 for (const n of notes) {

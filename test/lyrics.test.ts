@@ -194,7 +194,7 @@ function parseMimiNote(line: string): Note | { endTime: number } | null {
   notes.sort((a, b) => a.time - b.time);
 
   computeLyricHolds(notes, endTimes);
-  matchLyrics(collectTextAliveChars(buildVideoFromPhrases(timings)), notes, []);
+  matchLyrics(buildVideoFromPhrases(timings), notes, []);
 
   let checked = 0;
   for (const n of notes) {

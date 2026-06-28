@@ -182,7 +182,22 @@ export interface MergedChorusVideos {
 }
 
 function activePhrasesAt(chain: TextAlivePhrase[], t: number): TextAlivePhrase[] {
-  return chain.filter(p => t >= p.startTime && t <= p.endTime);
+  const active = chain.filter(p => t >= p.startTime && t < p.endTime);
+  if (active.length <= 1) return active;
+
+  const overlays = active.filter(p => p.overlay);
+  const bases = active.filter(p => !p.overlay);
+  if (bases.length === 0) return overlays;
+
+  // One lead/base column on the right; overlay chorus lines stack on the left.
+  const primaryBase = bases.length === 1 ? bases[0] : bases.find(p => {
+    for (const c of walkPhraseChars(p)) {
+      if (t >= c.startTime && t <= c.endTime) return true;
+    }
+    return false;
+  }) ?? bases.reduce((a, b) => (b.endTime - b.startTime) >= (a.endTime - a.startTime) ? b : a);
+
+  return [...overlays, primaryBase];
 }
 
 function buildPhraseFromChars(
@@ -208,9 +223,6 @@ export function mergeChorusTimings(
 ): MergedChorusVideos {
   if (chorusPhrases.length === 0) return { match: base, display: base };
 
-  const chorusStart = Math.min(...chorusPhrases.map(p => p.startTime));
-  const chorusEnd = Math.max(...chorusPhrases.map(p => p.endTime));
-
   const chorusPhraseNodes: TextAlivePhrase[] = [];
   for (let i = chorusPhrases.length - 1; i >= 0; i--) {
     const node = buildPhraseNodeFromData(chorusPhrases[i], chorusWordSizes[i] ?? [], chorusPhraseNodes[0] ?? null);
@@ -219,25 +231,21 @@ export function mergeChorusTimings(
   }
   linkPhraseNext(chorusPhraseNodes);
 
-  const matchBaseChars = collectTextAliveChars(base)
-    .filter(c => c.startTime < chorusStart || c.startTime > chorusEnd)
-    .map(cloneChar);
-
-  const chorusChars = chorusPhraseNodes.flatMap(p => walkPhraseChars(p));
+  // ── Match video: lead + staff chorus chars (authored `char=` picks the line by text).
+  const matchBaseChars = collectTextAliveChars(base).map(cloneChar);
+  const chorusChars = chorusPhraseNodes.flatMap(p => walkPhraseChars(p)).map(cloneChar);
   const matchChars = [...matchBaseChars, ...chorusChars].sort(
     (a, b) => a.startTime - b.startTime || a.endTime - b.endTime,
   );
   linkNext(matchChars);
-  const matchCharByKey = new Map(matchChars.map(c => [charKey(c), c]));
 
   const matchBasePhraseNodes: TextAlivePhrase[] = [];
   let phrase = base.firstPhrase;
   while (phrase) {
     if (!isDegeneratePhrase(phrase)) {
-      const kept = walkPhraseChars(phrase).filter(
-        c => c.startTime < chorusStart || c.startTime > chorusEnd,
-      );
-      matchBasePhraseNodes.push(buildPhraseFromChars(phrase, kept.map(c => matchCharByKey.get(charKey(c))!).filter(Boolean)));
+      const cloned = walkPhraseChars(phrase).map(cloneChar);
+      linkNext(cloned);
+      matchBasePhraseNodes.push(buildPhraseFromChars(phrase, cloned));
     }
     phrase = phrase.next;
   }
@@ -253,9 +261,9 @@ export function mergeChorusTimings(
     findActivePhrases: t => activePhrasesAt(matchPhraseChain, t),
     findPhrase: (t: number) => {
       for (const p of chorusPhraseNodes) {
-        if (t >= p.startTime && t <= p.endTime) return p;
+        if (t >= p.startTime && t < p.endTime) return p;
       }
-      return matchPhraseChain.find(p => !matchChorusSet.has(p) && t >= p.startTime && t <= p.endTime) ?? null;
+      return matchPhraseChain.find(p => !matchChorusSet.has(p) && t >= p.startTime && t < p.endTime) ?? null;
     },
     findChar: (t: number) => matchChars.find(c => t >= c.startTime && t <= c.endTime) ?? null,
   };
@@ -279,7 +287,7 @@ export function mergeChorusTimings(
     charCount: displayPhraseChain.flatMap(p => walkPhraseChars(p)).length,
     firstPhrase: displayPhraseChain[0] ?? null,
     findActivePhrases: t => activePhrasesAt(displayPhraseChain, t),
-    findPhrase: (t: number) => displayPhraseChain.find(p => t >= p.startTime && t <= p.endTime) ?? null,
+    findPhrase: (t: number) => displayPhraseChain.find(p => t >= p.startTime && t < p.endTime) ?? null,
     findChar: (t: number) => {
       for (const p of [...displayPhraseChain].reverse()) {
         const c = walkPhraseChars(p).find(ch => t >= ch.startTime && t <= ch.endTime);

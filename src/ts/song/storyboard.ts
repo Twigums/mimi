@@ -21,6 +21,8 @@ export interface StoryStyle extends Record<string, string> {
   delay?: string;
   until?: string;
   sticky?: string;
+  /** Move anchor: lyric substring (exact kanji) that this `m` row positions. */
+  text?: string;
 }
 
 export interface StoryHighlight { type: "highlight"; from: number; to: number; }
@@ -88,6 +90,54 @@ const collectPhrases = (video: TextAliveVideo): TextAlivePhrase[] => {
     phrases.push(phrase);
   }
   return phrases;
+};
+
+/** Phrase span that can claim an `m` row (allows early moves with delay before phrase onset). */
+const phraseSpansMove = (phrase: TextAlivePhrase, move: StoryMove): boolean =>
+  move.time <= phrase.endTime && move.time >= phrase.startTime - MOVE_TEXT_ALIGN_MS;
+
+/** Ms gap allowed between `text=` anchor onset and the authored move time. */
+const MOVE_TEXT_ALIGN_MS = 2000;
+
+/** Distance from move.time to the onset of `text=` inside a phrase (Infinity when no match). */
+const moveTextAnchorDist = (move: StoryMove, phrase: TextAlivePhrase): number => {
+  const anchor = move.style?.text?.trim();
+  if (!anchor) return Infinity;
+  const chars = walkPhraseChars(phrase);
+  const full = chars.map(c => c.text).join("");
+  let best = Infinity;
+  let at = 0;
+  while (at < full.length) {
+    const idx = full.indexOf(anchor, at);
+    if (idx < 0) break;
+    const onset = chars[idx]?.startTime;
+    if (onset !== undefined) best = Math.min(best, Math.abs(onset - move.time));
+    at = idx + 1;
+  }
+  return best;
+};
+
+const moveTextMatchesPhrase = (move: StoryMove, phrase: TextAlivePhrase): boolean =>
+  moveTextAnchorDist(move, phrase) <= MOVE_TEXT_ALIGN_MS;
+
+/** Which phrase owns an `m` row — `text=` first, then nearest phrase onset (wiki). */
+const moveOwnsPhrase = (move: StoryMove, phrase: TextAlivePhrase, phrases: TextAlivePhrase[]): boolean => {
+  const anchor = move.style?.text?.trim();
+  if (anchor) {
+    const matches = phrases.filter(p => moveTextMatchesPhrase(move, p));
+    if (matches.length === 0) return false;
+    const bestDist = Math.min(...matches.map(p => moveTextAnchorDist(move, p)));
+    return matches.some(p => p === phrase && moveTextAnchorDist(move, p) === bestDist);
+  }
+
+  let best: TextAlivePhrase | null = null;
+  let bestDist = Infinity;
+  for (const p of phrases) {
+    if (!phraseSpansMove(p, move)) continue;
+    const dist = Math.abs(p.startTime - move.time);
+    if (dist < bestDist) { bestDist = dist; best = p; }
+  }
+  return best === phrase;
 };
 
 interface StoryboardRenderer {
@@ -191,7 +241,7 @@ export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElem
   const phraseDisplayStart = (phrase: TextAlivePhrase): number => {
     let start = phrase.startTime;
     for (const move of moves) {
-      if (move.time < phrase.startTime || move.time > phrase.endTime) continue;
+      if (!moveOwnsPhrase(move, phrase, allPhrases)) continue;
       start = Math.min(start, moveDisplayStart(move, phrase));
     }
     return start;
@@ -251,14 +301,17 @@ export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElem
     const chars = walkPhraseChars(phrase);
     if (chars.length === 0) return mounted;
 
-    const relevantMoves = moves.filter(m => m.time >= phrase.startTime && m.time <= phrase.endTime);
+    const relevantMoves = moves.filter(m => moveOwnsPhrase(m, phrase, allPhrases));
+    const fallbackMove = relevantMoves.length > 0
+      ? relevantMoves.reduce((a, b) => (a.time <= b.time ? a : b))
+      : null;
 
     const getMoveForChar = (ch: TextAliveChar): StoryMove | null => {
       let best: StoryMove | null = null;
       for (const m of relevantMoves) {
         if (m.time <= ch.startTime && (best === null || m.time > best.time)) best = m;
       }
-      return best;
+      return best ?? fallbackMove;
     };
 
     const groups = new Map<StoryMove | null, TextAliveChar[]>();
@@ -302,7 +355,7 @@ export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElem
     };
 
     const defaultChars = groups.get(null) ?? [];
-    if (defaultChars.length > 0) {
+    if (defaultChars.length > 0 && relevantMoves.length === 0) {
       mountLine("storyboard-line", defaultChars, undefined, null, phrase.startTime);
     }
 

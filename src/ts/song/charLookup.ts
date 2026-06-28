@@ -41,7 +41,9 @@ export function walkPhraseChars(phrase: TextAlivePhrase): TextAliveChar[] {
   const out: TextAliveChar[] = [];
   let c = phrase.firstChar;
   while (c) {
-    if (c.startTime > phrase.endTime) break;
+    // Abutting phrases share a boundary onset (e.g. 色 at phrase.endTime); exclusive end
+    // keeps that glyph on the following phrase only so storyboard segments do not duplicate it.
+    if (c.startTime >= phrase.endTime) break;
     if (c.startTime >= phrase.startTime) out.push(c);
     c = c.next;
   }

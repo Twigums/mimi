@@ -128,7 +128,7 @@ function note(time: number): Note {
   }
   flat.sort((a, b) => a.startTime - b.startTime);
 
-  const { charToNote } = matchLyrics(flat, notes, []);
+  const { charToNote } = matchLyrics(merged, notes, []);
   assert.ok([...charToNote.values()].some(n => n.time === 53545));
   assert.ok(notes[0].lyricChar && notes[0].lyricChar.length > 0);
 }
