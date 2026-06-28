@@ -3,6 +3,17 @@ export const LYRIC_RADIUS = 48;
 
 export const LYRIC_FUNNEL_BLEND_MS = 180;
 
+/** Approach disc fill begins at this appearProgress (mirrors cut notes). */
+export const LYRIC_APPROACH_FILL_START = 0.62;
+/** Faint stroke for the judgement-zone ghost ring during approach/hold. */
+export const LYRIC_ZONE_GHOST_ALPHA = 0.08;
+/** Logical px inset from the right edge for the TestPlay demo funnel origin. */
+export const LYRIC_FUNNEL_ORIGIN_INSET = 8;
+
+export function lyricDemoFunnelOrigin(logicalW: number, logicalH: number): { x: number; y: number } {
+  return { x: logicalW - LYRIC_FUNNEL_ORIGIN_INSET, y: logicalH / 4 };
+}
+
 /** Vertical nudge for funnel landing position only (em of font size; negative = up). */
 export const LYRIC_FUNNEL_DEST_Y_OFFSET_EM = -0.1;
 

@@ -1,7 +1,16 @@
 import type { Note } from "./engine";
 import type { TrailShape } from "../core/settings";
 import { withPath } from "../core/sitePath";
-import { layoutLyricGlyphs, LYRIC_RADIUS } from "./lyricLayout";
+import { LYRIC_HOLD_RADIUS } from "./judgement";
+import {
+  layoutLyricGlyphs,
+  LYRIC_APPROACH_FILL_START,
+  LYRIC_FUNNEL_BLEND_MS,
+  LYRIC_RADIUS,
+  LYRIC_ZONE_GHOST_ALPHA,
+  lyricCharLandTime,
+  lyricFunnelDestOffsetYPx,
+} from "./lyricLayout";
 
 export { LYRIC_RADIUS };
 
@@ -233,11 +242,21 @@ export function drawArrow(
   ctx.restore();
 }
 
+const LYRIC_TEAL = "57, 197, 187";
+const LYRIC_HOLD_RELEASE_START = 0.88;
+const LYRIC_HOLD_HALO_SHRINK = 0.14;
+
+function lyricReducedMotion(): boolean {
+  return typeof window !== "undefined"
+    && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+}
+
 // appearProgress: 0 = faint outline just appearing, 1 = fully visible at hit time
-// hidden: suppresses the lyric char (circle outline remains)
-// holdProgress: 0..1 fraction of the hold elapsed (drives the progress ring)
-// holding: whether the cursor is currently inside the hold radius (tints the ring)
+// hidden: suppresses the lyric char (disc/halo remain)
+// holdProgress: 0..1 fraction of the hold elapsed (drives sustain halo)
+// holding: whether the cursor is currently inside the hold radius
 // fillProgress: 0 = hollow stroke only; 1 = funnel landed and the note glyph is filled
+// songMs: clock time for a subtle sustain breath pulse while holding
 export function drawLyricNote(
   ctx: CanvasRenderingContext2D,
   note: Note,
@@ -248,28 +267,84 @@ export function drawLyricNote(
   holding = false,
   pulse = 1,
   fillProgress = 0,
+  songMs = 0,
 ): void {
   if (note.lyricChar == null) return;
 
   const cx = note.x * scale;
   const cy = note.y * scale;
   const r  = LYRIC_RADIUS * scale * pulse;
+  const discR = r * 0.92;
 
   const OUTLINE_SNAP = 0.12;
   const outlineAlpha = Math.min(appearProgress / OUTLINE_SNAP, 1);
 
   const { darkBase } = NOTE_STYLE.lyric.colors;
 
-  const dotR = r * 0.62;
-  ctx.save();
-  ctx.beginPath();
-  ctx.arc(cx, cy, dotR, 0, Math.PI * 2);
-  ctx.setLineDash([3 * scale, 4 * scale]);
-  ctx.strokeStyle = "rgba(255, 255, 255, 0.35)";
-  ctx.lineWidth = 1.5 * scale;
-  ctx.stroke();
-  ctx.setLineDash([]);
-  ctx.restore();
+  const zoneR = r * (LYRIC_HOLD_RADIUS / LYRIC_RADIUS);
+  if (outlineAlpha > 0) {
+    ctx.save();
+    ctx.beginPath();
+    ctx.arc(cx, cy, zoneR, 0, Math.PI * 2);
+    ctx.strokeStyle = `rgba(255, 255, 255, ${LYRIC_ZONE_GHOST_ALPHA * outlineAlpha})`;
+    ctx.lineWidth = 1 * scale;
+    ctx.stroke();
+    ctx.restore();
+  }
+
+  if (holdProgress > 0) {
+    const releaseT = holdProgress > LYRIC_HOLD_RELEASE_START
+      ? (holdProgress - LYRIC_HOLD_RELEASE_START) / (1 - LYRIC_HOLD_RELEASE_START)
+      : 0;
+    const haloR = discR * (1 - releaseT * LYRIC_HOLD_HALO_SHRINK);
+    const breath = !lyricReducedMotion() && holding ? 1 + 0.035 * Math.sin(songMs * 0.014) : 1;
+    const warmth = holdProgress;
+
+    ctx.save();
+    const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, haloR * breath);
+    const innerA = 0.12 + warmth * 0.22;
+    grad.addColorStop(0, holding
+      ? `rgba(${LYRIC_TEAL}, ${innerA})`
+      : `rgba(255, 255, 255, ${innerA * 0.55})`);
+    grad.addColorStop(0.65, `rgba(255, 255, 255, ${warmth * 0.08})`);
+    grad.addColorStop(1, "rgba(255, 255, 255, 0)");
+    ctx.fillStyle = grad;
+    ctx.beginPath();
+    ctx.arc(cx, cy, haloR * breath, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.beginPath();
+    ctx.arc(cx, cy, haloR, 0, Math.PI * 2);
+    ctx.strokeStyle = holding
+      ? `rgba(${LYRIC_TEAL}, ${0.35 + warmth * 0.25})`
+      : `rgba(255, 255, 255, ${0.2 + warmth * 0.15})`;
+    ctx.lineWidth = (2 + warmth * 1.5) * scale;
+    ctx.stroke();
+    ctx.restore();
+  } else {
+    const discFill = Math.max(
+      0,
+      (appearProgress - LYRIC_APPROACH_FILL_START) / (1 - LYRIC_APPROACH_FILL_START),
+    );
+    ctx.save();
+    if (discFill > 0) {
+      const fillR = discR * discFill;
+      const grad = ctx.createRadialGradient(cx, cy, 0, cx, cy, fillR);
+      grad.addColorStop(0, `rgba(255, 255, 255, ${0.18 * discFill * outlineAlpha})`);
+      grad.addColorStop(0.7, `rgba(${LYRIC_TEAL}, ${0.08 * discFill * outlineAlpha})`);
+      grad.addColorStop(1, `rgba(255, 255, 255, ${0.04 * discFill * outlineAlpha})`);
+      ctx.fillStyle = grad;
+      ctx.beginPath();
+      ctx.arc(cx, cy, fillR, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.beginPath();
+    ctx.arc(cx, cy, discR, 0, Math.PI * 2);
+    ctx.strokeStyle = `rgba(255, 255, 255, ${0.25 * outlineAlpha})`;
+    ctx.lineWidth = 1.5 * scale;
+    ctx.stroke();
+    ctx.restore();
+  }
 
   const { fontPx } = layoutLyricGlyphs(note.lyricChar, scale, pulse);
   const fill = Math.max(0, Math.min(1, fillProgress));
@@ -293,27 +368,63 @@ export function drawLyricNote(
   }
 
   ctx.restore();
+}
 
-  // Hold-progress ring: sweeps clockwise from the top as the hold elapses; bright
-  // (held) while the cursor is inside the circle, dim white when the hold is lapsing
-  // without the cursor present.
-  if (holdProgress > 0) {
-    const ringR = r * 0.92;
-    const start = -Math.PI / 2;
+/** Canvas-only lyric funnel for TestPlay/tutorial (no storyboard DOM). */
+export function drawLyricDemoFunnel(
+  ctx: CanvasRenderingContext2D,
+  note: Note,
+  songMs: number,
+  approachMs: number,
+  scale: number,
+  originX: number,
+  originY: number,
+  pulse = 1,
+): void {
+  const text = note.lyricChar;
+  if (!text) return;
+
+  const chars = [...text];
+  const n = chars.length;
+  const layout = layoutLyricGlyphs(text, scale, pulse);
+  const cx = note.x * scale;
+  const cy = note.y * scale + lyricFunnelDestOffsetYPx(layout.fontPx);
+  const ox = originX * scale;
+  const oy = originY * scale;
+  const flightStart = note.time - approachMs;
+
+  ctx.save();
+  ctx.font = `bold ${layout.fontPx.toFixed(1)}px sans-serif`;
+  ctx.textAlign = "center";
+  ctx.textBaseline = "middle";
+
+  for (let i = 0; i < n; i++) {
+    const landTime = lyricCharLandTime(note.time, i, n, approachMs);
+    if (songMs < flightStart || songMs >= landTime + LYRIC_FUNNEL_BLEND_MS) continue;
+
+    const landBlend = Math.min(1, Math.max(0, (songMs - landTime) / LYRIC_FUNNEL_BLEND_MS));
+    if (landBlend >= 1) continue;
+
+    const t = Math.max(0, Math.min(1, (songMs - flightStart) / Math.max(1, landTime - flightStart)));
+    const ease = 1 - (1 - t) * (1 - t);
+    const grow = t < 0.5 ? 0.5 : 0.5 + ((t - 0.5) / 0.5) * 0.5;
+    const dx = cx + layout.charOffsets[i];
+    const fx = ox + (dx - ox) * ease;
+    const fy = oy + (cy - oy) * ease;
+    const approachOpacity = Math.min(1, t * 3) * (1 - landBlend);
+    if (approachOpacity < 0.01) continue;
+
     ctx.save();
-    ctx.lineCap = "round";
-    ctx.beginPath();
-    ctx.arc(cx, cy, ringR, 0, Math.PI * 2);
-    ctx.strokeStyle = "rgba(255, 255, 255, 0.12)";
-    ctx.lineWidth = 3 * scale;
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.arc(cx, cy, ringR, start, start + holdProgress * Math.PI * 2);
-    ctx.strokeStyle = holding ? "rgba(120, 230, 150, 0.95)" : "rgba(255, 255, 255, 0.5)";
-    ctx.lineWidth = 3.5 * scale;
-    ctx.stroke();
+    ctx.translate(fx, fy);
+    ctx.scale(grow, grow);
+    ctx.fillStyle = `rgba(234, 255, 251, ${approachOpacity})`;
+    ctx.shadowBlur = 8 * scale;
+    ctx.shadowColor = `rgba(${LYRIC_TEAL}, 0.7)`;
+    ctx.fillText(chars[i], 0, 0);
     ctx.restore();
   }
+
+  ctx.restore();
 }
 
 export function drawFlowRibbon(
