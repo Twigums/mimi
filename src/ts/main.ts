@@ -28,6 +28,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
   const gameRoot = document.getElementById("game-root");
   if (gameRoot) {
+    // Browser back/forward cache restores keep the old TextAlive timer and game
+    // state alive. Reload so returning to a song URL behaves like selecting the
+    // difficulty again: loading screen first, then a fresh Start prompt.
+    window.addEventListener("pageshow", (event) => {
+      if (event.persisted) window.location.reload();
+    });
+
     const returnHref = document.querySelector<HTMLAnchorElement>(".btn-back")?.href ?? "/";
 
     let stopSong: (() => void) | null = null;
