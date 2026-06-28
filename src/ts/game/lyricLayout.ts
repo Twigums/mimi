@@ -25,10 +25,16 @@ export const LYRIC_HOLD_SUSTAIN_SHRINK = 0.94;
 export const LYRIC_PRE_RELEASE_SHRINK = 0.88;
 /** Peak scale at the hold end burst. */
 export const LYRIC_END_BURST_PEAK = 1.17;
-/** Dashed inner bound as a fraction of LYRIC_RADIUS (matches glyph layout). */
+/** Dashed inner bound as a fraction of LYRIC_RADIUS (steady-state hold + glyph layout). */
 export const LYRIC_BOUND_RATIO = 0.62;
 /** Solid outer ring, slightly larger than the dashed bound. */
 export const LYRIC_SOLID_RING_RATIO = 0.72;
+/** Dotted bound radius when it first fades in during approach (smaller than steady state). */
+export const LYRIC_BOUND_APPROACH_START_RATIO = 0.56;
+/** Fraction of the post-fill approach tail over which the dotted bound fades in. */
+export const LYRIC_BOUND_FADE_T = 0.4;
+/** Full turns the dotted bound completes from fill start through hit time. */
+export const LYRIC_BOUND_APPROACH_ROTATIONS = 1.5;
 /** Logical px inset from the right edge for the TestPlay demo funnel origin. */
 export const LYRIC_FUNNEL_ORIGIN_INSET = 8;
 
@@ -68,6 +74,48 @@ export function lyricCharLandTime(
 function lyricHoldSmoothstep(t: number): number {
   const u = clamp(t, 0, 1);
   return u * u * (3 - 2 * u);
+}
+
+/** Progress through the dotted-bound approach phase [0, 1]; 0 before fill start. */
+export function lyricBoundApproachT(appearProgress: number): number {
+  if (appearProgress <= LYRIC_APPROACH_FILL_START) return 0;
+  return clamp(
+    (appearProgress - LYRIC_APPROACH_FILL_START) / (1 - LYRIC_APPROACH_FILL_START),
+    0,
+    1,
+  );
+}
+
+/** Opacity of the dotted bound during approach; 0 until fill start, then a quick fade-in. */
+export function lyricBoundApproachAlpha(appearProgress: number): number {
+  const t = lyricBoundApproachT(appearProgress);
+  if (t <= 0) return 0;
+  return clamp(t / LYRIC_BOUND_FADE_T, 0, 1);
+}
+
+/** Dotted-bound radius ratio during approach (accelerates toward the solid ring). */
+export function lyricBoundApproachRadiusRatio(appearProgress: number): number {
+  const t = lyricBoundApproachT(appearProgress);
+  if (t <= 0) return LYRIC_BOUND_APPROACH_START_RATIO;
+  const eased = t * t;
+  return LYRIC_BOUND_APPROACH_START_RATIO
+    + (LYRIC_SOLID_RING_RATIO - LYRIC_BOUND_APPROACH_START_RATIO) * eased;
+}
+
+/** Dotted-bound rotation during approach (radians; speed increases toward hit time). */
+export function lyricBoundApproachRotation(appearProgress: number): number {
+  const t = lyricBoundApproachT(appearProgress);
+  if (t <= 0) return 0;
+  return t * t * LYRIC_BOUND_APPROACH_ROTATIONS * Math.PI * 2;
+}
+
+/** Dotted-bound radius ratio for approach and the post-hit shrink back to steady state. */
+export function lyricBoundRadiusRatio(appearProgress: number, elapsedSinceHitMs: number): number {
+  if (elapsedSinceHitMs > 0) {
+    const decay = clamp(1 - elapsedSinceHitMs / LYRIC_APPROACH_PULSE_DECAY_MS, 0, 1);
+    return LYRIC_BOUND_RATIO + (LYRIC_SOLID_RING_RATIO - LYRIC_BOUND_RATIO) * decay;
+  }
+  return lyricBoundApproachRadiusRatio(appearProgress);
 }
 
 /** Sustain scale: breathe while held, ease-in shrink through release cue, burst at hold end. */
