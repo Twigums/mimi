@@ -14,19 +14,19 @@
   gap: 1.2rem;
   transition: opacity 0.4s ease;
 
-  // loading note
-  &::before {
-    content: '♪';
-    font-family: var(--font-display);
-    font-size: 2.2rem;
-    color: var(--miku-teal);
-    animation: loading-note-bob 0.9s var(--motion-ease-bouncy) infinite alternate;
-  }
-
   &.loaded {
     opacity: 0;
     pointer-events: none;
   }
+}
+
+.loading-note {
+  width: 1.42rem;
+  height: 2.2rem;
+  background: var(--miku-teal);
+  mask: url("../images/music_notes/eighth_note.svg") center / contain no-repeat;
+  -webkit-mask: url("../images/music_notes/eighth_note.svg") center / contain no-repeat;
+  animation: loading-note-bob 0.9s var(--motion-ease-bouncy) infinite alternate;
 }
 
 @keyframes loading-note-bob {
@@ -109,6 +109,10 @@ html.theme-dark .song-page .bg-overlay::before {
   from { transform: scale(0.6); opacity: 0; }
   to   { transform: scale(1);   opacity: 1; }
 }
+@keyframes sb-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
 @keyframes sb-sway {
   0%, 100% { transform: rotate(-3deg); }
   50%      { transform: rotate(3deg); }
@@ -122,8 +126,18 @@ html.theme-dark .song-page .bg-overlay::before {
   to   { transform: rotate(360deg); }
 }
 @keyframes sb-rise {
-  from { transform: translateY(0);     opacity: 1; }
-  to   { transform: translateY(-24px); opacity: 0; }
+  from { transform: translate3d(0, 0, 0); opacity: 1; }
+  78%  { opacity: 1; }
+  to   { transform: translate3d(0, -145vh, 0); opacity: 0; }
+}
+@keyframes sb-fade-out {
+  from { opacity: 1; }
+  to   { opacity: 0; }
+}
+@keyframes sb-fall {
+  from { transform: translate3d(0, 0, 0) rotate(0deg); opacity: 1; }
+  72%  { opacity: 1; }
+  to   { transform: translate3d(0, 120vh, 0) rotate(24deg); opacity: 0; }
 }
 
 .song-storyboard {
@@ -220,21 +234,42 @@ html.theme-dark .song-page .bg-overlay::before {
         text-shadow: 0 0 12px var(--color-perfect);
         transition: opacity 0.2s ease, color 0.2s ease, text-shadow 0.2s ease;
       }
+
+      &.story-char-horizontal {
+        transform: rotate(-90deg);
+        transform-origin: center;
+        line-height: 1;
+      }
   }
 
   .sb-fx, .sb-enter { display: inline-block; }
 
   .sb-in-grow      { animation: sb-grow 0.45s var(--motion-ease-bouncy, ease) both; }
+  .sb-in-fade      { animation: sb-fade-in 0.35s ease both; }
   .sb-motion-sway   { animation: sb-sway 2.4s ease-in-out infinite; }
   .sb-motion-drift  { animation: sb-drift 2.8s ease-in-out infinite; }
   .sb-motion-rotate { animation: sb-rotate 6s linear infinite; }
-  .sb-out-rise      { animation: sb-rise 0.3s ease both; }
+  .sb-out-rise {
+    animation: sb-rise 2.8s linear both;
+    backface-visibility: hidden;
+    transform-origin: center top;
+    will-change: transform, opacity;
+  }
+  .sb-out-fade      { animation: sb-fade-out 0.3s ease both; }
+  .sb-out-fall {
+    animation: sb-fall 0.9s cubic-bezier(0.55, 0, 0.95, 0.55) both;
+    backface-visibility: hidden;
+    transform-origin: center top;
+    will-change: transform, opacity;
+  }
 
   &.sb-chorus .storyboard-char.active,
   &.sb-chorus .storyboard-char.approach { filter: brightness(1.35); }
 
   @media (prefers-reduced-motion: reduce) {
-    .sb-in-grow, .sb-motion-sway, .sb-motion-drift, .sb-motion-rotate, .sb-out-rise {
+    .sb-in-grow, .sb-in-fade,
+    .sb-motion-sway, .sb-motion-drift, .sb-motion-rotate,
+    .sb-out-rise, .sb-out-fade, .sb-out-fall {
       animation: none;
     }
   }

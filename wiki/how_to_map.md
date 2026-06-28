@@ -191,7 +191,42 @@ Shining happens at the TextAlive **word** level. If a word has several character
 
 ### `.story` file
 
-An optional `src/songs/<song-id>/<difficulty>.story` file (one per difficulty) drives storyboard highlights, position moves, lyric-match exclusions, manual lyrics, per-segment style, and reactive effects. Each non-blank, non-`#` line is one entry:
+An optional `src/songs/<song-id>/<difficulty>.story` file (one per difficulty) drives storyboard highlights, position moves, lyric-match exclusions, manual lyrics, per-segment style, and reactive effects.
+
+General requirements:
+
+- One entry per line. Blank lines and lines whose first non-space character is `#` are ignored.
+- Inline comments are not supported. Put comments on their own `#` line.
+- Entry type tokens are lower-case: `h`, `m`, `x`, `l`, or `reactive:`.
+- Comma-separated fields are trimmed. Text/style values must not contain commas.
+- Times are milliseconds. `x`/`y` coordinates use the 800 x 600 logical play area.
+- Numeric fields must parse as numbers. Prefer integer millisecond values unless you deliberately need fractional timing.
+
+Entry requirements:
+
+| Entry | Required format | Requirements and behavior |
+|-------|-----------------|---------------------------|
+| Highlight | `h, time1, time2` | Exactly 2 numeric times after `h`. Use `time1 <= time2`. While song time is inside `[time1, time2]`, TextAlive chars whose `startTime` is also inside that range get the technicolor highlight. |
+| Move | `m, time, x, y[, style...]` | `time`, `x`, and `y` are numeric. The move only affects the TextAlive phrase containing `time`; characters in that phrase with `startTime >= time` move into a separate vertical segment at `(x, y)`. Multiple `m` entries in one phrase split the phrase; each char uses the latest move whose `time <= char.startTime`. Optional style tokens apply only to that moved segment. |
+| Exclude | `x, time1, time2` | Exactly 2 numeric times after `x`. Use `time1 <= time2`. TextAlive chars whose `startTime` is inside `[time1, time2]` are skipped by lyric-note matching. This does not hide the storyboard lyric; it only prevents those chars from being claimed by notes. |
+| Manual lyric | `l, from, to, x, y, text[, char_time/style...]` | `from`, `to`, `x`, and `y` are numeric; use `from < to`. `text` is required and must not contain commas. The segment is independent of TextAlive and is positioned at `(x, y)`. Printable ASCII glyphs in `text` rotate `-90deg` so English reads upright inside the vertical storyboard layout. Extra comma fields after `text` are either numeric `char_time` values or style tokens. Without `autotime`, provide one `char_time` per displayed character that should become active; missing character times leave later chars inactive. With `autotime`, char activation times are derived from TextAlive chars at or after `from`, so manual `char_time` fields are optional. |
+| Reactive header | `reactive: mode1 mode2 ...` | Use a colon, not commas. Supported modes are `amplitude`, `mood`, and `chorus`; unknown modes are ignored. Use at most one `reactive:` line, because the runtime reads the first one. `pulse=beat` on styled segments can still pulse without a `reactive:` line. |
+
+Style tokens are optional trailing fields on `m` and `l` entries:
+
+| Token | Values | Requirements and behavior |
+|-------|--------|---------------------------|
+| `color=<css-color>` | Any CSS color string without commas | Sets the segment text color. |
+| `font=<name>` | `display`, `handwriting`, or a CSS font family | `display` and `handwriting` map to the site font variables; other values are assigned as the CSS font family. |
+| `scale=<number>` | Positive number | Multiplies the segment font size in `em`. |
+| `in=<type>` | `grow` or `fade` | One-shot entrance animation. |
+| `out=<type>` | `rise`, `fade`, `fall`, or `rise(<seconds>)` | Exit animation when the segment is removed. `rise` slowly lifts the lyric straight upward and fades it out; `fall` accelerates it downward and fades it out. Add a parenthesized duration to `rise` to override its default speed, e.g. `out=rise(1)` lasts 1 second. |
+| `motion=<type>` | `sway`, `drift`, or `rotate` | Continuous motion animation. |
+| `pulse=beat` | `beat` | Pulses active chars on the beat. |
+| `delay=<signed ms>` | `500`, `+500`, `-500`, `{500}`, or `{-500}` | Positive values show early; negative values show late. On `m`, delay shifts only that moved segment relative to the phrase display, not the whole phrase; lyric-note funneling waits until the source segment is visible. On `l`, delay shifts the manual lyric's display relative to `from`; the segment still ends at `to`. |
+| `autotime` | Bare flag, `l` only | Sets `"autotime": "true"` and derives manual lyric char activation from TextAlive instead of manual `char_time` fields. |
+
+Examples:
 
 ```text
 # Highlight: technicolor the active character while in this time range
@@ -200,8 +235,11 @@ h, 62500, 63200
 # Move: later characters of the current phrase jump to a new position
 m, 63000, 550, 300
 
-# Move with style directives (color, font, scale, entrance, motion, beat pulse)
-m, 70000, 200, 420, color=#ff629d, font=handwriting, scale=1.4, in=grow, motion=sway, pulse=beat
+# Move with style directives (color, font, scale, entrance, motion, beat pulse, signed display offset)
+m, 70000, 200, 420, color=#ff629d, font=handwriting, scale=1.4, in=grow, motion=sway, pulse=beat, delay=+500
+
+# Move segment shown 400 ms after the phrase appears; only this moved segment is delayed
+m, 74000, 560, 220, scale=1.2, delay=-400
 
 # Exclude: keep backing-vocal characters in this range out of note matching
 x, 80000, 82000
@@ -209,8 +247,11 @@ x, 80000, 82000
 # Manual lyric: self-contained text, independent of TextAlive
 l, 90000, 92000, 400, 300, またね, 90000, 90600, 91200
 
-# Manual lyric, auto-timed from the TextAlive characters, rising out on exit
-l, 95000, 97000, 400, 300, ありがとう, autotime, out=rise
+# Manual lyric, auto-timed from the TextAlive characters, fading in and rising out
+l, 95000, 97000, 400, 300, ありがとう, autotime, in=fade, out=rise
+
+# Manual lyric shown 400 ms late while keeping the same character activation times
+l, 99000, 101000, 400, 300, それじゃ, delay=-400
 
 # Reactive header: live song-map effects (any subset)
 reactive: amplitude mood chorus
