@@ -1,10 +1,11 @@
 import type { Note } from "./engine";
 import type { TrailShape } from "../core/settings";
 import { withPath } from "../core/sitePath";
+import { layoutLyricGlyphs, LYRIC_RADIUS } from "./lyricLayout";
+
+export { LYRIC_RADIUS };
 
 export const NOTE_RADIUS  = 52;
-// Lyric notes are held targets, drawn as a larger circle than the old brush dot.
-export const LYRIC_RADIUS = 48;
 
 // Notes give a brief size swell centered on their hit time as a timing cue.
 const PULSE_WINDOW_MS = 110;
@@ -232,10 +233,13 @@ export function drawArrow(
   ctx.restore();
 }
 
+import { layoutLyricGlyphs } from "./lyricLayout";
+
 // appearProgress: 0 = faint outline just appearing, 1 = fully visible at hit time
 // hidden: suppresses the lyric char (circle outline remains)
 // holdProgress: 0..1 fraction of the hold elapsed (drives the progress ring)
 // holding: whether the cursor is currently inside the hold radius (tints the ring)
+// fillProgress: 0 = hollow stroke only; 1 = funnel landed and the note glyph is filled
 export function drawLyricNote(
   ctx: CanvasRenderingContext2D,
   note: Note,
@@ -245,6 +249,7 @@ export function drawLyricNote(
   holdProgress = 0,
   holding = false,
   pulse = 1,
+  fillProgress = 0,
 ): void {
   if (note.lyricChar == null) return;
 
@@ -268,24 +273,25 @@ export function drawLyricNote(
   ctx.setLineDash([]);
   ctx.restore();
 
+  const { fontPx } = layoutLyricGlyphs(note.lyricChar, scale, pulse);
+  const fill = Math.max(0, Math.min(1, fillProgress));
+
   ctx.save();
-  // A lyric can carry several syllables; shrink the glyph so 1–4 chars stay inside.
-  let fontPx = r * 0.9 * Math.min(1, 1.4 / Math.max(1, note.lyricChar.length));
   ctx.font = `bold ${fontPx.toFixed(1)}px sans-serif`;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
 
-  const maxWidth = dotR * 1.9;
-  const measured = ctx.measureText(note.lyricChar).width;
-  if (measured > maxWidth) {
-    fontPx *= maxWidth / measured;
-    ctx.font = `bold ${fontPx.toFixed(1)}px sans-serif`;
-  }
-
   if (!hidden) {
-    ctx.strokeStyle = `rgba(${darkBase}, ${0.9 * outlineAlpha})`;
-    ctx.lineWidth = 1.5 * scale;
-    ctx.strokeText(note.lyricChar, cx, cy);
+    if (fill > 0) {
+      ctx.fillStyle = `rgba(255, 255, 255, ${0.95 * fill * outlineAlpha})`;
+      ctx.fillText(note.lyricChar, cx, cy);
+    }
+    const strokeAlpha = 0.9 * outlineAlpha * (1 - fill * 0.85);
+    if (strokeAlpha > 0.01) {
+      ctx.strokeStyle = `rgba(${darkBase}, ${strokeAlpha})`;
+      ctx.lineWidth = 1.5 * scale;
+      ctx.strokeText(note.lyricChar, cx, cy);
+    }
   }
 
   ctx.restore();

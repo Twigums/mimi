@@ -14,7 +14,7 @@ The game uses one ruleset for every difficulty. Difficulty comes from chart dens
 
 No note requires holding a mouse button or key. The lyric hold is a *position* hold — keep the pointer inside the circle — not a button press. If a future note requires a press, it should be a distinct note type with its own visual language.
 
-All note types gradually appear as the song approaches their hit time. Cut and flow notes start as faint outlines and fill with color as the hit time approaches. Every note gives a brief size swell that peaks right at its hit time, a subtle visual cue for the beat. Lyric notes show a dotted circle with the glyph's stroke outline; the coloured character is delivered by the storyboard funnel — during the approach each mapped character detaches from the displayed lyric it belongs to and flies onto the note, arriving by the hit time (multi-character notes funnel their characters in sequence). While a lyric is being held, a progress ring sweeps around it, bright while the cursor is inside and dim while the hold lapses without it.
+All note types gradually appear as the song approaches their hit time. Cut and flow notes start as faint outlines and fill with color as the hit time approaches. Every note gives a brief size swell that peaks right at its hit time, a subtle visual cue for the beat. Lyric notes show a dotted circle with the glyph's stroke outline; during the approach each mapped character detaches from its storyboard glyph (even before the phrase line fades in, launching from where it will sit) and flies onto the note, crossfading into the canvas-filled glyph as it lands (multi-character notes funnel their characters in sequence). While a lyric is being held, a progress ring sweeps around it, bright while the cursor is inside and dim while the hold lapses without it.
 
 ## Note Eligibility
 
@@ -97,7 +97,7 @@ Lyric notes display the Japanese characters sung during the hold: charting picks
 
 Authored `char=<text>` overrides are required on new charts. A note's `span` field takes the source character plus the next consecutive characters into one note; `src=<ms>` (legacy) pins the source character by timestamp when the note's own time doesn't line up with the desired character — prefer clap-indexed sidecars from osu conversion instead. Characters inside a `.story` exclude range are skipped by matching.
 
-Lyric notes that are tied to a displayed storyboard lyric drive that lyric's appearance. The mapped characters detach from the shown lyric and funnel onto the note during its approach. A character renders as an empty outline until resolved: it fills with the perfect-hit yellow when its own note is hit, and the **entire TextAlive word** it belongs to — including any unmapped characters — shines once every note mapped into that word has been hit. Missing any of a word's notes leaves the word un-shone. Lyrics with no note mapped to them animate normally.
+Lyric notes that are tied to a displayed storyboard lyric drive that lyric's appearance. The mapped characters detach from their storyboard glyph and funnel onto the note during its approach, then crossfade into the note's filled outline. A character renders as an empty outline until resolved: it fills with the perfect-hit yellow when its own note is hit, and the **entire TextAlive word** it belongs to — including any unmapped characters — shines once every note mapped into that word has been hit. Missing any of a word's notes leaves the word un-shone. Lyrics with no note mapped to them animate normally.
 
 ## Scoring
 
