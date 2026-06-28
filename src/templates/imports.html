@@ -1,4 +1,14 @@
 <meta name = "site-path" content = "$path$">
+<script>
+    (function () {
+        try {
+            var saved = localStorage.getItem("theme");
+            var dark = saved === "dark" || (saved === null && window.matchMedia("(prefers-color-scheme: dark)").matches);
+            document.documentElement.classList.toggle("theme-dark", dark);
+            document.documentElement.style.colorScheme = dark ? "dark" : "light";
+        } catch (_) {}
+    }());
+</script>
 <link rel = "stylesheet" href = "$path$/css/default.css" />
 <link rel = "preconnect" href = "https://fonts.googleapis.com">
 <link rel = "preconnect" href = "https://fonts.gstatic.com" crossorigin>
