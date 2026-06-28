@@ -392,7 +392,7 @@ export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, songId
             : issueLabels[focus.issue];
 
   const handleShare = (): void => {
-    shareResult({ accuracy: `${pct}%`, grade, songName, artist, lang })
+    shareResult({ accuracy: `${pct}%`, grade, songName, artist, difficulty, lang })
       .then(ok => {
         setShareStatus(ok ? "copied" : "failed");
         setTimeout(() => setShareStatus("idle"), 2000);

@@ -5,16 +5,18 @@ interface SharePayload {
   grade: Grade;
   songName: string;
   artist: string;
+  difficulty: string;
   lang: string;
 }
 
 export async function shareResult(payload: SharePayload): Promise<boolean> {
-  const { accuracy, grade, songName, artist, lang } = payload;
+  const { accuracy, grade, songName, artist, difficulty, lang } = payload;
   const url = window.location.href;
   const songId = artist ? `${songName} — ${artist}` : songName;
+  const diff = difficulty.toUpperCase();
   const text = lang === "jp"
-    ? `「${songId}」で ${accuracy} (${grade}) を獲得しました！\n${url}`
-    : `I scored ${accuracy} (${grade}) on "${songId}" in mimi!\n${url}`;
+    ? `「${songId}」の${diff}で ${accuracy} (${grade}) を獲得しました！\n${url}`
+    : `I scored ${accuracy} (${grade}) on ${diff} of "${songId}" in mimi!\n${url}`;
 
   if (navigator.share) {
     try {
