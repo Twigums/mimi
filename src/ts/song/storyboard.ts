@@ -51,6 +51,22 @@ const styleDelayMs = (style?: StoryStyle): number => {
   return Number.isInteger(n) ? n : 0;
 };
 
+const shouldRotateManualGlyph = (ch: string): boolean => /^[\x21-\x7e]$/.test(ch);
+const manualGlyphClass = (el: HTMLElement, stateClass: string): string =>
+  el.dataset.baseTransform ? `${stateClass} story-char-horizontal` : stateClass;
+const OUT_DURATION_MS: Record<string, number> = { fade: 300, rise: 2800, fall: 900 };
+
+const parseOutStyle = (raw: string): { name: string; durationMs: number } | null => {
+  const match = raw.trim().match(/^([a-z][a-z-]*)(?:\((\d+(?:\.\d+)?)\))?$/i);
+  if (!match) return null;
+  const name = match[1].toLowerCase();
+  const defaultMs = OUT_DURATION_MS[name] ?? 300;
+  if (!match[2]) return { name, durationMs: defaultMs };
+  const seconds = Number(match[2]);
+  if (!Number.isFinite(seconds) || seconds <= 0) return { name, durationMs: defaultMs };
+  return { name, durationMs: seconds * 1000 };
+};
+
 const collectPhrases = (video: TextAliveVideo): TextAlivePhrase[] => {
   const phrases: TextAlivePhrase[] = [];
   const seen = new Set<TextAlivePhrase>();
@@ -122,8 +138,9 @@ export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElem
   // Build a styled container with three transform layers so they never collide:
   // `outer` (.storyboard-line/-segment) already owns the positioning transform and
   // carries static style (color/font/size); `.sb-fx` owns continuous motion;
-  // `.sb-enter` owns the one-shot entrance; char spans go in `.sb-enter` and own the
-  // per-char pulse/amplitude scale. Returns the innermost char container + pulse flag.
+  // `.sb-enter` owns one-shot enter/exit transitions; char spans go in `.sb-enter`
+  // and own the per-char pulse/amplitude scale. Returns the innermost char
+  // container + pulse flag.
   const buildContainer = (cls: string, style?: StoryStyle): { outer: HTMLElement; inner: HTMLElement; pulse: boolean } => {
     const outer = document.createElement("div");
     outer.className = cls;
@@ -144,6 +161,24 @@ export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElem
       pulse = !!style.pulse;
     }
     return { outer, inner: enterEl, pulse };
+  };
+
+  const startExit = (el: HTMLElement): number => {
+    el.dataset.visible = "false";
+    const out = el.dataset.out;
+    if (!out) {
+      el.classList.remove("visible");
+      return 300;
+    }
+    const parsed = parseOutStyle(out);
+    if (!parsed) {
+      el.classList.remove("visible");
+      return 300;
+    }
+    const exitEl = el.querySelector<HTMLElement>(".sb-enter") ?? el;
+    exitEl.classList.add(`sb-out-${parsed.name}`);
+    exitEl.style.animationDuration = `${parsed.durationMs / 1000}s`;
+    return parsed.durationMs;
   };
 
   const moveDisplayStart = (move: StoryMove, phrase: TextAlivePhrase): number =>
@@ -271,15 +306,14 @@ export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElem
   };
 
   const clearPhrase = (phrase: TextAlivePhrase, els: HTMLElement[]): void => {
+    let removeDelay = 300;
     for (const el of els) {
-      el.dataset.visible = "false";
-      el.classList.remove("visible");
-      if (el.dataset.out) el.classList.add(`sb-out-${el.dataset.out}`);
+      removeDelay = Math.max(removeDelay, startExit(el));
     }
     const toRemove = [...els];
     setTimeout(() => {
       for (const el of toRemove) { if (el.parentNode === root) root.removeChild(el); }
-    }, 300);
+    }, removeDelay);
     for (const { ch, el } of charEls) {
       if (toRemove.some(r => r.contains(el))) charElMap.delete(ch);
     }
@@ -461,7 +495,9 @@ export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElem
       const applyCharScale = (el: HTMLElement, active: boolean, pulse: boolean): void => {
         let s = active ? ampScale : 1;
         if (pulse) s *= 1 + 0.18 * beat;
-        el.style.transform = s !== 1 ? `scale(${s.toFixed(3)})` : "";
+        const baseTransform = el.dataset.baseTransform ?? "";
+        const scaleTransform = s !== 1 ? `scale(${s.toFixed(3)})` : "";
+        el.style.transform = [baseTransform, scaleTransform].filter(Boolean).join(" ");
       };
 
       // TextAlive phrase rendering (one or more concurrent layers)
@@ -510,7 +546,9 @@ export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElem
         const charSpans: HTMLElement[] = [];
         for (const ch of [...entry.text]) {
           const span = document.createElement("span");
-          span.className = "storyboard-char";
+          const rotate = shouldRotateManualGlyph(ch);
+          span.className = rotate ? "storyboard-char story-char-horizontal" : "storyboard-char";
+          if (rotate) span.dataset.baseTransform = "rotate(-90deg)";
           span.textContent = ch;
           inner.appendChild(span);
           charSpans.push(span);
@@ -526,9 +564,8 @@ export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElem
       activeLyrics = activeLyrics.filter(({ entry, el }) => {
         const displayStart = entry.from - styleDelayMs(entry.style);
         if (songMs < displayStart || songMs >= entry.to) {
-          el.classList.remove("visible");
-          if (el.dataset.out) el.classList.add(`sb-out-${el.dataset.out}`);
-          setTimeout(() => el.remove(), 300);
+          const removeDelay = startExit(el);
+          setTimeout(() => el.remove(), removeDelay);
           return false;
         }
         return true;
@@ -551,6 +588,7 @@ export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElem
           } else {
             cls = "storyboard-char";
           }
+          cls = manualGlyphClass(charSpans[i], cls);
           if (charSpans[i].className !== cls) charSpans[i].className = cls;
           applyCharScale(charSpans[i], active, pulse);
         }
