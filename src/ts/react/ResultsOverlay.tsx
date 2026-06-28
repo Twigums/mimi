@@ -175,6 +175,23 @@ function JudgementPie(
     acc += frac;
     return seg;
   });
+
+  const active = segs.filter(s => s.count > 0);
+  if (active.length > 1) {
+    const MIN_GAP = 0.16;
+    for (let iter = 0; iter < 8; iter++) {
+      for (let i = 0; i < active.length; i++) {
+        const j = (i + 1) % active.length;
+        let gap = active[j].mid - active[i].mid;
+        if (gap < 0) gap += 2 * Math.PI;
+        if (gap < MIN_GAP) {
+          const push = (MIN_GAP - gap) / 2;
+          active[i].mid -= push;
+          active[j].mid += push;
+        }
+      }
+    }
+  }
   return (
     <div className="results-pie">
       <svg className="results-pie__chart" viewBox={`0 0 ${size} ${size}`}>
