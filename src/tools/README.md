@@ -3,7 +3,7 @@
 Converts an osu! standard `.osu` beatmap into a mimi `.mimi` chart.
 
 ```bash
-npm run --silent convert:osu -- [--difficulty N] [--bpm N] [--beats-per-measure N] path/to/file.osu > out.mimi
+npm run --silent convert:osu -- [--difficulty N] [--bpm N] [--beats-per-measure N] [--lyrics lyrics.txt] path/to/file.osu > out.mimi
 ```
 
 The osu play area (512×384) is scaled into mimi's 800×600 logical area, preserving aspect ratio.
@@ -29,6 +29,7 @@ Rules and edge cases:
 - **whistle = cut**, but a cut needs a direction, so it must be a **slider**. A whistle on a bare hitcircle has no direction — it is imported as `auto` flow and a warning is printed to stderr.
 - **cut/flow sliders sit at the midpoint** of the head and the first curve point (sliders are expected to be **linear**, so this is the slider's centre). Direction still runs head → first point. Plain circles and lyrics stay at the head.
 - **finish marks a lyric's closing syllable.** A `finish` added to a **clap** (i.e. on a lyric) emits the trailing lyric option `endchar`, which extends the lyric's char-fetch window past its hold end to include the syllable sung as the hold finishes. `finish` on a non-clap object is ignored.
+- **Lyrics sidecar (`--lyrics`).** Optional text file with one line per **clap** hit object in `[HitObjects]` file order (0-based). Each line is space-separated lyric options for that clap; bare text becomes `char=<text>`. Index-based mapping survives osu retiming (unlike timestamp `src=<ms>` bindings).
 - **Spinners and holds are skipped.**
 - **New combo = phrase break.** An object with osu's new-combo flag emits a `break` line before it, which ends the previous flow phrase. Flow phrases are otherwise just runs of consecutive `flow` anchors (a non-flow note also ends a phrase; inert `end` markers do not). This is how phrasing is encoded in the chart rather than inferred from timing.
 - **Same-time ordering.** When events share a time, they are emitted `end` marker → cut/flow → `lyric` last, so a cut leading into a lyric precedes it and a lyric's hold extends to the next strictly-later event rather than collapsing on a note charted on its own beat.

@@ -177,14 +177,14 @@
       "mimi": "flow, 20315, auto, 503.1, 159.4"
     },
     {
-      "mimi": "lyric, 20545, auto, 620.3, 239.1, endchar",
-      "expected": "輝きを"
+      "mimi": "lyric, 20545, auto, 620.3, 239.1, char=輝き, endchar",
+      "expected": "輝き"
     },
     {
       "mimi": "flow, 21584, -101.3, 592.2, 357.8"
     },
     {
-      "mimi": "lyric, 21699, auto, 560.9, 485.9",
+      "mimi": "lyric, 21699, auto, 560.9, 485.9, char=を",
       "expected": "を"
     },
     {
@@ -200,7 +200,7 @@
       "mimi": "flow, 23777, auto, 300, 218.8"
     },
     {
-      "mimi": "lyric, 24007, auto, 440.6, 237.5, endchar",
+      "mimi": "lyric, 24007, auto, 440.6, 237.5, char=大通り, endchar",
       "expected": "大通り"
     },
     {
@@ -228,14 +228,14 @@
       "mimi": "flow, 27700, auto, 212.5, 182.8"
     },
     {
-      "mimi": "lyric, 27930, auto, 140.6, 84.4, endchar",
-      "expected": "会いたくて"
+      "mimi": "lyric, 27930, auto, 140.6, 84.4, char=会いたく, endchar",
+      "expected": "会いたく"
     },
     {
       "mimi": "flow, 28969, -101.3, 115.6, 207.8"
     },
     {
-      "mimi": "lyric, 29084, auto, 87.5, 326.6, endchar",
+      "mimi": "lyric, 29084, auto, 87.5, 326.6, char=て, endchar",
       "expected": "て"
     },
     {
@@ -272,12 +272,12 @@
       "mimi": "flow, 32776, auto, 317.2, 125"
     },
     {
-      "mimi": "lyric, 33007, auto, 214.1, 18.8",
+      "mimi": "lyric, 33007, auto, 214.1, 18.8, char=紛",
       "expected": "紛"
     },
     {
-      "mimi": "lyric, 33468, auto, 134.4, 135.9, endchar",
-      "expected": "れてい"
+      "mimi": "lyric, 33468, auto, 134.4, 135.9, char=れて, endchar",
+      "expected": "れて"
     },
     {
       "mimi": "flow, 35315, auto, 193.8, 203.1"
@@ -286,11 +286,11 @@
       "mimi": "flow, 35430, auto, 237.5, 253.1"
     },
     {
-      "mimi": "lyric, 35545, auto, 295.3, 323.4",
+      "mimi": "lyric, 35545, auto, 295.3, 323.4, char=るん",
       "expected": "るん"
     },
     {
-      "mimi": "lyric, 36468, auto, 246.9, 456.3",
+      "mimi": "lyric, 36468, auto, 246.9, 456.3, char=だ",
       "expected": "だ"
     },
     {
@@ -321,7 +321,7 @@
       "mimi": "flow, 39584, -28.3, 121.9, 250"
     },
     {
-      "mimi": "lyric, 39699, auto, 254.7, 315.6, endchar",
+      "mimi": "lyric, 39699, auto, 254.7, 315.6, char=振った, endchar",
       "expected": "振った"
     },
     {
@@ -343,12 +343,12 @@
       "mimi": "cut, 42007, -30, 568.8, 57"
     },
     {
-      "mimi": "lyric, 42238, auto, 684.4, 125",
+      "mimi": "lyric, 42238, auto, 684.4, 125, char=振り",
       "expected": "振り"
     },
     {
-      "mimi": "lyric, 42699, auto, 607.8, 240.6, endchar",
-      "expected": "かえし"
+      "mimi": "lyric, 42699, auto, 607.8, 240.6, char=かえ, endchar",
+      "expected": "かえ"
     },
     {
       "mimi": "cut, 43391, -99.5, 588.3, 375"
@@ -366,14 +366,14 @@
       "mimi": "cut, 44776, -99.5, 191.4, 559.4"
     },
     {
-      "mimi": "lyric, 45468, auto, 95.3, 343.8, endchar",
-      "expected": "あなたは"
+      "mimi": "lyric, 45468, auto, 95.3, 343.8, char=あなた, endchar",
+      "expected": "あなた"
     },
     {
       "mimi": "cut, 46161, 9.5, 237.5, 311.7"
     },
     {
-      "mimi": "lyric, 46391, auto, 390.6, 281.3",
+      "mimi": "lyric, 46391, auto, 390.6, 281.3, char=声を",
       "expected": "声を"
     },
     {
@@ -398,26 +398,26 @@
       "mimi": "cut, 48930, -11.3, 237.5, 109.4"
     },
     {
-      "mimi": "lyric, 49161, auto, 403.1, 107.8, endchar",
+      "mimi": "lyric, 49161, auto, 403.1, 107.8, char=静かに, endchar",
       "expected": "静かに"
     },
     {
       "mimi": "cut, 49853, -9.8, 530.5, 125.8"
     },
     {
-      "mimi": "lyric, 50084, auto, 482.8, 246.9, endchar",
+      "mimi": "lyric, 50084, auto, 482.8, 246.9, char=耳を, endchar",
       "expected": "耳を"
     },
     {
       "mimi": "cut, 50776, -9.8, 611.7, 266.4"
     },
     {
-      "mimi": "lyric, 51007, auto, 564.1, 396.9",
+      "mimi": "lyric, 51007, auto, 564.1, 396.9, char=傾",
       "expected": "傾"
     },
     {
-      "mimi": "lyric, 51699, auto, 598.4, 517.2, endchar",
-      "expected": "けてど"
+      "mimi": "lyric, 51699, auto, 598.4, 517.2, char=けて, endchar",
+      "expected": "けて"
     },
     {
       "mimi": "end, 52161"
@@ -426,7 +426,7 @@
       "mimi": "cut, 53084, -99.5, 324.2, 307.8"
     },
     {
-      "mimi": "lyric, 53545, auto, 295.3, 490.6, endchar",
+      "mimi": "lyric, 53545, auto, 295.3, 490.6, char=苦しみ, endchar",
       "expected": "苦しみ"
     },
     {
@@ -436,8 +436,8 @@
       "mimi": "cut, 54930, -9.5, 101.6, 316.4"
     },
     {
-      "mimi": "lyric, 55161, auto, 228.1, 365.6, endchar",
-      "expected": "も悲"
+      "mimi": "lyric, 55161, auto, 228.1, 365.6, char=自分を, endchar",
+      "expected": "自分を"
     },
     {
       "mimi": "cut, 55853, -170.5, 98.4, 419.5"
@@ -446,8 +446,8 @@
       "mimi": "cut, 56776, -99.5, 397.7, 331.3"
     },
     {
-      "mimi": "lyric, 57238, auto, 368.8, 514.1",
-      "expected": "向こうにき"
+      "mimi": "lyric, 57238, auto, 368.8, 514.1, char=向こうに",
+      "expected": "向こうに"
     },
     {
       "mimi": "cut, 58161, 9.5, 485.9, 494.5"
@@ -456,8 +456,8 @@
       "mimi": "cut, 58622, -170.5, 667.2, 275.8"
     },
     {
-      "mimi": "lyric, 58853, auto, 548.4, 350, endchar",
-      "expected": "私"
+      "mimi": "lyric, 58853, auto, 548.4, 350, char=重ねて, endchar",
+      "expected": "重ねて"
     },
     {
       "mimi": "cut, 59545, -170.5, 421.9, 411.7"

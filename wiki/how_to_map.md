@@ -71,7 +71,7 @@ The compiler emits runtime notes with `kind`, `time`, `x`, `y`, `direction` in r
 
 Cut and flow notes do not require a mouse-button or key hold. Flow notes should be placed so the player can read a continuous path through the phrase.
 
-A lyric is a **hold**: the player keeps the cursor inside the circle from the note's time until the **next event strictly after it** — whichever comes first, the next note (any kind) or an explicit `end` marker. There is no default or cap, so **a lyric must not be the last event** (with nothing to bound it the engine logs an error and the note misses). Place the next note, or an `end, time` line, where the hold should end. Do not chart a lyric with less than roughly 300 ms before its bound, and pick one standout lyric per phrase rather than charting every word. The `degrees` field is unused for lyrics; the hold length is not authored as a row field. The displayed text auto-fills from every sung character in the hold window (use the `char=<text>` option only to correct it). A trailing `endchar` option on the row extends the text window past the hold end to include the closing syllable sung as the hold finishes.
+A lyric is a **hold**: the player keeps the cursor inside the circle from the note's time until the **next event strictly after it** — whichever comes first, the next note (any kind) or an explicit `end` marker. There is no default or cap, so **a lyric must not be the last event** (with nothing to bound it the engine logs an error and the note misses). Place the next note, or an `end, time` line, where the hold should end. Do not chart a lyric with less than roughly 300 ms before its bound, and pick one standout lyric per phrase rather than charting every word. The `degrees` field is unused for lyrics; the hold length is not authored as a row field. **Every lyric note must carry an explicit `char=<text>` override** (or `span=N` when several syllables funnel together). Automatic hold-window text fill from TextAlive timings is **deprecated** — the runtime still supports it for legacy charts, but new `.mimi` files must hardcode lyric text. A trailing `endchar` option on the row extends the text window past the hold end to include the closing syllable sung as the hold finishes.
 
 During migration, older charts may still use `f` for cut-style notes. Prefer `c` for new maps.
 
@@ -171,7 +171,9 @@ To reposition a stacked line manually, use a `.story` **`m`** move on that phras
 
 ### How a lyric note gets its text
 
-For each lyric note, in time order, the matcher resolves its source character **containment-first**: if the note's time falls inside a character's sung span, it sources that character and **shares** it (so several notes placed over one long-held character all source the same glyph); otherwise it claims the nearest **unclaimed** character within +/- 80 ms (so two notes near 自分 resolve to 自 then 分 instead of both grabbing 自). There are three ways to control the text:
+**Automatic hold-window matching is deprecated.** Legacy charts may omit lyric options and let the runtime auto-fill text from TextAlive character timings in each note's hold window; that path is unchanged but must not be used on new maps. **Going forward, every lyric row must hardcode its displayed text** with `char=<text>` (or `span=N` when several consecutive characters funnel onto one note).
+
+For reference, the legacy auto matcher resolves each lyric note's source character **containment-first**: if the note's time falls inside a character's sung span, it sources that character and **shares** it; otherwise it claims the nearest **unclaimed** character within +/- 80 ms. Authored overrides take precedence:
 
 | Form | Example row | Result |
 |------|-------------|--------|
@@ -181,7 +183,7 @@ For each lyric note, in time order, the matcher resolves its source character **
 | Source timestamp | `lyric, 2000, auto, 400, 300, src=2350` | Sources the character at **2350 ms** (text = that character), regardless of the note time |
 | Source + override | `lyric, 2000, auto, 400, 300, src=2350 がんばれ` | Sources the glyph at 2350 ms but displays the literal `がんばれ` |
 
-The 6th field accepts these as space-separated tokens (`span=`, `src=`, and/or a literal). The override text can differ from the spoken character — if the lyric is 輝 and you map か, が, or やき onto it, that text funnels out of the **same** 輝 glyph. Use **`src=<ms>`** when a note's own time doesn't line up with the character you want to bring over: dump the lyric timestamps with `npm run dump:lyrics` (see `src/tools/README.md`) and copy the character's `start` value.
+The 6th field accepts these as comma-separated tokens (`char=`, `span=`, `src=`, `endchar`). The override text can differ from the spoken character — if the lyric is 輝 and you map `char=か` onto it, か funnels out of the **same** 輝 glyph.
 
 ### Word shine
 

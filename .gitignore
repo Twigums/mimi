@@ -30,3 +30,5 @@ package-lock.json
 
 # let github actions handle site generation and hosting
 docs/
+
+staging/

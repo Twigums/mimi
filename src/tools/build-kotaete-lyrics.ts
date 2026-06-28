@@ -19,8 +19,12 @@ function parseMimiNote(line: string): Note | { endTime: number } | null {
   const n: Note = { kind, time: Number(t[1]), x: Number(t[3] ?? 0), y: Number(t[4] ?? 0), direction: 0, state: "pending" };
   if (kind === "lyric") {
     for (let i = 5; i < t.length; i++) {
-      if (t[i] === "endchar") n.includeEndChar = true;
-      else if (!t[i].includes("=")) n.lyricChar = t[i];
+      const tok = t[i];
+      if (tok === "endchar") n.includeEndChar = true;
+      else if (tok.startsWith("char=")) n.lyricChar = tok.slice(5);
+      else if (tok.startsWith("span=")) n.lyricSpan = Number(tok.slice(5));
+      else if (tok.startsWith("src=")) n.lyricSrcTime = Number(tok.slice(4));
+      else if (!tok.includes("=")) n.lyricChar = tok;
     }
   }
   return n;

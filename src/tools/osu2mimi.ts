@@ -1,4 +1,4 @@
-import { readFileSync } from "fs";
+import { readFileSync, writeFileSync } from "fs";
 
 const OSU_WIDTH   = 512;
 const OSU_HEIGHT  = 384;
@@ -53,6 +53,7 @@ interface Note {
     kind:           EntryKind;
     degrees:        number | null;
     newCombo:       boolean;
+    lyricOpts?:     string[];  // lyric only: char=/span=/src= tokens from a --lyrics sidecar
     includeEndChar?: boolean;  // lyric only: emits the `endchar` option (osu finish hitsound)
 }
 
@@ -145,14 +146,16 @@ function sliderDurationMs(
 }
 
 interface CliOptions {
-    fileArg: string | null;
+    fileArg:   string | null;
+    lyricsArg: string | null;
+    outArg:    string | null;
     difficulty?: number;
     bpm?: number;
     beatsPerMeasure: number;
 }
 
 function parseCliArgs(args: string[]): CliOptions {
-    const opts: CliOptions = { fileArg: null, beatsPerMeasure: 4 };
+    const opts: CliOptions = { fileArg: null, lyricsArg: null, outArg: null, beatsPerMeasure: 4 };
     let i = 0;
 
     while (i < args.length) {
@@ -172,6 +175,12 @@ function parseCliArgs(args: string[]): CliOptions {
         } else if (arg === "--beats-per-measure") {
             i += 1;
             opts.beatsPerMeasure = Number(args[i]);
+        } else if (arg === "--lyrics") {
+            i += 1;
+            opts.lyricsArg = args[i] ?? null;
+        } else if (arg === "--out") {
+            i += 1;
+            opts.outArg = args[i] ?? null;
         } else if (arg.startsWith("--")) {
             process.stderr.write(`Unknown option: ${arg}\n`);
             process.exit(1);
@@ -182,6 +191,35 @@ function parseCliArgs(args: string[]): CliOptions {
     }
 
     return opts;
+}
+
+// Sidecar lyric file: one non-blank, non-# line per clap hit object in [HitObjects]
+// file order (0-based). Each line is space-separated lyric options for that clap; bare
+// text becomes char=<text>. Mapping by clap index survives osu retiming (unlike src=<ms>).
+function parseLyricsFile(content: string): string[][] {
+    const entries: string[][] = [];
+    for (const raw of content.split("\n")) {
+        const line = raw.trim();
+        if (!line || line.startsWith("#")) continue;
+        const tokens: string[] = [];
+        for (const part of line.split(/\s+/)) {
+            if (part === "endchar" || part.startsWith("char=") || part.startsWith("span=") || part.startsWith("src=")) {
+                tokens.push(part);
+            } else if (!part.includes("=")) {
+                tokens.push(`char=${part}`);
+            } else {
+                tokens.push(part);
+            }
+        }
+        entries.push(tokens);
+    }
+    return entries;
+}
+
+function formatLyricOptions(note: Note): string {
+    const parts = [...(note.lyricOpts ?? [])];
+    if (note.includeEndChar && !parts.includes("endchar")) parts.push("endchar");
+    return parts.length > 0 ? `, ${parts.join(", ")}` : "";
 }
 
 interface MapContext {
@@ -252,15 +290,18 @@ function parseHitObject(line: string, ctx: MapContext): Note[] {
 }
 
 function main(): void {
-    const { fileArg, difficulty, bpm, beatsPerMeasure } = parseCliArgs(process.argv.slice(2));
+    const { fileArg, lyricsArg, outArg, difficulty, bpm, beatsPerMeasure } = parseCliArgs(process.argv.slice(2));
 
     if (!fileArg) {
         process.stderr.write(
-            "Usage: osu2mimi [--difficulty N] [--bpm N] [--beats-per-measure N] {file.osu}\n" +
+            "Usage: osu2mimi [--difficulty N] [--bpm N] [--beats-per-measure N]\n" +
+            "                [--lyrics lyrics.txt] [--out out.mimi] {file.osu}\n" +
             "Kind from hitsound/type: clap -> lyric (clap slider also bounds the hold at its\n" +
             "tail); whistle on a slider -> cut; plain slider -> flow pinned to the slider;\n" +
             "plain circle -> flow (auto). Cut/flow sliders sit at the head->first-point\n" +
-            "midpoint. A new-combo object emits a `break`, ending the previous flow phrase.\n",
+            "midpoint. A new-combo object emits a `break`, ending the previous flow phrase.\n" +
+            "Optional --lyrics sidecar: one line per clap in [HitObjects] order; bare text\n" +
+            "becomes char=<text>. Index-based mapping survives osu retiming.\n",
         );
         process.exit(1);
     }
@@ -273,6 +314,16 @@ function main(): void {
         process.exit(1);
     }
 
+    let clapLyrics: string[][] | null = null;
+    if (lyricsArg) {
+        try {
+            clapLyrics = parseLyricsFile(readFileSync(lyricsArg, "utf-8"));
+        } catch {
+            process.stderr.write(`Cannot read lyrics file: ${lyricsArg}\n`);
+            process.exit(1);
+        }
+    }
+
     const sections = parseSections(content);
     const ctx: MapContext = {
         sliderMultiplier: parseSliderMultiplier(sections.get("Difficulty") ?? []),
@@ -281,8 +332,32 @@ function main(): void {
     const hitObjectLines = sections.get("HitObjects") ?? [];
 
     const notes: Note[] = [];
+    let clapIndex = 0;
     for (const line of hitObjectLines) {
-        notes.push(...parseHitObject(line, ctx));
+        const parts = line.split(",");
+        const hitSound = parts.length >= 5 ? parseInt(parts[4], 10) : 0;
+        const parsed = parseHitObject(line, ctx);
+        if (hitSound & OSU_HIT_CLAP) {
+            for (const note of parsed) {
+                if (note.kind !== "lyric") continue;
+                if (clapLyrics) {
+                    if (clapIndex < clapLyrics.length) {
+                        note.lyricOpts = clapLyrics[clapIndex];
+                    } else {
+                        process.stderr.write(
+                            `warning: lyrics file has fewer entries than clap objects (missing index ${clapIndex})\n`,
+                        );
+                    }
+                }
+                clapIndex += 1;
+            }
+        }
+        notes.push(...parsed);
+    }
+    if (clapLyrics && clapIndex < clapLyrics.length) {
+        process.stderr.write(
+            `warning: lyrics file has ${clapLyrics.length - clapIndex} unused entries after clap index ${clapIndex}\n`,
+        );
     }
 
     notes.sort((a, b) => a.time - b.time || EMIT_ORDER[a.kind] - EMIT_ORDER[b.kind]);
@@ -308,12 +383,16 @@ function main(): void {
         }
         if (note.newCombo && note.kind === "flow" && prevKind === "flow") out.push("break");
         const deg = note.degrees === null ? "auto" : note.degrees;
-        const lyricOptions = note.includeEndChar ? ", endchar" : "";
-        out.push(`${note.kind}, ${note.time}, ${deg}, ${note.x}, ${note.y}${lyricOptions}`);
+        out.push(`${note.kind}, ${note.time}, ${deg}, ${note.x}, ${note.y}${formatLyricOptions(note)}`);
         prevKind = note.kind;
     }
 
-    process.stdout.write(out.join("\n") + "\n");
+    const text = out.join("\n") + "\n";
+    if (outArg) {
+        writeFileSync(outArg, text, "utf-8");
+    } else {
+        process.stdout.write(text);
+    }
 }
 
 main();
