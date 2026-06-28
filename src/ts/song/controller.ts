@@ -174,7 +174,7 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPre
     const playable = playableNotes(loadedNotes);
     computeLyricHolds(playable, endMarkerTimes(loadedNotes));
     if (videoForMatch) {
-      const { charToNote } = matchLyrics(flattenChars(videoForMatch), playable, excludeRanges);
+      const { charToNote } = matchLyrics(videoForMatch, playable, excludeRanges);
       storyboard?.setLyricMap(charToNote);
     }
     game.setChart(loadedNotes);

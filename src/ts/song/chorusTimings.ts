@@ -223,9 +223,6 @@ export function mergeChorusTimings(
 ): MergedChorusVideos {
   if (chorusPhrases.length === 0) return { match: base, display: base };
 
-  const chorusStart = Math.min(...chorusPhrases.map(p => p.startTime));
-  const chorusEnd = Math.max(...chorusPhrases.map(p => p.endTime));
-
   const chorusPhraseNodes: TextAlivePhrase[] = [];
   for (let i = chorusPhrases.length - 1; i >= 0; i--) {
     const node = buildPhraseNodeFromData(chorusPhrases[i], chorusWordSizes[i] ?? [], chorusPhraseNodes[0] ?? null);
@@ -234,25 +231,21 @@ export function mergeChorusTimings(
   }
   linkPhraseNext(chorusPhraseNodes);
 
-  const matchBaseChars = collectTextAliveChars(base)
-    .filter(c => c.startTime < chorusStart || c.startTime > chorusEnd)
-    .map(cloneChar);
-
-  const chorusChars = chorusPhraseNodes.flatMap(p => walkPhraseChars(p));
+  // ── Match video: lead + staff chorus chars (authored `char=` picks the line by text).
+  const matchBaseChars = collectTextAliveChars(base).map(cloneChar);
+  const chorusChars = chorusPhraseNodes.flatMap(p => walkPhraseChars(p)).map(cloneChar);
   const matchChars = [...matchBaseChars, ...chorusChars].sort(
     (a, b) => a.startTime - b.startTime || a.endTime - b.endTime,
   );
   linkNext(matchChars);
-  const matchCharByKey = new Map(matchChars.map(c => [charKey(c), c]));
 
   const matchBasePhraseNodes: TextAlivePhrase[] = [];
   let phrase = base.firstPhrase;
   while (phrase) {
     if (!isDegeneratePhrase(phrase)) {
-      const kept = walkPhraseChars(phrase).filter(
-        c => c.startTime < chorusStart || c.startTime > chorusEnd,
-      );
-      matchBasePhraseNodes.push(buildPhraseFromChars(phrase, kept.map(c => matchCharByKey.get(charKey(c))!).filter(Boolean)));
+      const cloned = walkPhraseChars(phrase).map(cloneChar);
+      linkNext(cloned);
+      matchBasePhraseNodes.push(buildPhraseFromChars(phrase, cloned));
     }
     phrase = phrase.next;
   }

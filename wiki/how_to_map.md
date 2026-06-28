@@ -165,7 +165,7 @@ Unmapped characters keep the normal sung animation (dim → active → sung) and
 
 ### Overlapping phrases (lead + chorus)
 
-TextAlive normally exposes one phrase at a time. When a song needs **concurrent** lines (lead vocal under chorus, or staff chorus timings that overlap the lead), set `lyric-chorus-timings: songs/<id>/chorus-timings.jsonc` on the song tab. The runtime merges staff chorus char timings as **overlay phrases** (`overlay: true`): the storyboard keeps the full lead line visible on the **right** while each active chorus line stacks on the **left**. Lyric **matching** still binds notes to chorus chars inside the chorus window; the lead glyphs remain visible for context but are omitted from matching in that window so notes do not grab the wrong line.
+TextAlive normally exposes one phrase at a time. When a song needs **concurrent** lines (lead vocal under chorus, or staff chorus timings that overlap the lead), set `lyric-chorus-timings: songs/<id>/chorus-timings.jsonc` on the song tab. The runtime merges staff chorus char timings as **overlay phrases** (`overlay: true`): the storyboard keeps the full lead line visible on the **right** while each active chorus line stacks on the **left**. Lyric **matching** includes **both** lead and chorus chars in the overlap window; authored `char=` text picks the line by exact phrase-local substring match, then timing fallback applies. Legacy auto-fill without `char=` still uses hold-window timing across the combined pool.
 
 To reposition a stacked line manually, use a `.story` **`m`** move on that phrase's time range (see below). `h` highlights still apply per character; `x` excludes backing vocals from note matching without hiding them from the storyboard.
 
@@ -290,7 +290,7 @@ Lyric notes you do not map behave normally — they simply animate in the storyb
 
 ### Kotaete chorus example
 
-`kotaete.md` sets `lyric-chorus-timings: songs/kotaete/chorus-timings.jsonc` (Magical Mirai staff ms timings). During ~52–66 s the lead line *自分を重ねて聞いてた* and the two chorus lines *どれほどの苦しみも…* / *きっと私の目指す…* display together. Chart the chorus with `lyric` notes in that window; on hit, their glyphs funnel from the **left overlay line** and fill yellow, and word shine applies within each chorus word group defined in the jsonc.
+`kotaete.md` sets `lyric-chorus-timings: songs/kotaete/chorus-timings.jsonc` (Magical Mirai staff ms timings). During ~52–66 s the lead line *自分を重ねて聞いてた* and the two chorus lines *どれほどの苦しみも…* / *きっと私の目指す…* display together. Chart with `char=` on every lyric row; chorus notes funnel from the **left** overlay segments, lead notes from the **right** lead phrase, and word shine applies within each TextAlive word group.
 
 ## Minimal Example
 

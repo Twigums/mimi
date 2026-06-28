@@ -62,23 +62,23 @@ m, 49120, 650, 375, scale=1.6, in=grow, motion=sway
 # 耳
 h, 49973, 53307
 
-# overlap — alternating left / right segments (`text=` anchors each `m` to its phrase)
+# overlap — alternating left / right segments, cascading down (`text=` binds each `m` to its phrase)
 # どれほどの苦しみも
-m, 52140, 100, 100, text=どれほどの苦しみも, scale=1, in=grow, motion=sway, pulse=beat
+m, 52140, 110, 70, text=どれほどの苦しみも, scale=1, in=grow, motion=sway, pulse=beat
 # 悲しみの向こうに
-m, 53490, 100, 100, text=悲しみの向こうに, scale=1, in=grow, motion=sway, pulse=beat
+m, 53490, 110, 125, text=悲しみの向こうに, scale=1, in=grow, motion=sway, pulse=beat
 # 自分を
-m, 54887, 700, 150, text=自分を, scale=1.6, in=grow, motion=sway, pulse=beat
+m, 54887, 690, 180, text=自分を, scale=1.6, in=grow, motion=sway, pulse=beat
 # きっと
-m, 57903, 100, 100, text=きっと, scale=1, in=grow, motion=sway, pulse=beat
+m, 57903, 110, 235, text=きっと, scale=1, in=grow, motion=sway, pulse=beat
 # 重ねて
-m, 58553, 700, 150, text=重ねて, scale=1.6, in=grow, motion=sway, pulse=beat
+m, 58553, 690, 290, text=重ねて, scale=1.6, in=grow, motion=sway, pulse=beat
 # 私の目指す私が
-m, 59444, 100, 100, text=私の目指す私が, scale=1, in=grow, motion=sway, pulse=beat
+m, 59444, 110, 345, text=私の目指す私が, scale=1, in=grow, motion=sway, pulse=beat
 # 聞いてた
-m, 62254, 700, 150, text=聞いてた, scale=1.6, in=grow, motion=sway, pulse=beat
+m, 62254, 690, 400, text=聞いてた, scale=1.6, in=grow, motion=sway, pulse=beat
 # いると信じ続けていた
-m, 63058, 100, 100, text=いると信じ続けていた, scale=1, in=grow, motion=sway, pulse=beat
+m, 63058, 110, 455, text=いると信じ続けていた, scale=1, in=grow, motion=sway, pulse=beat
 
 # 目覚めた僕の心がざわつく
 # 目

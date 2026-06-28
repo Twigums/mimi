@@ -140,9 +140,6 @@ const moveOwnsPhrase = (move: StoryMove, phrase: TextAlivePhrase, phrases: TextA
   return best === phrase;
 };
 
-const movePosKey = (move: StoryMove): string =>
-  `${move.x},${move.y},${move.style?.scale ?? ""},${move.style?.motion ?? ""},${move.style?.font ?? ""}`;
-
 interface StoryboardRenderer {
   setVideo(video: TextAliveVideo): void;
   setStoryData(entries: StoryEntry[]): void;
@@ -362,22 +359,9 @@ export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElem
       mountLine("storyboard-line", defaultChars, undefined, null, phrase.startTime);
     }
 
-    const coalesced = new Map<string, { move: StoryMove; chars: TextAliveChar[]; displayStart: number }>();
     for (const [move, mChars] of groups) {
       if (move === null) continue;
-      const key = movePosKey(move);
-      const displayStart = moveDisplayStart(move, phrase);
-      const existing = coalesced.get(key);
-      if (!existing) {
-        coalesced.set(key, { move, chars: [...mChars], displayStart });
-      } else {
-        existing.chars.push(...mChars);
-        existing.displayStart = Math.min(existing.displayStart, displayStart);
-      }
-    }
-    for (const { move, chars, displayStart } of coalesced.values()) {
-      chars.sort((a, b) => a.startTime - b.startTime);
-      mountLine("storyboard-segment", chars, move.style, { x: move.x, y: move.y }, displayStart);
+      mountLine("storyboard-segment", mChars, move.style, { x: move.x, y: move.y }, moveDisplayStart(move, phrase));
     }
     updateLineVisibility(mounted, songMs);
     return mounted;
