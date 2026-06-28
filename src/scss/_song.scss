@@ -186,6 +186,7 @@ html.theme-dark .song-page .bg-overlay::before {
         transform: translateX(0);
       }
     }
+
   }
 
   .storyboard-segment {
@@ -501,6 +502,13 @@ html.theme-dark .game-frame .frame-star {
       text-shadow: 0 0 8px var(--miku-teal, #39c5bb);
       will-change: left, top, transform, opacity;
     }
+  }
+
+  // Blur play-field content when paused (tab-out recovery)
+  &.paused .game-canvas,
+  &.paused .song-storyboard,
+  &.paused .song-funnel {
+    filter: blur(6px);
   }
 }
 

@@ -10,16 +10,11 @@ import type { TextAliveChar, TextAliveVideo } from "./textalive";
 
 export interface ExcludeRange { from: number; to: number; }
 
-// Flatten the TextAlive video into a single time-ordered char list (phrase by
-// phrase, char by char), the input the matcher consumes.
 export function flattenChars(video: TextAliveVideo): TextAliveChar[] {
   return collectTextAliveChars(video);
 }
 
 export interface LyricMatchResult {
-  // Each TextAlive char that a lyric note claims, mapped to its note. The
-  // storyboard uses this to render note-mapped chars as empty outlines until the
-  // note is hit (then fill) or missed (then stay empty).
   charToNote: Map<TextAliveChar, Note>;
 }
 
@@ -30,17 +25,7 @@ function charDist(c: TextAliveChar, timeMs: number): number {
 
 const last = <T>(xs: T[]): T | undefined => xs.length > 0 ? xs[xs.length - 1] : undefined;
 
-// Assign TextAlive characters to lyric notes.
-//
-// Matching is **containment-first**: a note whose time falls inside a character's span
-// sources that character and does NOT consume it, so several notes placed over one
-// long-held kanji (e.g. か, が, やき all over 輝) all funnel from the same glyph. When no
-// character contains the note time, it falls back to the nearest *unconsumed* character
-// within the window and consumes it, so notes that land between characters spread out
-// instead of duplicating (自分 → 自 then 分, not 自 twice). Chars inside an exclude range
-// are never sourced. A `lyricSpan` grabs the source char plus the following chars for the
-// text; a manual `lyricChar` override keeps its text and just records the source glyph for
-// the funnel. Mutates `note.lyricChar` for auto notes.
+// Assign TextAlive characters to lyric notes
 export function matchLyrics(
   chars: TextAliveChar[],
   notes: Note[],
@@ -115,12 +100,11 @@ export function matchLyrics(
       continue;
     }
 
-    // An authored `src=<ms>` points the funnel at a specific TextAlive char by time,
-    // overriding the note's own time for source selection.
+    // An authored `src=<ms>` points the funnel at a specific TextAlive char by time
     const anchorTime = note.lyricSrcTime ?? note.time;
 
     let idx = containingIdx(anchorTime);
-    const shared = idx >= 0;          // contained → shareable, never consumed
+    const shared = idx >= 0;
     if (idx < 0) idx = nearestFreeIdx(anchorTime);
 
     if (idx < 0) {
@@ -132,8 +116,6 @@ export function matchLyrics(
     }
 
     if (override) {
-      // Keep authored text; record the source glyph (shared so other notes on the same
-      // character still resolve). Only the fallback path consumes.
       charToNote.set(chars[idx], note);
       if (!shared) consumed.add(chars[idx]);
       continue;

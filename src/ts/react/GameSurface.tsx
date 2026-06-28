@@ -38,6 +38,7 @@ interface Props {
     setPlayerReady: () => void,
     setBreakSkipKind: (kind: BreakSkipKind | null) => void,
     setPreparing: () => void,
+    setPaused: () => void,
     registerLyricOutcome: (fn: (result: HitResult, x: number, y: number) => void) => void,
   ) => void;
   returnHref: string;
@@ -60,6 +61,7 @@ export function GameSurface({ onReady, returnHref, onTryAgain }: Props) {
   const [playing, setPlaying] = useState(false);
   const [playerReady, setPlayerReady] = useState(false);
   const [preparing, setPreparing] = useState(false);
+  const [paused, setPaused] = useState(false);
   const [infoFaded, setInfoFaded] = useState(false);
   const [breakSkipKind, setBreakSkipKind] = useState<BreakSkipKind | null>(null);
   const [feedbacks, setFeedbacks] = useState<FeedbackToast[]>([]);
@@ -134,6 +136,7 @@ export function GameSurface({ onReady, returnHref, onTryAgain }: Props) {
       () => setPlayerReady(true),
       setBreakSkipKind,
       () => setPreparing(true),
+      () => setPaused(true),
       (fn) => { lyricOutcomeRef.current = fn; },
     );
     return () => game.destroy();
@@ -153,8 +156,9 @@ export function GameSurface({ onReady, returnHref, onTryAgain }: Props) {
 
   const displayName = lang === "jp" && songInfo.nameJp ? songInfo.nameJp : songInfo.name;
   const displayAuthor = lang === "jp" && songInfo.authorJp ? songInfo.authorJp : songInfo.author;
-  const showStartPrompt = playerReady && !playing && !result;
+  const showStartPrompt = playerReady && !playing && !result && !paused;
   const showPreparing = preparing && !playerReady && !playing && !result;
+  const showPaused = paused && !playing && !result;
   const showBreakSkip = playing && !result && breakSkipKind !== null;
   const breakSkipLabel = breakSkipKind === "finish"
     ? (lang === "jp" ? "完了" : "Finish")
@@ -162,18 +166,20 @@ export function GameSurface({ onReady, returnHref, onTryAgain }: Props) {
 
   const handleTryAgain = (): void => {
     setResult(null);
+    setPaused(false);
     onTryAgain();
   };
 
   const requestStart = (): void => {
-    if (!showStartPrompt) return;
+    if (!showStartPrompt && !showPaused) return;
+    setPaused(false);
     startRef.current?.();
   };
 
   useEffect(() => {
-    if (!showStartPrompt) return;
+    if (!showStartPrompt && !showPaused) return;
     startButtonRef.current?.focus();
-  }, [showStartPrompt]);
+  }, [showStartPrompt, showPaused]);
 
   return (
     <>
@@ -181,7 +187,7 @@ export function GameSurface({ onReady, returnHref, onTryAgain }: Props) {
 
       {frameSize && <GameFrame w={frameSize.w} h={frameSize.h} />}
 
-      <div className={`game-area${playing ? " playing" : ""}`} ref={gameAreaRef}>
+      <div className={`game-area${playing ? " playing" : ""}${paused ? " paused" : ""}`} ref={gameAreaRef}>
         <div id="song-storyboard" className="song-storyboard" />
         <canvas className="game-canvas" ref={canvasRef} />
         <div id="song-funnel" className="song-funnel" />
@@ -207,6 +213,23 @@ export function GameSurface({ onReady, returnHref, onTryAgain }: Props) {
           <div className="game-start-surface is-preparing" aria-live="polite">
             <span className="game-start-label">{lang === "jp" ? "準備中…" : "Preparing…"}</span>
           </div>
+        )}
+
+        {showPaused && (
+          <button
+            className="game-start-surface is-paused"
+            type="button"
+            onPointerDown={requestStart}
+            onKeyDown={(e) => {
+              if (e.key !== "Enter" && e.key !== " ") return;
+              e.preventDefault();
+              requestStart();
+            }}
+            aria-label={lang === "jp" ? "続ける" : "Continue"}
+            autoFocus
+          >
+            <span className="game-start-label">{lang === "jp" ? "続ける" : "Continue"}</span>
+          </button>
         )}
 
         {showBreakSkip && (

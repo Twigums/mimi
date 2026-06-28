@@ -20,6 +20,7 @@ interface SongPageDeps {
   onSongInfo?: (nameJp: string, authorJp: string) => void;
   onPreparing?: () => void;
   onPlayerReady?: () => void;
+  onPaused?: () => void;
   onBreakSkipAvailable?: (kind: BreakSkipKind | null) => void;
 }
 
@@ -27,8 +28,6 @@ interface SongPageHandle {
   stop(): void;
   start(): void;
   skipBreak(): void;
-  // Routed from the game's hit/miss feedback so the storyboard can fill (hit) or
-  // leave empty (miss) the displayed lyric mapped to that note.
   onLyricOutcome(result: HitResult, x: number, y: number): void;
 }
 
@@ -37,7 +36,7 @@ interface BreakSkipTarget {
   targetSongMs: number;
 }
 
-export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPreparing, onPlayerReady, onBreakSkipAvailable }: SongPageDeps): SongPageHandle {
+export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPreparing, onPlayerReady, onPaused, onBreakSkipAvailable }: SongPageDeps): SongPageHandle {
   const body    = document.body;
   const songUrl = body.dataset.songUrl ?? "";
   const chartDir = body.dataset.songChartDir ?? "";
@@ -72,7 +71,6 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPre
 
   const funnelEl = document.getElementById("song-funnel") as HTMLElement | null;
   const storyboard = storyboardEl ? createStoryboardRenderer(storyboardEl, funnelEl ?? storyboardEl) : null;
-  // Funnel timing tracks the approach rate so flights land by the note's hit time.
   storyboard?.setApproachMs(arToMs(loadAr()));
 
   const loadingScreen = document.getElementById("loading-screen");
@@ -91,8 +89,6 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPre
     if (trickleTimer !== null) { clearInterval(trickleTimer); trickleTimer = null; }
   };
 
-  // TextAlive emits no progress events while fetching the song analysis, so ease
-  // the bar asymptotically toward a ceiling to keep it visibly moving meanwhile.
   const startTrickle = (ceiling: number): void => {
     if (trickleTimer !== null) return;
     trickleTimer = setInterval(() => setProgress(loadingPct + (ceiling - loadingPct) * 0.08), 250);
@@ -113,8 +109,6 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPre
   setProgress(8);
 
   let musicOffsetMs = loadMusicOffset();
-  // Lives for the page lifetime (like subscribeVolume below); never torn down,
-  // so live music-offset changes keep applying across retries.
   subscribeMusicOffset(v => { musicOffsetMs = v; });
   const gapSkipLeadInMs = arToMs(loadAr()) + JUDGEMENT_WINDOW_MS + GAP_SKIP_SAFETY_MS;
 
@@ -130,10 +124,7 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPre
   let publishedBreakSkipKind: BreakSkipKind | null = null;
   let reportedLoopError = false;
 
-  // Lyric matching is gated on three async inputs: the TextAlive video (chars),
-  // the chart (notes), and the story (exclude ranges). Once all are ready, run the
-  // matcher once (mutating note.lyricChar before the engine clones the notes), hand
-  // the char->note map to the storyboard, then set the chart.
+  // Lyric matching is gated on three async inputs TextAlive, chart, and story
   let videoForMatch: TextAliveVideo | null = null;
   let rawVideo: TextAliveVideo | null = null;
   let chorusOverlay: { phrases: ReturnType<typeof loadChorusTimingsJsonc>["phrases"]; wordSizes: number[][] } | null = null;
@@ -178,10 +169,6 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPre
 
   const tryApplyChart = (): void => {
     if (chartApplied || !loadedNotes || storyPending) return;
-    // When the song has a TextAlive video, wait for it before applying the chart so
-    // lyric matching runs — otherwise the (fast) local chart/story fetches would set
-    // the chart first and the matcher (which needs the video chars) would be skipped.
-    // Playback can't start before the video is ready anyway, so this never stalls.
     if (hasVideoIds && !videoForMatch) return;
     if (chorusTimingsPath && !chorusTimingsReady) return;
     const playable = playableNotes(loadedNotes);
@@ -194,9 +181,7 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPre
     chartApplied = true;
   };
 
-  // Reactive storyboard directives. `reactiveModes` and `hasPulse` come from the
-  // story file; the per-frame `ReactiveFrame` is computed from the TextAlive Player's
-  // song-map analysis (amplitude/valence-arousal/beat/choruses).
+  // Reactive storyboard directives
   let reactiveModes = new Set<string>();
   let hasPulse = false;
   let maxAmplitude = 1;
@@ -232,10 +217,6 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPre
   };
 
   let isPlaying = false;
-  // Mirrors the engine's `skipExpiry`: after a play/restart request the player's
-  // timer can briefly report a stale near-duration position before the seek to the
-  // start lands. While true, the loop must not finish the song (or schedule the
-  // finish timeout) off that stale value; cleared once the timer rewinds near zero.
   let awaitingRewind = false;
 
   const triggerFinish = (): void => {
@@ -270,6 +251,9 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPre
     if (finishTimeout !== null) { clearTimeout(finishTimeout); finishTimeout = null; }
     finished = false;
     isPlaying = false;
+    autoPaused = false;
+    autoPauseSavedMs = 0;
+    isResuming = false;
     awaitingRewind = true;
     setBreakSkipTarget(null);
     game.reset();
@@ -279,21 +263,40 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPre
   };
 
   let autoPaused = false;
+  let autoPauseSavedMs = 0;
+  let isResuming = false;
 
   document.addEventListener("visibilitychange", () => {
     if (document.visibilityState === "hidden") {
       if (player && isPlaying) {
         player.requestPause();
+        // Directly pause the media element — more reliable than requestPause alone
+        const media = document.querySelector<HTMLMediaElement>("#textalive-media audio, #textalive-media video");
+        media?.pause();
         autoPaused = true;
+        autoPauseSavedMs = player.timer.position;
       }
       return;
     }
     if (autoPaused) {
       autoPaused = false;
-      player?.requestPlay();
+      const currentMs = player?.timer.position ?? 0;
+      console.log("[mimi] Tab returned, resuming from auto-pause. Saved: %d, current: %d, drift: %d",
+        autoPauseSavedMs, currentMs, currentMs - autoPauseSavedMs);
+      // If the player continued in the background despite pause, position will
+      // have jumped. Reload to recover a clean state.
+      if (autoPauseSavedMs > 0 && currentMs - autoPauseSavedMs > 2000) {
+        console.warn("[mimi] Song drifted while tabbed out — reloading to recover.");
+        window.location.reload();
+        return;
+      }
+      isResuming = true;
+      player?.requestStop();
+      game.setPlaying(false);
+      console.log("[mimi] Calling onPaused callback: %s", typeof onPaused);
+      onPaused?.();
       return;
     }
-    if (songLengthMs > 0 && lastSongMs >= songLengthMs) triggerFinish();
   });
 
   const TextAliveApp = window.TextAliveApp;
@@ -332,7 +335,6 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPre
       onVideoReady(video) {
         rawVideo = video;
         publishVideoForMatch();
-        // Cache song-map analysis used by the reactive directives.
         maxAmplitude = player?.getMaxVocalAmplitude() || 1;
         choruses = player?.getChoruses() ?? [];
         songLengthMs = video.duration;
@@ -340,15 +342,11 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPre
           const { name, artist } = player.data.song;
           onSongInfo?.(name, artist.name);
         }
-        // Analysis is ready: drop the loading screen now and let the audio keep
-        // buffering behind a "preparing" indicator on the song page itself.
         onPreparing?.();
         dismissLoading();
       },
       onTimerReady() {
         clearTimeout(loadTimeout);
-        // Audio is buffered: reveal the Start button, which triggers playback
-        // from the user's click gesture (so no autoplay-policy rejection).
         playerReady = true;
         onPlayerReady?.();
         dismissLoading();
@@ -358,14 +356,8 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPre
         isPlaying = true;
         finished = false;
         game.start();
-        // Defer the finish timeout until the timer confirms it rewound near the
-        // start; the loop schedules it when `awaitingRewind` clears, so a stale
-        // near-duration position here can't fire the finish almost immediately.
         if (!awaitingRewind) scheduleFinishTimeout(player?.timer.position ?? 0);
       },
-      // Propagate self-initiated pause/stop (e.g. an autoplay-blocked or stalled
-      // play) to the UI's playing state, otherwise the Start prompt stays hidden
-      // and the player is left with no way to (re)start playback.
       onPause() { isPlaying = false; game.setPlaying(false); },
       onStop()  { isPlaying = false; finished = false; setBreakSkipTarget(null); game.setPlaying(false); },
     });
@@ -408,8 +400,6 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPre
       } catch (err) {
         console.error("[mimi] story load failed:", err);
       } finally {
-        // Resolve the gate on every path (success, 404, error) so a missing or
-        // broken story never blocks the chart from being applied.
         storyPending = false;
         tryApplyChart();
       }
@@ -497,8 +487,6 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPre
         progressFill.style.width = `${pct}%`;
 
         if (awaitingRewind) {
-          // Clear once the timer has actually rewound into the lead-in window; a
-          // stale near-duration position right after a start request must not pass.
           if (songMs <= gapSkipLeadInMs) {
             awaitingRewind = false;
             if (isPlaying) scheduleFinishTimeout(songMs);
@@ -529,11 +517,14 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPre
     start(): void {
       if (!playerReady || !player) return;
       dismissResult();
-      // Guard the finish/expiry paths against a stale near-duration timer position
-      // until the player rewinds. game.reset() arms the engine's matching skipExpiry
-      // (the first start has no preceding reset), and clears any leftover state.
-      awaitingRewind = true;
-      game.reset();
+      if (isResuming) {
+        isResuming = false;
+        player.requestMediaSeek(autoPauseSavedMs);
+        game.setPlaying(true);
+      } else {
+        awaitingRewind = true;
+        game.reset();
+      }
       player.requestPlay();
     },
     skipBreak(): void {

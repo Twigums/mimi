@@ -45,7 +45,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     createRoot(gameRoot).render(
       createElement(GameSurface, {
-        onReady: (game, show, hide, setSongInfoJp, registerStart, registerSkipBreak, setPlayerReady, setBreakSkipKind, setPreparing, registerLyricOutcome) => {
+        onReady: (game, show, hide, setSongInfoJp, registerStart, registerSkipBreak, setPlayerReady, setBreakSkipKind, setPreparing, setPaused, registerLyricOutcome) => {
           const handle = initSongPage({
             game,
             onSongFinish: show,
@@ -53,6 +53,7 @@ document.addEventListener("DOMContentLoaded", () => {
             onSongInfo: setSongInfoJp,
             onPreparing: setPreparing,
             onPlayerReady: setPlayerReady,
+            onPaused: setPaused,
             onBreakSkipAvailable: setBreakSkipKind,
           });
           registerStart(() => handle.start());

@@ -18,8 +18,6 @@ export interface TextAliveChar {
   startTime: number;
   endTime: number;
   next: TextAliveChar | null;
-  // The word this character belongs to (TextAlive Phrase → Word → Char). Used to
-  // shine a whole word once all its mapped lyric notes are hit.
   parent: TextAliveWord | null;
 }
 
@@ -29,7 +27,6 @@ export interface TextAlivePhrase {
   firstChar: TextAliveChar | null;
   text: string;
   next: TextAlivePhrase | null;
-  /** Concurrent overlay layer (e.g. staff chorus lines under lead vocal). */
   overlay?: boolean;
 }
 
@@ -38,7 +35,6 @@ export interface TextAliveVideo {
   charCount: number;
   firstPhrase: TextAlivePhrase | null;
   findPhrase(time: number): TextAlivePhrase | null;
-  /** All phrases active at `time` (for stacked storyboard display). */
   findActivePhrases?(time: number): TextAlivePhrase[];
   findChar(time: number): TextAliveChar | null;
 }
@@ -50,7 +46,6 @@ interface TextAliveTimer {
 export interface TextAliveBeat {
   startTime: number;
   endTime: number;
-  // 0..1 progress through this beat at the given song position.
   progress(time: number): number;
 }
 
@@ -76,7 +71,6 @@ export interface TextAlivePlayer {
   requestPause(): void;
   requestStop(): void;
   requestMediaSeek(ms: number): void;
-  // Song-map analysis accessors used by the reactive storyboard directives.
   getVocalAmplitude(time: number): number;
   getMaxVocalAmplitude(): number;
   getValenceArousal(time: number): TextAliveValenceArousal;

@@ -8,7 +8,6 @@ export interface PhraseTimingData {
   chars: Array<{ text: string; startTime: number; endTime: number }>;
 }
 
-/** Phrase-grouped timings (test fixtures, tooling). */
 export interface PhraseGroup {
   startTime: number;
   endTime: number;
@@ -21,12 +20,10 @@ function linesFrom(raw: string): string[] {
   return raw.split(/\r?\n/).map(l => l.replace(/\r$/, ""));
 }
 
-/** Drop // comment lines so the staff jsonc parses as JSON. */
 export function stripJsoncComments(raw: string): string {
   return linesFrom(raw).filter(line => !/^\s*\/\//.test(line)).join("\n");
 }
 
-/** Pull Japanese lyric lines from // comments (phrase text, not file headers). */
 function phraseTextsFromComments(raw: string): string[] {
   const texts: string[] = [];
   for (const line of linesFrom(raw)) {
@@ -44,7 +41,7 @@ function wordSizesFromNested(words: ChorusSlot[][]): number[] {
   return words.map(w => w.length);
 }
 
-/** Parse Magical Mirai staff chorus jsonc into timed phrases with glyph text. */
+// Parse Magical Mirai staff chorus jsonc into timed phrases with glyph text
 export function parseChorusTimingsJsonc(raw: string): PhraseTimingData[] {
   const phraseTexts = phraseTextsFromComments(raw);
   const nested = JSON.parse(stripJsoncComments(raw)) as ChorusSlot[][][];
@@ -72,7 +69,7 @@ export function parseChorusTimingsJsonc(raw: string): PhraseTimingData[] {
   });
 }
 
-/** Parse jsonc and return phrase data plus per-phrase word sizes for word grouping. */
+// Parse jsonc and return phrase data plus per-phrase word sizes for word grouping
 export function loadChorusTimingsJsonc(raw: string): {
   phrases: PhraseTimingData[];
   wordSizes: number[][];
@@ -102,7 +99,7 @@ function linkPhraseNext(phrases: TextAlivePhrase[]): void {
   if (phrases.length > 0) phrases[phrases.length - 1].next = null;
 }
 
-/** TextAlive emits placeholder micro-timings when char sync failed for a phrase. */
+// TextAlive emits placeholder micro-timings when char sync failed for a phrase
 export function isDegeneratePhraseData(phrase: PhraseGroup): boolean {
   if (phrase.chars.length === 0) return true;
   const span = phrase.endTime - phrase.startTime;
@@ -112,7 +109,7 @@ export function isDegeneratePhraseData(phrase: PhraseGroup): boolean {
   return med < 25;
 }
 
-/** TextAlive emits placeholder micro-timings when char sync failed for a phrase. */
+//TextAlive emits placeholder micro-timings when char sync failed for a phrase
 export function isDegeneratePhrase(phrase: TextAlivePhrase): boolean {
   const chars = walkPhraseChars(phrase);
   if (chars.length === 0) return true;
@@ -122,7 +119,7 @@ export function isDegeneratePhrase(phrase: TextAlivePhrase): boolean {
   return med < 25;
 }
 
-/** Drop degenerate API phrases and overlay staff chorus timings into phrase-grouped data. */
+// Drop degenerate API phrases and overlay staff chorus timings into phrase-grouped data
 export function mergeChorusIntoPhrases(basePhrases: PhraseGroup[], chorusRaw: string): PhraseGroup[] {
   const { phrases: chorusPhrases } = loadChorusTimingsJsonc(chorusRaw);
   if (chorusPhrases.length === 0) return basePhrases;
@@ -180,29 +177,12 @@ function buildPhraseNodeFromData(data: PhraseTimingData, wordSizes: number[], ne
 }
 
 export interface MergedChorusVideos {
-  /** Chars for lyric matching (chorus window replaces conflicting lead glyphs). */
   match: TextAliveVideo;
-  /** Full layered phrases for storyboard display. */
   display: TextAliveVideo;
 }
 
 function activePhrasesAt(chain: TextAlivePhrase[], t: number): TextAlivePhrase[] {
-  const active = chain.filter(p => t >= p.startTime && t <= p.endTime);
-  if (active.length <= 1) return active;
-
-  const overlays = active.filter(p => p.overlay);
-  const bases = active.filter(p => !p.overlay);
-  if (bases.length === 0) return overlays;
-
-  // One lead/base column on the right; overlay chorus lines stack on the left.
-  const primaryBase = bases.length === 1 ? bases[0] : bases.find(p => {
-    for (const c of walkPhraseChars(p)) {
-      if (t >= c.startTime && t <= c.endTime) return true;
-    }
-    return false;
-  }) ?? bases.reduce((a, b) => (b.endTime - b.startTime) >= (a.endTime - a.startTime) ? b : a);
-
-  return [...overlays, primaryBase];
+  return chain.filter(p => t >= p.startTime && t <= p.endTime);
 }
 
 function buildPhraseFromChars(
@@ -220,7 +200,7 @@ function buildPhraseFromChars(
   };
 }
 
-/** Overlay staff chorus timings onto a TextAlive video for lyric matching and storyboard. */
+// Overlay staff chorus timings onto a TextAlive video for lyric matching and storyboard
 export function mergeChorusTimings(
   base: TextAliveVideo,
   chorusPhrases: PhraseTimingData[],
@@ -239,7 +219,6 @@ export function mergeChorusTimings(
   }
   linkPhraseNext(chorusPhraseNodes);
 
-  // ── Match video: lead glyphs in the chorus window are omitted so notes bind to chorus chars.
   const matchBaseChars = collectTextAliveChars(base)
     .filter(c => c.startTime < chorusStart || c.startTime > chorusEnd)
     .map(cloneChar);
@@ -281,7 +260,6 @@ export function mergeChorusTimings(
     findChar: (t: number) => matchChars.find(c => t >= c.startTime && t <= c.endTime) ?? null,
   };
 
-  // ── Display video: full lead lines stay visible; chorus lines stack as overlays.
   const displayBasePhraseNodes: TextAlivePhrase[] = [];
   phrase = base.firstPhrase;
   while (phrase) {
