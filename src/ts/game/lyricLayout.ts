@@ -8,19 +8,19 @@ export const LYRIC_FUNNEL_BLEND_MS = 180;
 /** Approach disc fill begins at this appearProgress (mirrors cut notes). */
 export const LYRIC_APPROACH_FILL_START = 0.62;
 /** Logical px the aura gradient extends past the visible disc edge. */
-export const LYRIC_AURA_EXTEND_PX = 10;
+export const LYRIC_AURA_EXTEND_PX = 25;
 /** Ms after hit time to ease the approach wash into hold greyscale. */
-export const LYRIC_HOLD_GREY_SETTLE_MS = 80;
+export const LYRIC_HOLD_GREY_SETTLE_MS = 0;
 /** Hold window tail when the aura shifts greyscale → blue to cue release. */
 export const LYRIC_RELEASE_CUE_MS = 500;
 /** Ms at hold end for the release burst swell (inside the release-cue window). */
 export const LYRIC_END_BURST_MS = 110;
 /** Max blue tint reached by gradual hold fade (release cue spikes to full). */
-export const LYRIC_HOLD_BLUE_CAP = 0.42;
+export const LYRIC_HOLD_BLUE_CAP = 0.55;
 /** Ms to decay the approach swell into sustain scale after hit. */
-export const LYRIC_APPROACH_PULSE_DECAY_MS = 110;
+export const LYRIC_APPROACH_PULSE_DECAY_MS = 160;
 /** Scale the disc eases down to over the main hold body (before release cue). */
-export const LYRIC_HOLD_SUSTAIN_SHRINK = 0.93;
+export const LYRIC_HOLD_SUSTAIN_SHRINK = 0.94;
 /** Minimum disc scale during the pre-burst release-cue shrink. */
 export const LYRIC_PRE_RELEASE_SHRINK = 0.88;
 /** Peak scale at the hold end burst. */
