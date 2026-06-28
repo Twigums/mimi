@@ -1,5 +1,5 @@
 import { clamp } from "../core/utils";
-import { drawArrow, drawFlowAnchor, drawLyricDemoFunnel, drawLyricNote, drawFireworks, drawFlowRibbon, notePulseScale } from "./draw";
+import { drawArrow, drawFlowAnchor, drawLyricDemoFunnel, drawLyricNote, drawFireworks, drawFlowRibbon, notePulseScale, RIBBON_PULSE_MS, RIBBON_ERASE_LAG_MS, RIBBON_ERASE_MS } from "./draw";
 import { arToMs, loadAr, loadHitsoundVolume, subscribeHitsoundVolume, volToFactor, loadHiddenMod, subscribeHiddenMod } from "../core/settings";
 import { createCursorRenderer, type CursorRenderer } from "./cursor";
 import { lyricDemoFunnelOrigin, lyricFillProgress, lyricVisualScale } from "./lyricLayout";
@@ -66,6 +66,9 @@ export interface Note {
   flowTanX?: number;
   flowTanY?: number;
   flowShape?: number[];
+  // Flow only: wall-clock ms when this anchor was hit, driving the ribbon's post-hit roll
+  // (the pulse bead racing to the next anchor while the tail erases). Cleared on reset.
+  flowHitMs?: number;
 }
 
 interface RawNote extends Omit<Note, "kind" | "state"> {
@@ -301,6 +304,9 @@ export function createGame(deps: GameDeps): GameHandle {
   let pendingStart = 0;
   let animations: HitAnimation[] = [];
   let animStart = 0;
+  // Indices of flow anchors whose post-hit ribbon roll is still in flight (bead racing toward
+  // the next anchor while the tail erases); culled in draw() once a segment is fully consumed.
+  let flowRolls: number[] = [];
   let score = 0;
   let tier3Count = 0;
   let tier2Count = 0;
@@ -536,6 +542,11 @@ export function createGame(deps: GameDeps): GameHandle {
         x: note.x, y: note.y, kind: note.kind, startMs: songMs,
         seed: Math.floor(note.x * 7919 + note.y * 6271),
       });
+      // A hit flow anchor with a linked successor starts its ribbon rolling toward it.
+      if (note.kind === "flow" && note.flowNextIndex !== undefined) {
+        note.flowHitMs = songMs;
+        flowRolls.push(noteIndex);
+      }
     }
     hitDetails.push({
       result,
@@ -562,6 +573,15 @@ export function createGame(deps: GameDeps): GameHandle {
       resolveMiss(n, songMs - n.time, "timing");
       lyricHoldStates.delete(i);
     }
+  };
+
+  // Ribbon reveal fraction (0..1) for a linked segment: keyed to the inter-anchor gap (starting
+  // when `from` appears) so the leading edge reaches `to` just as `to` appears — one approach
+  // window before to's hit — eased with smoothstep so the band settles gently into each anchor.
+  const ribbonReveal = (from: Note, to: Note, songMs: number): number => {
+    const gap = to.time - from.time;
+    const lin = gap > 0 ? clamp((songMs - from.time + approachMs) / gap, 0, 1) : 1;
+    return lin * lin * (3 - 2 * lin);
   };
 
   const draw = (songMs: number): void => {
@@ -593,6 +613,7 @@ export function createGame(deps: GameDeps): GameHandle {
     }
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     const scale = getScale();
+    // Pending ribbons: each linked flow segment reveals toward its (still pending) next anchor.
     for (let i = pendingStart; i < notes.length; i++) {
       const note = notes[i];
       if (note.state !== "pending" || note.kind !== "flow" || note.flowNextIndex === undefined) continue;
@@ -601,15 +622,27 @@ export function createGame(deps: GameDeps): GameHandle {
       const dtFrom = note.time - songMs;
       if (dtFrom > approachMs) break;
       if (next.time - songMs < -TIER1_MS) continue;
-      // Reveal the ribbon over the inter-anchor gap (starting when `note` appears) so its
-      // leading edge reaches `next` just as `next` appears — one approach window before
-      // next's hit — rather than crawling toward it across next's whole approach. Smoothstep
-      // per segment so the band eases out of `note` and settles gently into `next`.
-      const gap = next.time - note.time;
-      const lin = gap > 0 ? clamp((songMs - note.time + approachMs) / gap, 0, 1) : 1;
-      const revealFront = lin * lin * (3 - 2 * lin);
-      drawFlowRibbon(ctx, note, next, scale, revealFront);
+      drawFlowRibbon(ctx, note, next, scale, ribbonReveal(note, next, songMs));
     }
+    // Rolling ribbons: a hit anchor's segment keeps drawing while its bead races toward the next
+    // anchor and the tail erases behind it (fixed wall-clock; see RIBBON_* in draw.ts). A segment
+    // is dropped once the erase overtakes the revealed front (fully consumed). pulseS is capped
+    // to the revealed front so the bead never outruns the drawn band on a sparse segment.
+    const survivingRolls: number[] = [];
+    for (const fromIdx of flowRolls) {
+      const from = notes[fromIdx];
+      const nextIdx = from?.flowNextIndex;
+      if (!from || nextIdx === undefined || from.flowHitMs === undefined) continue;
+      const next = notes[nextIdx];
+      if (!next) continue;
+      const el = songMs - from.flowHitMs;
+      const revealFront = ribbonReveal(from, next, songMs);
+      const eraseBack = clamp((el - RIBBON_ERASE_LAG_MS) / RIBBON_ERASE_MS, 0, 1);
+      if (eraseBack >= revealFront) continue;
+      drawFlowRibbon(ctx, from, next, scale, revealFront, eraseBack, clamp(el / RIBBON_PULSE_MS, 0, revealFront));
+      survivingRolls.push(fromIdx);
+    }
+    flowRolls = survivingRolls;
     for (let i = pendingStart; i < notes.length; i++) {
       const note = notes[i];
       if (note.state !== "pending") continue;
@@ -676,6 +709,7 @@ export function createGame(deps: GameDeps): GameHandle {
       }
       notes = normalizeChartNotes(playable);
       pendingStart = 0;
+      flowRolls = [];
       debugDrawOnce = true;
       linkFlowPhrases();
       computeLyricHolds(notes, endTimes);
@@ -685,9 +719,10 @@ export function createGame(deps: GameDeps): GameHandle {
     reset(): void {
       skipExpiry = true;
       pendingStart = 0;
-      for (const n of notes) { n.state = "pending"; n.hitResult = undefined; }
+      for (const n of notes) { n.state = "pending"; n.hitResult = undefined; n.flowHitMs = undefined; }
       animations = [];
       animStart = 0;
+      flowRolls = [];
       score = 0;
       tier3Count = 0;
       tier2Count = 0;

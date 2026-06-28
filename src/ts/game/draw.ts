@@ -623,23 +623,35 @@ const RIBBON_FADE_IN    = 0.5;
 const RIBBON_TIP_FRAC       = 0.15;
 const RIBBON_TIP_BAND_ALPHA = 0.5;
 const RIBBON_TIP_CORE_ALPHA = 0.55;
+// Post-hit roll (fixed wall-clock, NOT AR-locked): once the source anchor is hit a bright bead
+// races to the next anchor over RIBBON_PULSE_MS while the tail erases behind it — starting
+// RIBBON_ERASE_LAG_MS after the hit and clearing over RIBBON_ERASE_MS. Exported so engine.ts
+// derives the pulse/erase fractions it feeds back into drawFlowRibbon.
+export const RIBBON_PULSE_MS     = 230;
+export const RIBBON_ERASE_LAG_MS = 70;
+export const RIBBON_ERASE_MS     = 260;
 
-// revealFront: 0..1 fraction of the ribbon's arc length currently drawn, keyed to the
-// destination anchor's approach. The band reveals from `from` toward `to` with a brighter
-// leading tip, so it reads as drawing itself forward toward the upcoming anchor.
+// Drawn band bounded by arc-length fractions [eraseBack, revealFront] (each 0..1). During
+// approach the band reveals from `from` toward `to` (eraseBack 0) with a brighter, glowing
+// leading edge. After the source anchor is hit it rolls: a bright bead races to `to` (pulseS)
+// while the tail erases behind it (eraseBack climbs) on a fixed wall-clock timescale. pulseS < 0
+// (the default) draws no bead.
 export function drawFlowRibbon(
   ctx: CanvasRenderingContext2D,
   from: Note,
   to: Note,
   scale: number,
   revealFront: number,
+  eraseBack = 0,
+  pulseS = -1,
 ): void {
-  const reveal = Math.max(0, Math.min(1, revealFront));
-  if (reveal <= 0) return;
+  const front = Math.max(0, Math.min(1, revealFront));
+  const back  = Math.max(0, Math.min(1, eraseBack));
+  if (front <= back) return;
 
   // Fade a fresh segment up as it reveals (full by RIBBON_FADE_IN of the reveal) so it
   // materialises softly instead of popping in at full opacity.
-  const ft   = Math.min(1, reveal / RIBBON_FADE_IN);
+  const ft   = Math.min(1, front / RIBBON_FADE_IN);
   const fade = ft * ft * (3 - 2 * ft);
 
   const { base } = NOTE_STYLE.flow.colors;
@@ -691,14 +703,15 @@ export function drawFlowRibbon(
     return path;
   };
 
-  const revealLen = reveal * total;
+  const startLen = back  * total;
+  const endLen   = front * total;
 
   ctx.save();
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
 
-  // Revealed band, faded in over the start of the reveal.
-  const body = subPath(0, revealLen);
+  // Drawn band [eraseBack, revealFront], faded in over the start of the reveal.
+  const body = subPath(startLen, endLen);
   ctx.strokeStyle = `rgba(${base}, ${RIBBON_BAND_ALPHA * fade})`;
   ctx.lineWidth = 10 * scale;
   ctx.stroke(body);
@@ -706,13 +719,14 @@ export function drawFlowRibbon(
   ctx.lineWidth = 2 * scale;
   ctx.stroke(body);
 
-  // Brightening ramp over the leading tip (additive; the gradient starts transparent so the
-  // join into the body is seamless, and a soft glow blooms the front edge).
-  const tipLen = revealLen * RIBBON_TIP_FRAC;
-  if (tipLen > 0.5) {
-    const [tsx, tsy] = at(revealLen - tipLen);
-    const [tex, tey] = at(revealLen);
-    const tip = subPath(revealLen - tipLen, revealLen);
+  // Brightening ramp over the leading edge (additive; the gradient starts transparent so the
+  // join into the body is seamless, and a soft glow blooms the front), clamped to the
+  // un-erased band so the rolling tail stays clean.
+  const tipStart = Math.max(startLen, endLen - endLen * RIBBON_TIP_FRAC);
+  if (endLen - tipStart > 0.5) {
+    const [tsx, tsy] = at(tipStart);
+    const [tex, tey] = at(endLen);
+    const tip = subPath(tipStart, endLen);
 
     ctx.shadowColor = `rgba(${base}, ${0.6 * fade})`;
     ctx.shadowBlur  = 6 * scale;
@@ -730,6 +744,23 @@ export function drawFlowRibbon(
     ctx.strokeStyle = coreGrad;
     ctx.lineWidth = 2 * scale;
     ctx.stroke(tip);
+  }
+
+  // Rolling pulse bead racing toward `to` after the hit; fades out as it arrives.
+  if (pulseS >= 0 && pulseS < 1) {
+    const [pbx, pby] = at(pulseS * total);
+    const beadAlpha  = Math.min(1, (1 - pulseS) / 0.15);
+    const beadR      = 7 * scale;
+    ctx.shadowColor  = `rgba(${base}, ${0.9 * beadAlpha})`;
+    ctx.shadowBlur   = 10 * scale;
+    const bead = ctx.createRadialGradient(pbx, pby, 0, pbx, pby, beadR);
+    bead.addColorStop(0,   `rgba(255, 255, 255, ${0.95 * beadAlpha})`);
+    bead.addColorStop(0.5, `rgba(${base}, ${0.85 * beadAlpha})`);
+    bead.addColorStop(1,   `rgba(${base}, 0)`);
+    ctx.fillStyle = bead;
+    ctx.beginPath();
+    ctx.arc(pbx, pby, beadR, 0, Math.PI * 2);
+    ctx.fill();
   }
 
   ctx.restore();
