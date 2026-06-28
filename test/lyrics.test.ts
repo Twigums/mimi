@@ -7,11 +7,10 @@ import {
   LYRIC_CHAR_BOUNDARY_EPSILON_MS,
   populateLyricChars,
 } from "../src/ts/game/lyrics";
-import { makeCharLookup } from "../src/ts/song/charLookup";
+import { collectTextAliveChars, makeCharLookup } from "../src/ts/song/charLookup";
+import { matchLyrics } from "../src/ts/song/lyricMatch";
 import type { Note } from "../src/ts/game/engine";
 import type { TextAliveChar, TextAlivePhrase, TextAliveVideo } from "../src/ts/song/textalive";
-
-// NOTE: these tests are out of date. trust the implementation, and edit the tests next time we're making changes.
 
 function note(kind: Note["kind"], time: number, overrides: Partial<Note> = {}): Note {
   return {
@@ -58,7 +57,7 @@ function fillLyrics(notes: Note[], chars: Array<[text: string, startTime: number
 
 assert.equal(LYRIC_CHAR_BOUNDARY_EPSILON_MS, 80);
 
-// ΓöÇΓöÇ window bounds: [time ΓêÆ ╬╡, holdEnd ΓêÆ ╬╡), ╬╡ excluded at each end ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+// ── window bounds: [time − ε, holdEnd − ε), ε excluded at each end ──────────────────────
 {
   const notes = [note("lyric", 1000), note("cut", 1300)];
   computeLyricHolds(notes, []);
@@ -70,25 +69,25 @@ assert.equal(LYRIC_CHAR_BOUNDARY_EPSILON_MS, 80);
   });
 
   fillLyrics(notes, [
-    ["a", 919],   // before the start ΓåÆ excluded
-    ["b", 920],   // at the start ΓåÆ included
+    ["a", 919],   // before the start → excluded
+    ["b", 920],   // at the start → included
     ["c", 1000],
-    ["d", 1219],  // before the end ΓåÆ included
-    ["e", 1220],  // at the end ΓåÆ excluded (left for the next boundary)
+    ["d", 1219],  // before the end → included
+    ["e", 1220],  // at the end → excluded (left for the next boundary)
     ["f", 1300],
   ]);
 
   assert.equal(notes[0].lyricChar, "bcd");
 }
 
-// ΓöÇΓöÇ back-to-back lyrics partition at note ΓêÆ ╬╡, no overlap ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+// ── back-to-back lyrics partition at note − ε, no overlap ───────────────────────────────
 {
   const notes = [note("lyric", 1000), note("lyric", 1300), note("cut", 1600)];
   computeLyricHolds(notes, []);
 
   fillLyrics(notes, [
-    ["a", 1219],  // < 1220 ΓåÆ first lyric
-    ["b", 1220],  // ΓëÑ 1220 ΓåÆ second lyric
+    ["a", 1219],  // < 1220 → first lyric
+    ["b", 1220],  // ≥ 1220 → second lyric
     ["c", 1300],
   ]);
 
@@ -96,7 +95,7 @@ assert.equal(LYRIC_CHAR_BOUNDARY_EPSILON_MS, 80);
   assert.equal(notes[1].lyricChar, "bc");
 }
 
-// ΓöÇΓöÇ previous-char fallback: a syllable leading the note by more than ╬╡ is recovered ΓöÇΓöÇΓöÇΓöÇΓöÇ
+// ── previous-char fallback: a syllable leading the note by more than ε is recovered ─────
 {
   // A flow note between two lyrics bounds the first lyric's hold; the second lyric's
   // syllable onset (1390) leads its note (1500) by 110ms, so its window [1420, 1720) is
@@ -113,7 +112,7 @@ assert.equal(LYRIC_CHAR_BOUNDARY_EPSILON_MS, 80);
   assert.equal(notes[2].lyricChar, "y");
 }
 
-// ΓöÇΓöÇ fallback never steals a previous lyric's char (lookback bounded below by prevEnd) ΓöÇΓöÇΓöÇΓöÇ
+// ── fallback never steals a previous lyric's char (lookback bounded below by prevEnd) ────
 {
   const notes = [note("lyric", 1000), note("lyric", 1300), note("cut", 1600)];
   computeLyricHolds(notes, []);
@@ -123,15 +122,15 @@ assert.equal(LYRIC_CHAR_BOUNDARY_EPSILON_MS, 80);
   ]);
 
   assert.equal(notes[0].lyricChar, "a");
-  assert.equal(notes[1].lyricChar, ""); // empty: lookback [1300, 1200) is degenerate ΓåÆ no steal
+  assert.equal(notes[1].lyricChar, ""); // empty: lookback [1300, 1200) is degenerate → no steal
 }
 
-// ΓöÇΓöÇ real kotaete hard.mimi lyric notes (verbatim) against captured TextAlive timings ΓöÇΓöÇΓöÇΓöÇ
+// ── real kotaete hard.mimi lyric notes against kotaete-timings.json ─────────────────────
 function buildVideoFromPhrases(
   phrases: Array<{ startTime: number; endTime: number; chars: Array<{ text: string; startTime: number; endTime: number }> }>,
 ): TextAliveVideo {
   const byPhrase: TextAliveChar[][] = phrases.map(p =>
-    p.chars.map(c => ({ text: c.text, startTime: c.startTime, endTime: c.endTime, next: null })));
+    p.chars.map(c => ({ text: c.text, startTime: c.startTime, endTime: c.endTime, next: null, parent: null })));
   const all = byPhrase.flat();
   for (let i = 0; i < all.length - 1; i++) all[i].next = all[i + 1];
 
@@ -162,14 +161,23 @@ function parseMimiNote(line: string): Note | { endTime: number } | null {
   const kind = KIND[t[0]];
   if (!kind) return null;
   const n = note(kind, Number(t[1]));
-  if (kind === "lyric" && t[5]) n.lyricChar = t[5];
+  if (kind === "lyric") {
+    for (let i = 5; i < t.length; i++) {
+      const tok = t[i];
+      if (tok === "endchar") n.includeEndChar = true;
+      else if (tok.startsWith("char=")) n.lyricChar = tok.slice(5);
+      else if (tok.startsWith("span=")) n.lyricSpan = Number(tok.slice(5));
+      else if (tok.startsWith("src=")) n.lyricSrcTime = Number(tok.slice(4));
+      else if (!tok.includes("=")) n.lyricChar = tok;
+    }
+  }
   return n;
 }
 
 {
   const dir = resolve(process.cwd(), "test/fixtures");
-  const timings = JSON.parse(readFileSync(resolve(dir, "kotaete-hard-timings.json"), "utf8"));
-  const fixture = JSON.parse(readFileSync(resolve(dir, "kotaete-hard-lyrics.json"), "utf8")) as {
+  const timings = JSON.parse(readFileSync(resolve(dir, "kotaete-timings.json"), "utf8"));
+  const fixture = JSON.parse(readFileSync(resolve(dir, "kotaete-lyrics.json"), "utf8")) as {
     notes: Array<{ mimi: string; expected?: string }>;
   };
 
@@ -186,7 +194,7 @@ function parseMimiNote(line: string): Note | { endTime: number } | null {
   notes.sort((a, b) => a.time - b.time);
 
   computeLyricHolds(notes, endTimes);
-  populateLyricChars(notes, makeCharLookup(buildVideoFromPhrases(timings)));
+  matchLyrics(collectTextAliveChars(buildVideoFromPhrases(timings)), notes, []);
 
   let checked = 0;
   for (const n of notes) {

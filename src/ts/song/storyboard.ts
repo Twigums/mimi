@@ -2,7 +2,7 @@ import type { TextAliveChar, TextAlivePhrase, TextAliveVideo, TextAliveWord } fr
 import type { HitResult, Note } from "../game/engine";
 import { LYRIC_RADIUS } from "../game/draw";
 import { loadHiddenMod, subscribeHiddenMod } from "../core/settings";
-import { collectTextAliveChars } from "./charLookup";
+import { collectTextAliveChars, walkPhraseChars } from "./charLookup";
 
 // Optional per-segment style directives (from `.story` m/l trailing tokens).
 export type StoryStyle = Record<string, string>;
@@ -45,7 +45,7 @@ interface Flight {
   el: HTMLElement;
   sx: number; sy: number;   // source %, captured from the storyboard glyph
   dx: number; dy: number;   // destination %, the note's logical position
-  t0: number; t1: number;   // song-ms launch ΓåÆ landing
+  t0: number; t1: number;   // song-ms launch → landing
   note: Note;
 }
 
@@ -61,23 +61,24 @@ interface ActiveLyric {
 // storyboard itself sits behind the canvas, so flights need their own foreground layer.
 export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElement = root): StoryboardRenderer {
   let video: TextAliveVideo | null = null;
-  let currentPhrase: TextAlivePhrase | null = null;
+  let mountedPhrases = new Map<TextAlivePhrase, HTMLElement[]>();
   let allChars: TextAliveChar[] = [];
+  let charByKey = new Map<string, TextAliveChar>();
   let charEls: { ch: TextAliveChar; el: HTMLElement; pulse: boolean }[] = [];
-  let lineEls: HTMLElement[] = [];
   let highlights: StoryHighlight[] = [];
   let moves: StoryMove[] = [];
   let lyrics: StoryLyric[] = [];
   let activeLyrics: ActiveLyric[] = [];
-  let clearTimer: ReturnType<typeof setTimeout> | null = null;
   // TextAlive chars claimed by a lyric note (from the matcher) render as empty
   // outlines until resolved. A char fills when its own note is hit; an entire word
   // shines once every note mapped into that word is hit (including unmapped chars).
-  let lyricCharToNote: Map<TextAliveChar, Note> = new Map();
+  // Funnel + note-outline maps keyed by char timing identity (display vs match may differ).
+  let lyricKeyToNote: Map<string, Note> = new Map();
   let noteOutcome: Map<Note, "hit" | "miss"> = new Map();
-  let noteToChars: Map<Note, TextAliveChar[]> = new Map();
-  let wordNotes: Map<TextAliveWord, Set<Note>> = new Map();
+  let noteToMatchKeys: Map<Note, string[]> = new Map();
+  let wordNotesByKey: Map<string, Set<Note>> = new Map();
   const charElMap: Map<TextAliveChar, HTMLElement> = new Map();
+  const charKey = (c: TextAliveChar): string => `${c.startTime}\0${c.endTime}\0${c.text}`;
   // Funnel: characters detach from their source storyboard glyph and fly to the note.
   let flights: Flight[] = [];
   let launched = new Set<Note>();
@@ -124,16 +125,10 @@ export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElem
     return allChars.slice(start, start + n).map(c => c.startTime);
   };
 
-  const renderPhrase = (phrase: TextAlivePhrase): void => {
-    // Preserve manual lyric elements before clearing TextAlive phrase content
-    const manualEls = activeLyrics.map(a => a.el);
-    root.innerHTML = "";
-    for (const el of manualEls) root.appendChild(el);
-    charEls = [];
-    charElMap.clear();
-    lineEls = [];
-
-    const chars = allChars.filter(c => c.startTime >= phrase.startTime && c.startTime <= phrase.endTime);
+  const renderPhrase = (phrase: TextAlivePhrase): HTMLElement[] => {
+    const mounted: HTMLElement[] = [];
+    const chars = walkPhraseChars(phrase);
+    if (chars.length === 0) return mounted;
 
     const relevantMoves = moves.filter(m => m.time >= phrase.startTime && m.time <= phrase.endTime);
 
@@ -145,7 +140,6 @@ export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElem
       return best;
     };
 
-    // Group chars by applicable move (insertion-order groups the segment splits correctly)
     const groups = new Map<StoryMove | null, TextAliveChar[]>();
     for (const ch of chars) {
       const move = getMoveForChar(ch);
@@ -166,46 +160,67 @@ export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElem
 
     const mountLine = (cls: string, group: TextAliveChar[], style: StoryStyle | undefined, pos: { x: number; y: number } | null): void => {
       const { outer, inner, pulse } = buildContainer(cls, style);
+      if (phrase.overlay) outer.classList.add("storyboard-line--overlay");
       if (pos) {
         outer.style.left = `${(pos.x / LOGICAL_W) * 100}%`;
         outer.style.top  = `${(pos.y / LOGICAL_H) * 100}%`;
       }
       addSpans(inner, group, pulse);
       root.appendChild(outer);
-      lineEls.push(outer);
+      mounted.push(outer);
       requestAnimationFrame(() => outer.classList.add("visible"));
     };
 
     const defaultChars = groups.get(null) ?? [];
-    if (defaultChars.length > 0) mountLine("storyboard-line", defaultChars, undefined, null);
+    if (defaultChars.length > 0) {
+      mountLine(phrase.overlay ? "storyboard-line storyboard-line--overlay" : "storyboard-line", defaultChars, undefined, null);
+    }
 
     for (const [move, mChars] of groups) {
       if (move === null) continue;
       mountLine("storyboard-segment", mChars, move.style, { x: move.x, y: move.y });
     }
+
+    return mounted;
   };
 
-  const clearLine = (): void => {
-    if (clearTimer !== null) { clearTimeout(clearTimer); clearTimer = null; }
-    for (const el of lineEls) {
+  const clearPhrase = (phrase: TextAlivePhrase, els: HTMLElement[]): void => {
+    for (const el of els) {
       el.classList.remove("visible");
       if (el.dataset.out) el.classList.add(`sb-out-${el.dataset.out}`);
     }
-    const toRemove = [...lineEls];
-    clearTimer = setTimeout(() => {
-      clearTimer = null;
+    const toRemove = [...els];
+    setTimeout(() => {
       for (const el of toRemove) { if (el.parentNode === root) root.removeChild(el); }
     }, 300);
-    lineEls = [];
-    charEls = [];
-    charElMap.clear();
-    currentPhrase = null;
+    for (const { ch, el } of charEls) {
+      if (toRemove.some(r => r.contains(el))) charElMap.delete(ch);
+    }
+    charEls = charEls.filter(({ el }) => !toRemove.some(r => r.contains(el)));
+    mountedPhrases.delete(phrase);
+  };
+
+  const syncActivePhrases = (songMs: number): void => {
+    if (!video) return;
+    const active = video.findActivePhrases?.(songMs)
+      ?? (video.findPhrase(songMs) ? [video.findPhrase(songMs)!] : []);
+    const activeSet = new Set(active);
+
+    for (const [phrase, els] of [...mountedPhrases]) {
+      if (!activeSet.has(phrase)) clearPhrase(phrase, els);
+    }
+
+    for (const phrase of active) {
+      if (mountedPhrases.has(phrase)) continue;
+      const els = renderPhrase(phrase);
+      if (els.length > 0) mountedPhrases.set(phrase, els);
+    }
   };
 
   // A word shines once every lyric note mapped into it has been hit.
   const wordComplete = (word: TextAliveWord | null): boolean => {
-    if (!word) return false;
-    const ns = wordNotes.get(word);
+    if (!word?.firstChar) return false;
+    const ns = wordNotesByKey.get(charKey(word.firstChar));
     if (!ns || ns.size === 0) return false;
     for (const n of ns) if (noteOutcome.get(n) !== "hit") return false;
     return true;
@@ -222,7 +237,7 @@ export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElem
   // by the note time. The flying glyph carries the note's text (an override or the
   // matched chars), originating at the source character it claimed.
   const launchFlight = (note: Note, songMs: number): void => {
-    const srcChars = noteToChars.get(note) ?? [];
+    const srcKeys = noteToMatchKeys.get(note) ?? [];
     const text = [...(note.lyricChar ?? "")];
     if (text.length === 0) return;
     const rect = flightRoot.getBoundingClientRect();
@@ -237,8 +252,9 @@ export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElem
     const fontPx = LYRIC_RADIUS * 0.9 * scale;
     const charPct = ((fontPx * 0.62) / rect.width) * 100;
     for (let i = 0; i < n; i++) {
-      const srcCh = srcChars[Math.min(i, srcChars.length - 1)];
-      const glyph = srcCh ? charElMap.get(srcCh) : undefined;
+      const srcKey = srcKeys[Math.min(i, srcKeys.length - 1)];
+      const displayCh = srcKey ? charByKey.get(srcKey) : undefined;
+      const glyph = displayCh ? charElMap.get(displayCh) : undefined;
       if (!glyph) continue;
       const gr = glyph.getBoundingClientRect();
       // Multi-char notes land their glyphs side by side, centred on the note.
@@ -261,11 +277,11 @@ export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElem
 
   const updateFlights = (songMs: number): void => {
     if (!hidden) {
-      for (const note of noteToChars.keys()) {
+      for (const note of noteToMatchKeys.keys()) {
         if (launched.has(note)) continue;
         if (songMs < note.time - approachMs || songMs >= note.time) continue;
-        const srcChars = noteToChars.get(note) ?? [];
-        if (!srcChars.some(c => charElMap.has(c))) continue; // wait until the lyric is on screen
+        const srcKeys = noteToMatchKeys.get(note) ?? [];
+        if (!srcKeys.some(k => { const c = charByKey.get(k); return c && charElMap.has(c); })) continue;
         launched.add(note);
         launchFlight(note, songMs);
       }
@@ -298,6 +314,7 @@ export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElem
     setVideo(v): void {
       video = v;
       allChars = collectTextAliveChars(v);
+      charByKey = new Map(allChars.map(c => [charKey(c), c]));
     },
 
     setStoryData(entries): void {
@@ -307,20 +324,20 @@ export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElem
     },
 
     setLyricMap(charToNote): void {
-      lyricCharToNote = charToNote;
+      lyricKeyToNote = new Map([...charToNote].map(([ch, n]) => [charKey(ch), n]));
       noteOutcome = new Map();
-      // Invert to note ΓåÆ its claimed chars (matcher/time order) and group chars by
-      // word so a whole word can shine once all its notes are hit.
-      noteToChars = new Map();
-      wordNotes = new Map();
+      noteToMatchKeys = new Map();
+      wordNotesByKey = new Map();
       for (const [ch, note] of charToNote) {
-        let arr = noteToChars.get(note);
-        if (!arr) { arr = []; noteToChars.set(note, arr); }
-        arr.push(ch);
+        const k = charKey(ch);
+        let arr = noteToMatchKeys.get(note);
+        if (!arr) { arr = []; noteToMatchKeys.set(note, arr); }
+        arr.push(k);
         const w = ch.parent;
-        if (w) {
-          let s = wordNotes.get(w);
-          if (!s) { s = new Set(); wordNotes.set(w, s); }
+        if (w?.firstChar) {
+          const wk = charKey(w.firstChar);
+          let s = wordNotesByKey.get(wk);
+          if (!s) { s = new Set(); wordNotesByKey.set(wk, s); }
           s.add(note);
         }
       }
@@ -331,7 +348,7 @@ export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElem
 
     markLyricOutcome(x, y, result): void {
       const outcome = result === "miss" ? "miss" : "hit";
-      for (const note of lyricCharToNote.values()) {
+      for (const note of lyricKeyToNote.values()) {
         if (note.x === x && note.y === y) { noteOutcome.set(note, outcome); break; }
       }
     },
@@ -351,19 +368,14 @@ export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElem
         el.style.transform = s !== 1 ? `scale(${s.toFixed(3)})` : "";
       };
 
-      // TextAlive phrase rendering
+      // TextAlive phrase rendering (one or more concurrent layers)
       if (video) {
-        const phrase = video.findPhrase(songMs);
-        if (phrase !== currentPhrase) {
-          if (currentPhrase) clearLine();
-          currentPhrase = phrase;
-          if (phrase) renderPhrase(phrase);
-        }
+        syncActivePhrases(songMs);
         for (const { ch, el, pulse } of charEls) {
           // A note-mapped char (or any char in a completed word) is driven by hit/miss
           // outcome, not the song position. A char fills when its own note is hit; the
           // whole word (incl. unmapped chars) shines once all its notes are hit.
-          const mappedNote = lyricCharToNote.get(ch);
+          const mappedNote = lyricKeyToNote.get(charKey(ch));
           const shine = wordComplete(ch.parent);
           if (mappedNote || shine) {
             const filled = shine || noteOutcome.get(mappedNote!) === "hit";
@@ -451,7 +463,8 @@ export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElem
     },
 
     reset(): void {
-      clearLine();
+      for (const [phrase, els] of [...mountedPhrases]) clearPhrase(phrase, els);
+      mountedPhrases.clear();
       for (const { el } of activeLyrics) el.remove();
       activeLyrics = [];
       // Re-empty all note-mapped lyrics so a retry starts from outlines again.
