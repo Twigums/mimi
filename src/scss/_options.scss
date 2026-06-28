@@ -187,6 +187,62 @@ html.theme-dark .options-panel {
   font-size: 0.9rem;
 }
 
+.options-setting-value--button {
+  appearance: none;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-weight: bold;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.9rem;
+  padding: 0;
+  cursor: text;
+  text-align: right;
+
+  &:hover,
+  &:focus-visible {
+    color: var(--page-accent);
+    outline: none;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+  }
+}
+
+.options-offset-editor {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.15rem;
+  margin-left: 0.75rem;
+}
+
+.options-offset-input {
+  box-sizing: border-box;
+  width: 4.4rem;
+  border: 1px solid var(--panel-line);
+  border-radius: 4px;
+  background: var(--panel-fill);
+  color: var(--panel-ink);
+  font: inherit;
+  font-weight: bold;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.9rem;
+  line-height: 1.2;
+  padding: 0.05rem 0.25rem;
+  text-align: right;
+
+  &:focus {
+    border-color: var(--page-accent);
+    outline: none;
+  }
+}
+
+.options-offset-unit {
+  font-weight: bold;
+  font-variant-numeric: tabular-nums;
+  font-size: 0.9rem;
+}
+
 .options-slider {
   width: 100%;
   cursor: pointer;
