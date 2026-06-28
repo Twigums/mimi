@@ -12,5 +12,6 @@ export function initThemeToggle(): void {
 
 function applyTheme(dark: boolean): void {
   document.documentElement.classList.toggle("theme-dark", dark);
+  document.documentElement.style.colorScheme = dark ? "dark" : "light";
   document.getElementById("theme-toggle")?.setAttribute("aria-checked", dark.toString());
 }

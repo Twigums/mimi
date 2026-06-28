@@ -143,7 +143,7 @@ The setting persists across sessions.
 ## Music Offset
 A player-configurable timing offset (set from the **Timing** section of the options panel) shifts the song position used for note judgement relative to the audio, compensating for audio/display latency. The offset is applied to the position fed to the game each tick and to break-skip targeting.
 
-- **Range:** −5000 ms to +5000 ms in 10 ms steps (default: 0 ms; values within one step of zero snap to 0)
+- **Range:** −1000 ms to +1000 ms in 10 ms steps (default: 0 ms)
 
 The setting persists across sessions.
 

@@ -94,13 +94,12 @@ function buildNightLayer(): SVGGElement {
 }
 
 // miku on the moon
-const MIKU_SRC = "/images/simple-miku.svg";
+const MIKU_SRC = "/images/miku/miku-simple.svg";
 const MIKU_FILL = 1.32;
 const MIKU_ROTATE = 25;
 const MIKU_NUDGE_X = 0.09;
 const MIKU_NUDGE_Y = 0.4;
 
-// fetch simple-miku.svg and drop its drawing elements into the moon-face group
 async function loadMoonFace(moonFace: SVGGElement, reposition: () => void): Promise<void> {
   try {
     const res = await fetch(withPath(MIKU_SRC));

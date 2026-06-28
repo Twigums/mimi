@@ -186,6 +186,7 @@ html.theme-dark .song-page .bg-overlay::before {
         transform: translateX(0);
       }
     }
+
   }
 
   .storyboard-segment {
@@ -502,6 +503,13 @@ html.theme-dark .game-frame .frame-star {
       will-change: left, top, transform, opacity;
     }
   }
+
+  // Blur play-field content when paused (tab-out recovery)
+  &.paused .game-canvas,
+  &.paused .song-storyboard,
+  &.paused .song-funnel {
+    filter: blur(6px);
+  }
 }
 
 .song-page .site-name-link {
@@ -509,17 +517,60 @@ html.theme-dark .game-frame .frame-star {
   top: 1rem;
   left: 1.5rem;
   z-index: var(--z-hud);
-  font-size: 1.1rem;
-  font-family: var(--font-display);
-  font-weight: bold;
+  display: block;
+  width: clamp(3.6rem, 7vw, 5rem);
   color: var(--song-text);
-  text-decoration: none;
-  letter-spacing: 0.05em;
+  line-height: 0;
   opacity: 0.85;
+  text-decoration: none;
+  transition: color 0.2s ease, opacity 0.2s ease, transform 0.3s var(--motion-ease-bouncy);
 
   &:hover {
+    background: transparent;
     opacity: 1;
-    text-decoration: underline;
+    text-decoration: none;
+    transform: rotate(-1deg) scale(1.04);
+  }
+
+  .site-logo {
+    display: block;
+    width: 100%;
+    height: auto;
+    color: currentColor;
+    overflow: visible;
+
+    &__shadow {
+      --site-logo-wordmark: var(--game-frame-glow);
+      --site-logo-cut-fill: var(--game-frame-glow);
+      --site-logo-cut-stroke: var(--game-frame-glow);
+      --site-logo-flow-fill: var(--game-frame-glow);
+      --site-logo-flow-stroke: var(--game-frame-glow);
+
+      opacity: 0.85;
+      transform: translate(0.8px, 2.5px);
+      transition: opacity 0.3s var(--motion-ease-standard), transform 0.3s var(--motion-ease-standard);
+    }
+
+    &__shadow,
+    &__face {
+      transform-box: fill-box;
+      transform-origin: center;
+    }
+
+    &__face {
+      transition: transform 0.3s var(--motion-ease-bouncy);
+    }
+  }
+
+  &:hover .site-logo {
+    &__shadow {
+      opacity: 1;
+      transform: translate(0.8px, 4px);
+    }
+
+    &__face {
+      transform: translateY(-1px);
+    }
   }
 }
 

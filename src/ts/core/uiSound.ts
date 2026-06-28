@@ -2,6 +2,7 @@ import { withPath } from "./sitePath";
 import { loadUiVolume, subscribeUiVolume, volToFactor } from "./settings";
 
 const UI_BUTTON_SELECTOR = "button, .btn-main, .btn-back, .diff-btn";
+const UI_SOUND_OFF_SELECTOR = "[data-ui-sound='off']";
 
 const HOVER_URL = withPath("/audio/hover.wav");
 const CLICK_URL = withPath("/audio/click.wav");
@@ -46,7 +47,8 @@ function play(buffer: AudioBuffer | null): void {
 }
 
 function targetButton(target: EventTarget | null): Element | null {
-  const el = target instanceof Element ? target.closest(UI_BUTTON_SELECTOR) : null;
+  if (!(target instanceof Element) || target.closest(UI_SOUND_OFF_SELECTOR)) return null;
+  const el = target.closest(UI_BUTTON_SELECTOR);
   if (el instanceof HTMLButtonElement && el.disabled) return null;
   return el;
 }

@@ -62,15 +62,56 @@ m, 49120, 650, 375, scale=1.6, in=grow, motion=sway
 # 耳
 h, 49973, 53307
 
-# どれほどの苦しみも悲しみの向こうに
-m, 52140, 100, 100, scale=1, in=grow, motion=sway, pulse=beat
-
+# TODO: probably hardcode each section
 # overlap
 # 自分を重ねて聞いてた
-m, 54887, 700, 150, scale=1.6, in=grow, motion=sway, pulse=beat
+
+
+# どれほどの苦しみも悲しみの向こうに
+x, 54887, 65379.99999999999
+
 
 # きっと私の目指す私がいると信じ続けていた
-m, 57903, 150, 150, scale=1, in=grow, motion=sway, pulse=beat
+# き
+m, 65464, 600, 170, scale=1, in=grow, motion=sway, pulse=beat, delay=7561
+# っ
+m, 65465, 600, 170, scale=1, in=grow, motion=sway, pulse=beat, delay=7561
+# と
+m, 65465, 600, 170, scale=1, in=grow, motion=sway, pulse=beat, delay=7561
+# 私
+m, 65467, 600, 170, scale=1, in=grow, motion=sway, pulse=beat, delay=7561
+# の
+m, 65471, 600, 170, scale=1, in=grow, motion=sway, pulse=beat, delay=7561
+# 目
+m, 65471, 600, 170, scale=1, in=grow, motion=sway, pulse=beat, delay=7561
+# 指
+m, 65483.99999999999, 600, 170, scale=1, in=grow, motion=sway, pulse=beat, delay=7561
+# す
+m, 65486.99999999999, 600, 170, scale=1, in=grow, motion=sway, pulse=beat, delay=7561
+# 私
+m, 65488, 600, 170, scale=1, in=grow, motion=sway, pulse=beat, delay=7561
+# が
+m, 65495.99999999999, 600, 170, scale=1, in=grow, motion=sway, pulse=beat, delay=7561
+# い
+m, 65497, 600, 170, scale=1, in=grow, motion=sway, pulse=beat, delay=7561
+# る
+m, 65498.00000000001, 600, 170, scale=1, in=grow, motion=sway, pulse=beat, delay=7561
+# と
+m, 65503, 600, 170, scale=1, in=grow, motion=sway, pulse=beat, delay=7561
+# 信
+m, 65504.00000000001, 600, 170, scale=1, in=grow, motion=sway, pulse=beat, delay=7561
+# じ
+m, 65507.00000000001, 600, 170, scale=1, in=grow, motion=sway, pulse=beat, delay=7561
+# 続
+m, 65507.99999999999, 600, 170, scale=1, in=grow, motion=sway, pulse=beat, delay=7561
+# け
+m, 65525.99999999999, 600, 170, scale=1, in=grow, motion=sway, pulse=beat, delay=7561
+# て
+m, 65528.00000000001, 600, 170, scale=1, in=grow, motion=sway, pulse=beat, delay=7561
+# い
+m, 65533, 600, 170, scale=1, in=grow, motion=sway, pulse=beat, delay=7561
+# た
+m, 65537, 600, 170, scale=1, in=grow, motion=sway, pulse=beat, delay=7561
 
 # 目覚めた僕の心がざわつく
 # 目
@@ -220,7 +261,7 @@ m, 138708, 600, 150, scale=1.15, in=grow, motion=sway, pulse=beat
 # 叫
 m, 142714, 570, 250, scale=1.5, in=grow, motion=sway, pulse=beat, delay=-4006
 # ん
-m, 144321, 570, 260, scale=1.6, in=grow, motion=sway, pulse=beat, delay=-4106
+m, 144321, 570, 266, scale=1.6, in=grow, motion=sway, pulse=beat, delay=-4106
 # で
 m, 144535, 570, 290, scale=1.7, in=grow, motion=sway, pulse=beat, delay=-4256
 # い
@@ -231,13 +272,13 @@ m, 145350, 570, 337, scale=1.9, in=grow, motion=sway, pulse=beat, delay=-4556
 # i wish i could delay it leaving, because i want it to leave after "迷ってしまう"
 # あなたが僕ならばどんな答えを出すでしょうか
 # あなたが僕ならば
-m, 153360, 670, 150, scale=1.5, in=fade
+m, 153360, 670, 150, scale=1.5, in=fade, until=167020
 # どんな答えを出すでしょうか
-m, 157025, 150, 175, scale=1.5, in=grow, delay=-3665
+m, 157025, 150, 175, scale=1.5, in=grow, delay=-3665, until=167120
 
 # 僕があなたならば迷ってしまう
 # 僕があなたならば
-m, 160757, 670, 350, scale=1.5, in=fade
+m, 160757, 670, 350, scale=1.5, in=fade, until=167220
 # 迷ってしまう
 m, 164416, 150, 375, scale=1.5, in=grow, delay=-3659
 
@@ -252,13 +293,13 @@ m, 176918, 650, 360, scale=1.5, in=grow, delay=-8598
 m, 177158, 650, 380, scale=1.5, in=grow, delay=-8698
 
 # どうして　揺さぶられるの
-m, 177650, 650, 260, scale=1.5, in=grow, motion=sway
+m, 177650, 650, 260, scale=1.5, in=grow
 # れ
-m, 181223, 650, 370, scale=1.5, in=grow, motion=sway, delay=-3573
+m, 181223, 650, 350, scale=1.5, in=grow, motion=sway, delay=-3573
 # る
-m, 181406, 650, 390, scale=1.5, in=grow, motion=sway, delay=-3673
+m, 181406, 650, 370, scale=1.5, in=grow, motion=sway, delay=-3673
 # の
-m, 181476, 650, 410, scale=1.5, in=grow, motion=sway, delay=-3773
+m, 181476, 650, 390, scale=1.5, in=grow, motion=sway, delay=-3773
 
 # kiai
 # この世界を果てまで探そうとも
@@ -356,13 +397,13 @@ l, 222441, 223241, 735, 75, a, auto, in=fade, out=rise, motion=drift, font=handw
 
 # まだ行くよ　迷わないよ
 # まだ行くよ
-m, 222643, 690, 110, scale=1.7, in=grow, motion=sway, pulse=beat
+m, 222643, 690, 110, scale=1.7, in=grow, motion=sway, pulse=beat, until=228692
 # 迷わないよ
-m, 224340, 110, 130, scale=1.7, in=grow, motion=sway, pulse=beat, delay=-1697
+m, 224340, 110, 130, scale=1.7, in=grow, motion=sway, pulse=beat, delay=-1697, until=228792
 
 # 期待してるよ　後悔しないよ
 # 期待してるよ
-m, 225790, 690, 360, scale=1.7, in=grow, motion=sway, pulse=beat
+m, 225790, 690, 360, scale=1.7, in=grow, motion=sway, pulse=beat, until=228892
 # 後悔しないよ
 m, 227516, 110, 380, scale=1.7, in=grow, motion=sway, pulse=beat, delay=-1726
 
@@ -381,6 +422,6 @@ m, 234700, 660, 334, scale=2, in=grow, out=rise, motion=sway, pulse=beat, delay=
 # で
 m, 234847, 660, 362, scale=2.1, in=grow, out=rise, motion=sway, pulse=beat, delay=-3702
 # い
-m, 235582, 660, 384, scale=2.2, in=grow, out=rise, motion=sway, pulse=beat, delay=-3902
+m, 235582, 660, 386, scale=2.2, in=grow, out=rise, motion=sway, pulse=beat, delay=-3902
 # る
 m, 235732, 660, 419, scale=2.3, in=grow, out=rise, motion=sway, pulse=beat, delay=-4102

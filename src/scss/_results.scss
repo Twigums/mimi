@@ -491,9 +491,8 @@ html.theme-dark .results-overlay {
 }
 
 // The tier breakdown is the "why" behind the grade — the boldest block in the
-// column. Tiers read as a single brightness ramp (PERFECT brightest →
-// muted-ink GOOD) with saturated red reserved for MISS so it pops, rather than
-// four unrelated hues.
+// column. PERFECT/GREAT reuse the same yellow/blue as the basic pie view, while
+// GOOD stays muted and saturated red remains reserved for MISS.
 .results-breakdown {
   display: flex;
   flex-wrap: wrap;
@@ -510,11 +509,11 @@ html.theme-dark .results-overlay {
   }
 
   &__tier3 {
-    color: var(--rp-ink);
+    color: var(--rp-perfect);
   }
 
   &__tier2 {
-    color: var(--rp-ink-soft);
+    color: var(--rp-good);
   }
 
   &__tier1 {

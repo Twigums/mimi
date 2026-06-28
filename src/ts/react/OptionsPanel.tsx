@@ -9,9 +9,9 @@ import { AR_MIN,
          CURSOR_SIZE_MAX,
          TRAIL_FADE_MIN,
          TRAIL_FADE_MAX,
+         OFFSET_MIN,
+         OFFSET_MAX,
          OFFSET_STEP,
-         TIMING_OFFSET_MIN,
-         TIMING_OFFSET_MAX,
          resetSettings,
        } from "../core/settings";
 
@@ -41,10 +41,13 @@ interface Props {
 const sliderFill = (val: number, min: number, max: number): CSSProperties =>
   ({ '--fill': `${((val - min) / (max - min)) * 100}%` } as CSSProperties);
 
+const offsetMsToSecondsText = (ms: number): string => (ms / 1000).toFixed(2);
+
 export function OptionsPanel({ isSongPage = false }: Props) {
   const [open, setOpen] = useState(false);
   const [exiting, setExiting] = useState(false);
   const exitTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const panelRef = useRef<HTMLDivElement | null>(null);
 
   const close = useCallback(() => {
     setExiting(true);
@@ -73,6 +76,9 @@ export function OptionsPanel({ isSongPage = false }: Props) {
   const [trailShape, setTrailShape] = useTrailShape();
   const [trailDecay, setTrailDecay] = useTrailDecay();
   const [musicOffset, setMusicOffset] = useMusicOffset();
+  const [offsetEditing, setOffsetEditing] = useState(false);
+  const [offsetDraft, setOffsetDraft] = useState(() => offsetMsToSecondsText(musicOffset));
+  const offsetInputRef = useRef<HTMLInputElement | null>(null);
   const lang = useLang();
 
   useEffect(() => {
@@ -91,6 +97,40 @@ export function OptionsPanel({ isSongPage = false }: Props) {
     setCursorB(b);
   }, [setCursorR, setCursorG, setCursorB]);
 
+  useEffect(() => {
+    if (!offsetEditing) setOffsetDraft(offsetMsToSecondsText(musicOffset));
+  }, [musicOffset, offsetEditing]);
+
+  useEffect(() => {
+    if (!open || !offsetEditing) return;
+    offsetInputRef.current?.focus();
+    offsetInputRef.current?.select();
+  }, [open, offsetEditing]);
+
+  // scroll fade mask
+  useEffect(() => {
+    if (!open) return;
+    const el = panelRef.current;
+    if (!el) return;
+    const update = (): void => {
+      const top    = el.scrollTop > 0;
+      const bottom = el.scrollTop + el.clientHeight < el.scrollHeight - 1;
+      const t = top    ? "transparent 0, black 2rem," : "";
+      const b = bottom ? ", black calc(100% - 2rem), transparent" : "";
+      const mask = `linear-gradient(to bottom, ${t}black${b})`;
+      el.style.setProperty("mask-image", mask);
+      el.style.setProperty("-webkit-mask-image", mask);
+    };
+    const raf = requestAnimationFrame(update);
+    el.addEventListener("scroll", update);
+    window.addEventListener("resize", update);
+    return () => {
+      cancelAnimationFrame(raf);
+      el.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+    };
+  }, [open]);
+
   // common settings stay open
   const [trailOpen, setTrailOpen] = useState(() => localStorage.getItem("trailAccordionOpen") === "true");
 
@@ -101,9 +141,20 @@ export function OptionsPanel({ isSongPage = false }: Props) {
   const fmtOffset = (ms: number): string =>
     (ms >= 0 ? "+" : "") + (ms / 1000).toFixed(2) + "s";
 
+  const commitOffsetDraft = (): void => {
+    const trimmed = offsetDraft.trim();
+    const parsedSeconds = Number(trimmed);
+    if (trimmed !== "" && Number.isFinite(parsedSeconds)) {
+      setMusicOffset(parsedSeconds * 1000);
+    } else {
+      setOffsetDraft(offsetMsToSecondsText(musicOffset));
+    }
+    setOffsetEditing(false);
+  };
+
   return (
     <div className={`options-backdrop${exiting ? " exiting" : ""}`} onClick={close}>
-      <div className={`options-panel${exiting ? " exiting" : ""}`} onClick={e => e.stopPropagation()}>
+      <div ref={panelRef} className={`options-panel${exiting ? " exiting" : ""}`} onClick={e => e.stopPropagation()}>
 
         <button
           className="options-close"
@@ -206,23 +257,60 @@ export function OptionsPanel({ isSongPage = false }: Props) {
             </div>
 
             <div className="options-row">
-              <label className="options-label">
+              <div className="options-label">
                 <span>{isJp ? "音楽オフセット" : "Music Offset"}</span>
-                <span className="options-setting-value">{fmtOffset(musicOffset)}</span>
-              </label>
+                {offsetEditing ? (
+                  <span className="options-offset-editor">
+                    <input
+                      ref={offsetInputRef}
+                      type="number"
+                      className="options-offset-input"
+                      min={OFFSET_MIN / 1000}
+                      max={OFFSET_MAX / 1000}
+                      step={OFFSET_STEP / 1000}
+                      value={offsetDraft}
+                      aria-label={isJp ? "音楽オフセット秒" : "Music offset seconds"}
+                      onChange={e => setOffsetDraft(e.target.value)}
+                      onBlur={commitOffsetDraft}
+                      onKeyDown={e => {
+                        if (e.key === "Enter") {
+                          e.currentTarget.blur();
+                        } else if (e.key === "Escape") {
+                          setOffsetDraft(offsetMsToSecondsText(musicOffset));
+                          setOffsetEditing(false);
+                        }
+                      }}
+                    />
+                    <span className="options-offset-unit">s</span>
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    className="options-setting-value options-setting-value--button"
+                    data-ui-sound="off"
+                    aria-label={isJp ? "音楽オフセットを直接入力" : "Edit music offset directly"}
+                    onClick={() => setOffsetEditing(true)}
+                  >
+                    {fmtOffset(musicOffset)}
+                  </button>
+                )}
+              </div>
               <input
                 type="range"
                 className="options-slider"
-                min={TIMING_OFFSET_MIN}
-                max={TIMING_OFFSET_MAX}
+                min={OFFSET_MIN}
+                max={OFFSET_MAX}
                 step={OFFSET_STEP}
                 value={musicOffset}
                 style={sliderFill(
-                  Math.max(TIMING_OFFSET_MIN, Math.min(TIMING_OFFSET_MAX, musicOffset)),
-                  TIMING_OFFSET_MIN,
-                  TIMING_OFFSET_MAX,
+                  Math.max(OFFSET_MIN, Math.min(OFFSET_MAX, musicOffset)),
+                  OFFSET_MIN,
+                  OFFSET_MAX,
                 )}
-                onChange={e => setMusicOffset(Number(e.target.value))}
+                onChange={e => {
+                  setOffsetEditing(false);
+                  setMusicOffset(Number(e.target.value));
+                }}
               />
               <p className="options-note">
                 {isJp

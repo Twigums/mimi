@@ -9,7 +9,6 @@ import {
 import { loadHiddenMod, subscribeHiddenMod } from "../core/settings";
 import { collectTextAliveChars, walkPhraseChars } from "./charLookup";
 
-// Optional per-segment style directives (from `.story` m/l trailing tokens).
 export interface StoryStyle extends Record<string, string> {
   color?: string;
   font?: string;
@@ -20,6 +19,8 @@ export interface StoryStyle extends Record<string, string> {
   pulse?: string;
   autotime?: string;
   delay?: string;
+  until?: string;
+  sticky?: string;
 }
 
 export interface StoryHighlight { type: "highlight"; from: number; to: number; }
@@ -29,13 +30,12 @@ export interface StoryReactive  { type: "reactive";  modes: string[]; }
 export interface StoryLyric     { type: "lyric";     from: number; to: number; x: number; y: number; text: string; chars: number[]; style?: StoryStyle; }
 export type StoryEntry = StoryHighlight | StoryMove | StoryExclude | StoryReactive | StoryLyric;
 
-// Live song-map values applied by the reactive directives, computed per tick by the
-// controller (1/neutral when a mode is disabled, so the storyboard applies blindly).
+// Live song-map values applied by the reactive directives
 export interface ReactiveFrame {
-  beatProgress: number;     // 0..1 through the current beat (drives authored pulse)
-  ampScale: number;         // vocal-amplitude scale multiplier (1 = neutral)
-  moodColor: string | null; // valence/arousal tint, or null when disabled
-  chorus: boolean;          // true while inside a chorus segment
+  beatProgress: number;
+  ampScale: number;
+  moodColor: string | null;
+  chorus: boolean;
 }
 
 const LOGICAL_W = 800;
@@ -54,6 +54,14 @@ const styleDelayMs = (style?: StoryStyle): number => {
   if (!/^[+-]?\d+$/.test(value)) return 0;
   const n = Number(value);
   return Number.isInteger(n) ? n : 0;
+};
+
+const styleUntilMs = (style?: StoryStyle): number | null => {
+  if (!style?.until) return null;
+  const raw = String(style.until).trim();
+  const n = Number(raw);
+  if (!Number.isInteger(n) || n <= 0) return null;
+  return n;
 };
 
 const shouldRotateManualGlyph = (ch: string): boolean => /^[\x21-\x7e]$/.test(ch);
@@ -94,9 +102,9 @@ interface StoryboardRenderer {
 
 interface Flight {
   el: HTMLElement;
-  sx: number; sy: number;   // source %, captured from the storyboard glyph
-  dx: number; dy: number;   // destination %, the note's logical position
-  t0: number; t1: number;   // song-ms launch -> landing
+  sx: number; sy: number;
+  dx: number; dy: number;
+  t0: number; t1: number;
   note: Note;
   charIndex: number;
 }
@@ -109,8 +117,7 @@ interface ActiveLyric {
   pulse: boolean;
 }
 
-// `flightRoot` (a layer above the canvas) is where the funnel characters fly; the
-// storyboard itself sits behind the canvas, so flights need their own foreground layer.
+// `flightRoot` is where the funnel characters fly
 export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElement = root): StoryboardRenderer {
   let video: TextAliveVideo | null = null;
   let mountedPhrases = new Map<TextAlivePhrase, HTMLElement[]>();
@@ -121,11 +128,6 @@ export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElem
   let moves: StoryMove[] = [];
   let lyrics: StoryLyric[] = [];
   let activeLyrics: ActiveLyric[] = [];
-  // TextAlive chars claimed by a lyric note (from the matcher) render as empty
-  // outlines until resolved. A char fills when its own note is hit; an entire word
-  // shines once every note mapped into that word is hit (including unmapped chars).
-  // Funnel + note-outline maps are keyed by char timing identity because display
-  // and matching can see different TextAlive object instances for the same glyph.
   let lyricKeyToNote: Map<string, Note> = new Map();
   let noteOutcome: Map<Note, "hit" | "miss"> = new Map();
   let noteToMatchKeys: Map<Note, string[]> = new Map();
@@ -133,21 +135,16 @@ export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElem
   let charByKey: Map<string, TextAliveChar> = new Map();
   const charElMap: Map<TextAliveChar, HTMLElement> = new Map();
   const charKey = (c: TextAliveChar): string => `${c.startTime}\0${c.endTime}\0${c.text}`;
-  // Funnel: characters detach from their source storyboard glyph and fly to the note.
   let flights: Flight[] = [];
   let launched = new Set<Note>();
+  let stickyEls: HTMLElement[] = [];
   let approachMs = 2000;
   let hidden = loadHiddenMod();
   subscribeHiddenMod(v => { hidden = v; });
   const reducedMotion = typeof window !== "undefined"
     && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 
-  // Build a styled container with three transform layers so they never collide:
-  // `outer` (.storyboard-line/-segment) already owns the positioning transform and
-  // carries static style (color/font/size); `.sb-fx` owns continuous motion;
-  // `.sb-enter` owns one-shot enter/exit transitions; char spans go in `.sb-enter`
-  // and own the per-char pulse/amplitude scale. Returns the innermost char
-  // container + pulse flag.
+  // Build a styled container with three transform layers so they never collide
   const buildContainer = (cls: string, style?: StoryStyle): { outer: HTMLElement; inner: HTMLElement; pulse: boolean } => {
     const outer = document.createElement("div");
     outer.className = cls;
@@ -223,7 +220,10 @@ export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElem
   const updateLineVisibility = (els: HTMLElement[], songMs: number): void => {
     for (const el of els) {
       const displayStart = Number(el.dataset.displayStart ?? 0);
-      if (songMs >= displayStart) {
+      const displayEnd = el.dataset.displayEnd ? Number(el.dataset.displayEnd) : Infinity;
+      if (songMs >= displayEnd) {
+        if (el.dataset.visible !== "false") startExit(el);
+      } else if (songMs >= displayStart) {
         if (el.dataset.visible !== "true") {
           el.dataset.visible = "true";
           requestAnimationFrame(() => {
@@ -237,8 +237,7 @@ export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElem
     }
   };
 
-  // With `autotime`, derive each char's activation from the TextAlive characters at
-  // or after the lyric's start, instead of a hand-listed char_time list.
+  // `autotime` derivse each char's activation from TextAlive
   const deriveAutotime = (entry: StoryLyric): number[] => {
     if (!video) return entry.chars;
     const start = allChars.findIndex(c => c.startTime >= entry.from);
@@ -289,6 +288,9 @@ export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElem
     ): void => {
       const { outer, inner, pulse } = buildContainer(cls, style);
       outer.dataset.displayStart = String(displayStart);
+      const until = styleUntilMs(style);
+      if (until !== null) outer.dataset.displayEnd = String(until);
+      if (style?.sticky) outer.dataset.sticky = "true";
       if (phrase.overlay) outer.classList.add("storyboard-line--overlay");
       if (pos) {
         outer.style.left = `${(pos.x / LOGICAL_W) * 100}%`;
@@ -313,11 +315,20 @@ export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElem
   };
 
   const clearPhrase = (phrase: TextAlivePhrase, els: HTMLElement[]): void => {
-    let removeDelay = 300;
+    const sticky: HTMLElement[] = [];
+    const normal: HTMLElement[] = [];
     for (const el of els) {
+      if (el.dataset.sticky === "true") sticky.push(el);
+      else normal.push(el);
+    }
+    if (sticky.length > 0) {
+      stickyEls.push(...sticky);
+    }
+    let removeDelay = 300;
+    for (const el of normal) {
       removeDelay = Math.max(removeDelay, startExit(el));
     }
-    const toRemove = [...els];
+    const toRemove = [...normal];
     setTimeout(() => {
       for (const el of toRemove) { if (el.parentNode === root) root.removeChild(el); }
     }, removeDelay);
@@ -359,6 +370,17 @@ export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElem
         const els = renderPhrase(phrase, songMs);
         if (els.length > 0) mountedPhrases.set(phrase, els);
       }
+    }
+
+    let nonOverlayIdx = 0;
+    for (const phrase of active) {
+      if (phrase.overlay) continue;
+      const els = mountedPhrases.get(phrase);
+      if (!els) continue;
+      for (const el of els) {
+        el.style.marginTop = nonOverlayIdx > 0 ? `${4 + (nonOverlayIdx - 1) * 6}rem` : "";
+      }
+      nonOverlayIdx++;
     }
 
     for (const els of mountedPhrases.values()) updateLineVisibility(els, songMs);
@@ -524,9 +546,6 @@ export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElem
     },
 
     update(songMs, reactive): void {
-      // Reactive song-map effects (no-ops when the modes are disabled): mood tint on
-      // the root (chars inherit unless a state/authored color overrides), a chorus
-      // class, and amplitude/beat scalars applied per char below.
       const ampScale = reactive?.ampScale ?? 1;
       const beat     = reactive?.beatProgress ?? 0;
       root.style.color = reactive?.moodColor ?? "";
@@ -540,13 +559,32 @@ export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElem
         el.style.transform = [baseTransform, scaleTransform].filter(Boolean).join(" ");
       };
 
-      // TextAlive phrase rendering (one or more concurrent layers)
+      // TextAlive phrase rendering
       if (video) {
         syncActivePhrases(songMs);
+        // Sticky segments outlive their parent phrase — keep checking visibility
+        if (stickyEls.length > 0) {
+          updateLineVisibility(stickyEls, songMs);
+          stickyEls = stickyEls.filter(el => {
+            if (el.dataset.visible === "false") {
+              if (!el.dataset.stickyDone) {
+                el.dataset.stickyDone = "true";
+                const out = el.dataset.out;
+                const dur = out ? (parseOutStyle(out)?.durationMs ?? 300) : 300;
+                setTimeout(() => {
+                  if (el.parentNode === root) root.removeChild(el);
+                  for (const { ch, el: cEl } of [...charEls]) {
+                    if (el.contains(cEl)) charElMap.delete(ch);
+                  }
+                  charEls = charEls.filter(({ el: cEl }) => !el.contains(cEl));
+                }, dur);
+              }
+              return false;
+            }
+            return true;
+          });
+        }
         for (const { ch, el, pulse } of charEls) {
-          // A note-mapped char (or any char in a completed word) is driven by hit/miss
-          // outcome, not the song position. A char fills when its own note is hit; the
-          // whole word (incl. unmapped chars) shines once all its notes are hit.
           const mappedNote = lyricKeyToNote.get(charKey(ch));
           const shine = wordComplete(ch.parent);
           if (mappedNote || shine) {
@@ -573,7 +611,7 @@ export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElem
         }
       }
 
-      // Manual lyric rendering: create elements for newly visible entries
+      // Manual lyric rendering
       for (const entry of lyrics) {
         const displayStart = entry.from - styleDelayMs(entry.style);
         if (songMs < displayStart || songMs >= entry.to) continue;
@@ -634,18 +672,18 @@ export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElem
         }
       }
 
-      // Funnel characters from the storyboard glyphs onto approaching notes.
       updateFlights(songMs);
     },
 
     reset(): void {
       for (const [phrase, els] of [...mountedPhrases]) clearPhrase(phrase, els);
       mountedPhrases.clear();
+      for (const el of stickyEls) { if (el.parentNode === root) root.removeChild(el); }
+      stickyEls = [];
       charEls = [];
       charElMap.clear();
       for (const { el } of activeLyrics) el.remove();
       activeLyrics = [];
-      // Re-empty all note-mapped lyrics so a retry starts from outlines again.
       noteOutcome = new Map();
       clearFlights();
       root.style.color = "";

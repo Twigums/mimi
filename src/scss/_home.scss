@@ -226,11 +226,10 @@ html.theme-dark .bg-sky .cloud-layer {
 
   .site-name {
     align-self: flex-start;
-    font-size: 1.8rem;
-    font-family: var(--font-display);
-    font-weight: 800;
-    letter-spacing: 0.05em;
+    display: block;
+    width: clamp(5.1rem, 11vw, 7rem);
     color: var(--page-ink);
+    line-height: 0;
     text-decoration: none;
     transition: color 0.2s, transform 0.3s var(--motion-ease-bouncy);
 
@@ -238,6 +237,47 @@ html.theme-dark .bg-sky .cloud-layer {
       color: var(--page-accent);
       background: transparent;
       transform: rotate(-2deg) scale(1.05);
+    }
+  }
+
+  .site-logo {
+    display: block;
+    width: 100%;
+    height: auto;
+    color: currentColor;
+    overflow: visible;
+
+    &__shadow {
+      --site-logo-wordmark: var(--cloud-glow);
+      --site-logo-cut-fill: var(--cloud-glow);
+      --site-logo-cut-stroke: var(--cloud-glow);
+      --site-logo-flow-fill: var(--cloud-glow);
+      --site-logo-flow-stroke: var(--cloud-glow);
+
+      opacity: 0.9;
+      transform: translate(1px, 3px);
+      transition: opacity 0.3s var(--motion-ease-standard), transform 0.3s var(--motion-ease-standard);
+    }
+
+    &__shadow,
+    &__face {
+      transform-box: fill-box;
+      transform-origin: center;
+    }
+
+    &__face {
+      transition: transform 0.3s var(--motion-ease-bouncy);
+    }
+  }
+
+  .site-name:hover .site-logo {
+    &__shadow {
+      opacity: 1;
+      transform: translate(1px, 5px);
+    }
+
+    &__face {
+      transform: translateY(-1px);
     }
   }
 
