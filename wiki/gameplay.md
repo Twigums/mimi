@@ -75,7 +75,7 @@ Shape error compares the gesture and the ribbon as **heading sequences**: each i
 
 Contact currently uses the same thresholds as cut while flow contact is being tuned. Travel still requires real motion through the anchor.
 
-The ribbon between anchors is a smooth curve whose heading at each anchor is the tangent to that curve. By default the tangent is derived automatically from the neighbouring anchors, but a chart may pin an anchor's tangent by authoring a `degrees` value (see the chart format), which forces the curve's heading there while the rest stay automatic.
+The ribbon between anchors is a smooth curve whose heading at each anchor is the tangent to that curve. By default the tangent is derived automatically from the neighbouring anchors in the phrase; at a phrase boundary, when the chart has no `break` on that side, the immediately adjacent non-flow object may also inform auto heading (without drawing a ribbon to it). A chart may pin an anchor's tangent by authoring a `degrees` value (see the chart format), which forces the curve's heading there while the rest stay automatic.
 
 ## Lyric Judgement
 

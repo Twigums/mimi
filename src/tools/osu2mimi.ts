@@ -299,7 +299,7 @@ function main(): void {
             "Kind from hitsound/type: clap -> lyric (clap slider also bounds the hold at its\n" +
             "tail); whistle on a slider -> cut; plain slider -> flow pinned to the slider;\n" +
             "plain circle -> flow (auto). Cut/flow sliders sit at the head->first-point\n" +
-            "midpoint. A new-combo object emits a `break`, ending the previous flow phrase.\n" +
+            "midpoint. A new-combo object emits a `break` when either side is flow.\n" +
             "Optional --lyrics sidecar: one line per clap in [HitObjects] order; bare text\n" +
             "becomes char=<text>. Index-based mapping survives osu retiming.\n",
         );
@@ -373,7 +373,9 @@ function main(): void {
         "# kind, time_ms, degrees, x, y[, lyric_option...]",
     );
 
-    // A `break` ends a flow phrase only between consecutive flow notes; `end` markers are
+    // A `break` marks an osu new-combo when either adjacent note is flow; the runtime
+    // uses it (`newCombo` on the following row) to end flow phrases and to decide when
+    // neighbouring non-flow objects influence auto tangent heading. `end` markers are
     // inert (stripped by the engine), so the adjacency check ignores them.
     let prevKind: NoteKind | null = null;
     for (const note of notes) {
@@ -381,7 +383,7 @@ function main(): void {
             out.push(`end, ${note.time}`);
             continue;
         }
-        if (note.newCombo && note.kind === "flow" && prevKind === "flow") out.push("break");
+        if (note.newCombo && (note.kind === "flow" || prevKind === "flow")) out.push("break");
         const deg = note.degrees === null ? "auto" : note.degrees;
         out.push(`${note.kind}, ${note.time}, ${deg}, ${note.x}, ${note.y}${formatLyricOptions(note)}`);
         prevKind = note.kind;
