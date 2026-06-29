@@ -1,6 +1,18 @@
-# Mimi
+# mimi
 
-Mimi is a rhythm game web application built on primarily Typescript and compiled using Haskell via [Hakyll](https://jaspervdj.be/hakyll/). The `main` branch contains the source code to build the raw files, but the compiled docs will sit in the `docs` branch of this repository, which are built/served using GitHub Pages.
+Hatsune Miku has lost her lyrics, and she needs your help to collect missing words! Mimi is an easy-to-learn rhythm game with cut notes, flow notes, and lyric notes. The objective is to beautifully swipe through the cut and flow notes and hold onto the lyric notes. The lyric notes are how you can help retrieve Miku’s words. By collecting these words, you can make her voice shine!
+
+Customize your cursor color and game properties to fit the your preferred experience. Change between day and night-mode, change how fast each note appears on your screen, or change between English and Japanese! The choice is yours! The only thing we recommend is learning how mimi works through the tutorial.
+
+Feel free to play using your PC’s mouse or tablet’s touchscreen!
+
+We currently showcase "Answer Me" by imie, but we hope to chart more songs in the future!
+
+## Details
+
+**mimi** is a rhythm game web application built on primarily Typescript and compiled using Haskell via [Hakyll](https://jaspervdj.be/hakyll/). The `main` branch contains the source code to build the raw files, but the compiled docs will sit in the `docs` branch of this repository, which are built/served using GitHub Pages.
+
+If you would like to build the site from source, please follow the "How to Build" section shown below. Ideally, this should be done under a Linux environment for simplicity. Otherwise, the `docs` branch of this repository should contain a working version of the full website.
 
 ## How to Build
 
@@ -16,7 +28,7 @@ Follow the instructions at [docs.haskellstack.org](https://docs.haskellstack.org
 
 There is no need to install GHC; Stack will download and use its own sandboxed GHC if there is no existing installation.
 
-Quick check: `node -v` and `stack --version` should both succeed.
+Before proceeding, `node -v` and `stack --version` should both succeed.
 
 ### Build Instructions
 

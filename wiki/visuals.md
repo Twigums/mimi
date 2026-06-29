@@ -36,7 +36,7 @@ The objects in the page fits the screen perfectly. Users across all supported di
     - The "Back" button. This button is the same "Back" button as the one described in the "home tab" and will redirect to the "home tab".
 
 ## Small Screen Warning (Song Tab)
-When the viewport is taller than it is wide (aspect ratio of 1:1 or less) or at most 400 px wide on a song tab, a full-screen blurred overlay is shown with centered text asking the player to play in fullscreen or increase the window size. The overlay hides while the browser is in fullscreen. The language and theme toggles and the fullscreen and back buttons (bottom-right footer) remain above the overlay and fully usable. The settings button is visually dimmed and non-interactive while the overlay is active.
+When the viewport has an aspect ratio of 1.53:1 or less, or is at most 400 px wide on a song tab, a full-screen blurred overlay is shown with centered text asking the player to play in fullscreen or increase the window size. The overlay hides while the browser is in fullscreen. The language and theme toggles and the fullscreen and back buttons (bottom-right footer) remain above the overlay and fully usable. The settings button is visually dimmed and non-interactive while the overlay is active.
 
 ## Light / Dark Theme
 Every page supports a light (day) and a dark (night) theme, toggled by the sun/moon switch in the header. The choice persists across sessions and defaults to the OS color-scheme preference. Colors crossfade smoothly on switch: white surfaces turn a dull dusk blue-grey, the home sky becomes a night sky, and the game-area cloud frame turns royal purple with sparkles.

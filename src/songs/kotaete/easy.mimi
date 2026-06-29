@@ -1,6 +1,7 @@
 bpm: 130
 time_unit: ms
 difficulty: 1
+mapper: Twigums
 
 # kind, time_ms, degrees, x, y[, lyric_option...]
 # Beat-aligned flow test shapes: first downbeat 2309 ms, one pattern per measure.

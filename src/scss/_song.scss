@@ -148,12 +148,18 @@ html.theme-dark .song-page .bg-overlay::before {
   overflow: hidden;
   background: var(--game-dim);
 
+  // Set by storyboard.ts to (game-area width / 800) so glyphs scale with the
+  // play-field instead of the viewport. The base font-size also anchors em-based
+  // `scale=` style overrides to the play-field, keeping them screen-consistent.
+  --sb-scale: 1;
+  font-size: calc(var(--sb-scale) * 23px);
+
   .storyboard-line,
   .storyboard-segment {
     writing-mode: vertical-rl;
     text-orientation: mixed;
     font-family: inherit;
-    font-size: clamp(1.4rem, 2.6vw, 2.4rem);
+    font-size: calc(var(--sb-scale) * 23px);
     font-weight: bold;
     color: var(--song-text);
     line-height: 1.6;
@@ -178,7 +184,7 @@ html.theme-dark .song-page .bg-overlay::before {
       right: auto;
       left: 1.25rem;
       max-height: calc(100% - 5rem);
-      font-size: clamp(1.1rem, 2.2vw, 2rem);
+      font-size: calc(var(--sb-scale) * 19px);
       color: var(--song-text-dim);
       transform: translateX(-12px);
 
@@ -289,8 +295,13 @@ html.theme-dark .song-page .bg-overlay::before {
     height: 100%;
     width: 0%;
     background: rgba(255, 255, 255, 0.85);
-    transition: width 0.1s linear;
+    transition: width 0.1s linear, background-color 0.4s ease;
   }
+}
+
+// Dark mode: match the top progress bar to the purple game-area frame ("border").
+html.theme-dark .song-progress-bar .song-progress-fill {
+  background: var(--game-frame-fill);
 }
 
 .song-hud {
@@ -756,9 +767,22 @@ html.theme-dark .game-frame .frame-star {
   animation: combo-pop 0.8s var(--motion-ease-emphasized);
 }
 
+// Accuracy bounces like the combo on each update, but gentler (it updates every note);
+// right-anchored (its corner) so the longer number grows leftward instead of into the edge.
+.accuracy-pop {
+  transform-origin: right center;
+  animation: accuracy-pop 0.6s var(--motion-ease-emphasized);
+}
+
 @keyframes combo-pop {
   0%   { transform: scale(1); }
   25%  { transform: scale(1.35); }
+  100% { transform: scale(1); }
+}
+
+@keyframes accuracy-pop {
+  0%   { transform: scale(1); }
+  25%  { transform: scale(1.15); }
   100% { transform: scale(1); }
 }
 

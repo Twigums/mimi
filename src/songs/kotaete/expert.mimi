@@ -1,6 +1,7 @@
 bpm: 130
 time_unit: ms
 difficulty: 12
+mapper: Twigums
 
 # kind, time_ms, degrees, x, y[, lyric_option...]
 cut, 2388, -30.6, 396.9, 92.2

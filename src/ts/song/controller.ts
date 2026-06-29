@@ -242,13 +242,19 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPre
     hideResult();
   };
 
-  const scheduleFinishTimeout = (fromSongMs: number): void => {
+  // The finish timer is wall-clock, so it must only run while the song is actually
+  // advancing — otherwise a long pause/tab-out lets it elapse and pops results mid-song.
+  const clearFinishTimeout = (): void => {
     if (finishTimeout !== null) { clearTimeout(finishTimeout); finishTimeout = null; }
+  };
+
+  const scheduleFinishTimeout = (fromSongMs: number): void => {
+    clearFinishTimeout();
     if (songLengthMs > 0) finishTimeout = setTimeout(triggerFinish, Math.max(0, songLengthMs - fromSongMs));
   };
 
   const resetPlayback = (): void => {
-    if (finishTimeout !== null) { clearTimeout(finishTimeout); finishTimeout = null; }
+    clearFinishTimeout();
     finished = false;
     isPlaying = false;
     autoPaused = false;
@@ -273,6 +279,9 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPre
         // Directly pause the media element — more reliable than requestPause alone
         const media = document.querySelector<HTMLMediaElement>("#textalive-media audio, #textalive-media video");
         media?.pause();
+        // Kill the wall-clock finish timer immediately: while backgrounded `onPause` may be
+        // throttled, and a long tab-out would otherwise let it fire and pop results mid-song.
+        clearFinishTimeout();
         autoPaused = true;
         autoPauseSavedMs = player.timer.position;
       }
@@ -358,8 +367,8 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPre
         game.start();
         if (!awaitingRewind) scheduleFinishTimeout(player?.timer.position ?? 0);
       },
-      onPause() { isPlaying = false; game.setPlaying(false); },
-      onStop()  { isPlaying = false; finished = false; setBreakSkipTarget(null); game.setPlaying(false); },
+      onPause() { isPlaying = false; clearFinishTimeout(); game.setPlaying(false); },
+      onStop()  { isPlaying = false; finished = false; clearFinishTimeout(); setBreakSkipTarget(null); game.setPlaying(false); },
     });
   } else {
     setTimeout(dismissLoading, 15000);
@@ -447,7 +456,7 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPre
   };
 
   const findBreakSkipTarget = (songMs: number, gameSongMs: number): BreakSkipTarget | null => {
-    if (!playerReady || !player || !isPlaying || finished || !chartLoaded) return null;
+    if (!playerReady || !player || !isPlaying || awaitingRewind || finished || !chartLoaded) return null;
 
     if (noteTimes.length === 0) {
       return makeBreakSkipTarget(songMs, songLengthMs, songLengthMs - songMs, "finish");
@@ -478,12 +487,15 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPre
     try {
       const songMs = player?.timer.position ?? 0;
       if (songMs > 0) lastSongMs = songMs;
-      game.tick(songMs - musicOffsetMs);
-      if (songMs > 0) storyboard?.update(songMs, computeReactive(songMs));
-      setBreakSkipTarget(findBreakSkipTarget(songMs, songMs - musicOffsetMs));
+      const waitingForStartRewind = awaitingRewind && songMs > gapSkipLeadInMs;
+      const gameSongMs = waitingForStartRewind ? 0 : songMs - musicOffsetMs;
+      game.tick(gameSongMs, isPlaying && !waitingForStartRewind);
+      if (!waitingForStartRewind && songMs > 0) storyboard?.update(songMs, computeReactive(songMs));
+      setBreakSkipTarget(waitingForStartRewind ? null : findBreakSkipTarget(songMs, songMs - musicOffsetMs));
 
       if (songLengthMs > 0) {
-        const pct = Math.max(0, Math.min(100, (songMs / songLengthMs) * 100));
+        const progressSongMs = waitingForStartRewind ? 0 : songMs;
+        const pct = Math.max(0, Math.min(100, (progressSongMs / songLengthMs) * 100));
         progressFill.style.width = `${pct}%`;
 
         if (awaitingRewind) {
@@ -524,6 +536,7 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPre
       } else {
         awaitingRewind = true;
         game.reset();
+        player.requestMediaSeek(0);
       }
       player.requestPlay();
     },

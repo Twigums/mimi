@@ -44,15 +44,25 @@ function charDist(c: TextAliveChar, timeMs: number): number {
 
 const last = <T>(xs: T[]): T | undefined => xs.length > 0 ? xs[xs.length - 1] : undefined;
 
-/** Find a phrase-local char run matching authored `char=` text; pick nearest onset to anchor time. */
+/** Find a char run matching authored `char=` text, preferring runs whose phrase temporally
+ * contains the anchor time. When the anchor falls inside a phrase, only a run from such a
+ * phrase is returned — a lone literal glyph in another phrase must not hijack the note (e.g.
+ * char=ま meaning the ま-reading of 紛: there is no literal ま in the local phrase, only a far
+ * one in an earlier line; returning null lets the caller fall back to containment, binding 紛).
+ * Only when the anchor lies outside every phrase does the global nearest-onset run win, so
+ * gap-placed authored notes still resolve. */
 function findAuthoredCharRun(
   phrases: TextAlivePhrase[],
   text: string,
   anchorTime: number,
   excluded: Set<TextAliveChar>,
 ): TextAliveChar[] | null {
-  let best: { run: TextAliveChar[]; dist: number } | null = null;
+  let bestLocal: { run: TextAliveChar[]; dist: number } | null = null;
+  let bestAny: { run: TextAliveChar[]; dist: number } | null = null;
+  let anchorInPhrase = false;
   for (const phrase of phrases) {
+    const local = anchorTime >= phrase.startTime && anchorTime <= phrase.endTime;
+    if (local) anchorInPhrase = true;
     const pc = walkPhraseChars(phrase).filter(c => !excluded.has(c));
     for (let i = 0; i < pc.length; i++) {
       let built = "";
@@ -63,14 +73,15 @@ function findAuthoredCharRun(
         if (built.length > text.length) break;
         if (built === text) {
           const dist = Math.abs(pc[i].startTime - anchorTime);
-          if (!best || dist < best.dist) best = { run: [...run], dist };
+          if (!bestAny || dist < bestAny.dist) bestAny = { run: [...run], dist };
+          if (local && (!bestLocal || dist < bestLocal.dist)) bestLocal = { run: [...run], dist };
           break;
         }
         if (!text.startsWith(built)) break;
       }
     }
   }
-  return best?.run ?? null;
+  return anchorInPhrase ? (bestLocal?.run ?? null) : (bestAny?.run ?? null);
 }
 
 // Assign TextAlive characters to lyric notes.

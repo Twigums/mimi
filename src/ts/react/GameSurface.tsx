@@ -12,6 +12,14 @@ import { GameFrame, useElementSize } from "./GameFrame";
 
 let _toastId = 0;
 
+// Re-trigger a one-shot CSS pop animation by removing the class, forcing reflow, re-adding.
+const retriggerPop = (el: HTMLElement | null, cls: string): void => {
+  if (!el) return;
+  el.classList.remove(cls);
+  void el.offsetWidth;
+  el.classList.add(cls);
+};
+
 interface FeedbackToast {
   id: number;
   result: HitResult;
@@ -50,6 +58,7 @@ export function GameSurface({ onReady, returnHref, onTryAgain }: Props) {
   const gameAreaRef = useRef<HTMLDivElement>(null);
   const gameRef = useRef<GameHandle | null>(null);
   const comboRef = useRef<HTMLSpanElement>(null);
+  const accuracyRef = useRef<HTMLSpanElement>(null);
   const startButtonRef = useRef<HTMLButtonElement>(null);
   const fadeTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const startRef = useRef<(() => void) | null>(null);
@@ -68,12 +77,18 @@ export function GameSurface({ onReady, returnHref, onTryAgain }: Props) {
   const [result, setResult] = useState<GameStats | null>(null);
   const [songInfo, setSongInfo] = useState<SongInfo>(() => {
     const b = document.body.dataset;
+    const diff = new URL(window.location.href).searchParams.get("d") ?? "expert";
+    let mapper = "";
+    try {
+      const mappers = JSON.parse(b.songMappers ?? "{}") as Record<string, string>;
+      mapper = mappers[diff] ?? "";
+    } catch { mapper = ""; }
     return {
       name: b.songName ?? "",
       nameJp: b.songNameJp ?? "",
       author: b.songAuthor ?? "",
       authorJp: b.songAuthorJp ?? "",
-      mapper: b.songMapper ?? "",
+      mapper,
     };
   });
 
@@ -147,12 +162,12 @@ export function GameSurface({ onReady, returnHref, onTryAgain }: Props) {
   }, [ar]);
 
   useEffect(() => {
-    if (comboRef.current) {
-      comboRef.current.classList.remove("combo-pop");
-      void comboRef.current.offsetWidth;
-      comboRef.current.classList.add("combo-pop");
-    }
+    retriggerPop(comboRef.current, "combo-pop");
   }, [combo]);
+
+  useEffect(() => {
+    retriggerPop(accuracyRef.current, "accuracy-pop");
+  }, [accuracy]);
 
   const displayName = lang === "jp" && songInfo.nameJp ? songInfo.nameJp : songInfo.name;
   const displayAuthor = lang === "jp" && songInfo.authorJp ? songInfo.authorJp : songInfo.author;
@@ -249,7 +264,7 @@ export function GameSurface({ onReady, returnHref, onTryAgain }: Props) {
         </div>
 
         <div className="accuracy-display">
-          <span className="accuracy-value">{(accuracy * 100).toFixed(2)}%</span>
+          <span className="accuracy-value" ref={accuracyRef}>{(accuracy * 100).toFixed(2)}%</span>
           <span className="accuracy-label">{lang === "jp" ? "精度" : "Accuracy"}</span>
         </div>
 

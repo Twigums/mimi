@@ -395,7 +395,7 @@ html.theme-dark .bg-sky .cloud-layer {
     }
   }
 
-  &:not(.btn-main--play):not(.btn-main--tutorial):not(.btn-main--info):hover::after {
+  &:not(.btn-main--play):not(.btn-main--tutorial):not(.btn-main--info):not(.btn-main--song):hover::after {
     background: var(--miku-teal);
   }
 
@@ -514,6 +514,9 @@ html.theme-dark .bg-sky .cloud-layer {
     background: inherit;
     border-radius: 50%;
     z-index: -1;
+    // Match the button's own background transition (0.2s) so the puffs theme-shift in
+    // sync with it, instead of falling back to the universal 0.4s theme transition.
+    transition: background 0.2s;
   }
 
   &::before {
@@ -579,6 +582,46 @@ html.theme-dark .bg-sky .cloud-layer {
   font-weight: normal;
   color: var(--ink-soft);
   letter-spacing: 0.08em;
+}
+
+// Song buttons mirror the home Play button: ::after becomes a small cloud circle (a second
+// puff beside ::before) and the `.song-btn-note` glyph — hidden until hover, exactly like
+// `.btn-play-icon` — pops up inside it. The circle stays cloud-coloured (excluded from the
+// plain-button teal-::after rule above); only the note tints teal on hover.
+.song-list-entry .btn-main::after {
+  width: 1.6rem;
+  height: 1.6rem;
+  top: -0.55rem;
+  border-radius: 50%;
+  background: inherit;
+  mask: none;
+  -webkit-mask: none;
+}
+
+.song-btn-note {
+  position: absolute;
+  width: 1.6rem;
+  height: 1.6rem;
+  top: -0.55rem;
+  left: 36%;
+  pointer-events: none;
+  background: currentColor;
+  color: transparent; // invisible until hover, like the play icon
+  mask: url("../images/music_notes/eighth_note.svg") center / 45% no-repeat;
+  -webkit-mask: url("../images/music_notes/eighth_note.svg") center / 45% no-repeat;
+  transition: transform 0.3s var(--motion-ease-bouncy), color 0.2s;
+}
+
+// Mirror the note to the right for alternating (even) entries, matching ::before/::after.
+.song-list-entry:nth-child(even) .song-btn-note {
+  left: auto;
+  right: 36%;
+}
+
+// On hover the note appears (teal) and pops up with the circle, staying seated inside it.
+.song-list-entry .btn-main:hover .song-btn-note {
+  color: var(--miku-teal);
+  transform: translateY(-0.55rem) rotate(12deg);
 }
 
 .song-bpm {

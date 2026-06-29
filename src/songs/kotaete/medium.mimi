@@ -1,5 +1,6 @@
 time_unit: ms
 beats_per_measure: 4
+mapper: Twigums
 
 # kind, time_ms, degrees, x, y[, lyric_option...]
 flow, 2388, auto, 201.6, 278.1
