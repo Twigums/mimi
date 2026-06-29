@@ -136,9 +136,6 @@ export function HomeLayoutSwitcher({ infoContent, infoContentJp, tutorialContent
 
   const [tutorialHintHovered, setTutorialHintHovered] = useState(false);
   const mikuVariant = useMemo(() => (Math.random() < 0.5 ? "miku_A" : "miku_S"), []);
-  // measure the bubble so its cloud-puff border (GameFrame) matches its real
-  // size; keyed on currentLayout so the observer re-attaches when the hint
-  // remounts on returning to the original screen (else the border goes missing)
   const bubbleRef = useRef<HTMLDivElement>(null);
   const bubbleSize = useElementSize(bubbleRef, currentLayout);
 
@@ -207,7 +204,6 @@ export function HomeLayoutSwitcher({ infoContent, infoContentJp, tutorialContent
   const activeInfoContent     = lang === "jp" && infoContentJp     ? infoContentJp     : infoContent;
   const activeTutorialContent = lang === "jp" && tutorialContentJp ? tutorialContentJp : tutorialContent;
 
-  // Top/bottom scroll fade for the tutorial text and the (equally scrollable) info text.
   useEffect(() => {
     const el = currentLayout === "tutorial" ? tutorialInfoRef.current
              : currentLayout === "info"     ? infoContentRef.current
@@ -301,7 +297,6 @@ export function HomeLayoutSwitcher({ infoContent, infoContentJp, tutorialContent
                   <span className="song-artist">{t(renderedSong.authorEn, renderedSong.authorJp)}</span>
                   <div className="song-static-meta">
                     {renderedSong.bpm !== null && <span>BPM {renderedSong.bpm}</span>}
-                    {activeDiff?.mapper && <span>{t("Mapped by", "譜面")}: {activeDiff.mapper}</span>}
                     {renderedSong.sourceUrl && (
                       <a className="song-source-link" href={renderedSong.sourceUrl} target="_blank" rel="noreferrer">
                         {t("Source", "ソース")}
@@ -341,7 +336,6 @@ export function HomeLayoutSwitcher({ infoContent, infoContentJp, tutorialContent
                         <span>{t("Lyrics", "歌詞")}: {activeDiff.lyricCount}</span>
                         <span>{t("Length", "長さ")}: {formatDuration(activeDiff.playableMs)}</span>
                         <span>{t("Density", "密度")}: {formatDensity(activeDiff.density)}</span>
-                        <span>{activeDiff.ar === null ? "AR --" : `AR ${activeDiff.ar}`}</span>
                       </div>
                     </div>
                   )}

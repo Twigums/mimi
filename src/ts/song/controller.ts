@@ -242,8 +242,6 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPre
     hideResult();
   };
 
-  // The finish timer is wall-clock, so it must only run while the song is actually
-  // advancing — otherwise a long pause/tab-out lets it elapse and pops results mid-song.
   const clearFinishTimeout = (): void => {
     if (finishTimeout !== null) { clearTimeout(finishTimeout); finishTimeout = null; }
   };
@@ -276,11 +274,8 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPre
     if (document.visibilityState === "hidden") {
       if (player && isPlaying) {
         player.requestPause();
-        // Directly pause the media element — more reliable than requestPause alone
         const media = document.querySelector<HTMLMediaElement>("#textalive-media audio, #textalive-media video");
         media?.pause();
-        // Kill the wall-clock finish timer immediately: while backgrounded `onPause` may be
-        // throttled, and a long tab-out would otherwise let it fire and pop results mid-song.
         clearFinishTimeout();
         autoPaused = true;
         autoPauseSavedMs = player.timer.position;
@@ -292,8 +287,6 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPre
       const currentMs = player?.timer.position ?? 0;
       console.log("[mimi] Tab returned, resuming from auto-pause. Saved: %d, current: %d, drift: %d",
         autoPauseSavedMs, currentMs, currentMs - autoPauseSavedMs);
-      // If the player continued in the background despite pause, position will
-      // have jumped. Reload to recover a clean state.
       if (autoPauseSavedMs > 0 && currentMs - autoPauseSavedMs > 2000) {
         console.warn("[mimi] Song drifted while tabbed out — reloading to recover.");
         window.location.reload();

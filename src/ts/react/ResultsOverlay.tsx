@@ -278,8 +278,6 @@ interface Props {
   returnHref: string;
   onTryAgain: () => void;
   songName: string;
-  // Language-stable English song name; with `difficulty` and the chart hash it
-  // keys this chart's localStorage personal best. Empty disables PB tracking.
   songId: string;
   artist: string;
   difficulty: string;
@@ -293,10 +291,7 @@ export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, songId
   const [focus, setFocus] = useState<Focus>(null);
   const [view, setView] = useState<"pie" | "detailed">("pie");
 
-  // Personal best (issue #72). Commit this run against localStorage exactly once on
-  // mount (guarded so it never double-writes), then surface the prior best and a
-  // "New Record!" flag. A run with no judged notes is ignored. The chart hash in
-  // stats invalidates a best left over from before a chart edit.
+  // Personal best
   const [pb, setPb] = useState<{ previous: PersonalBest | null; isRecord: boolean } | null>(null);
   const committed = useRef(false);
   useEffect(() => {
@@ -310,7 +305,7 @@ export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, songId
     }));
   }, [songId, difficulty, stats]);
 
-  // Enter retries, Escape returns — the buttons are right there, just wire keys.
+  // Enter retries, Escape returns
   useEffect(() => {
     const onKey = (e: KeyboardEvent): void => {
       if (e.key === "Enter") { e.preventDefault(); onTryAgain(); }
@@ -325,9 +320,6 @@ export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, songId
   const pct = (accuracy * 100).toFixed(2);
   const accView = useCountUp(accuracy * 100);
   const nextStep = GRADE_STEPS.find(s => s.min > accuracy);
-  // Achievement badge: an all-PERFECT run, else an unbroken full combo. A combo
-  // breaks on a GOOD (tier1) as well as a miss, so a true full combo means the
-  // longest streak spans every note — not merely that nothing was missed (#86).
   const badgeKey: "allPerfect" | "fullCombo" | null =
     stats.total === 0 ? null
       : stats.tier3 === stats.total ? "allPerfect"
@@ -340,15 +332,10 @@ export function ResultsOverlay({ stats, returnHref, onTryAgain, songName, songId
   const difficultyName = difficulty ? difficulty.toUpperCase() : "";
   const acceptedHits = stats.hits.filter(hit => hit.result !== "miss");
 
-  // The parenthetical delta on the accuracy "Best" line. A run that beats (or
-  // ties) the prior best reads as a gain "(+diff)"; one that falls short reads
-  // how far it still has to go — "(あとdiff)" in JP, "(diff to best)" in EN —
-  // never a bare minus, so a missed best frames the next attempt, not the loss.
+  // The parenthetical delta on the accuracy "Best" line
   const bestDelta = (beatsBest: boolean, diff: string): string =>
     beatsBest ? `(+${diff})` : `(${labels.toGo(diff)})`;
 
-  // Every non-Tier-3 hit carries an issue; flatten them so each dimension's
-  // counts are a simple predicate over the same list.
   const npHits: NonPerfectHit[] = [];
   for (const hit of stats.hits) {
     if (hit.result === "tier3" || !hit.issue) continue;
