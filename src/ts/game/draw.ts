@@ -1,6 +1,7 @@
 import type { Note } from "./engine";
 import type { TrailShape } from "../core/settings";
 import { withPath } from "../core/sitePath";
+import { clamp } from "../core/utils";
 import {
   layoutLyricGlyphs,
   LYRIC_AURA_EXTEND_PX,
@@ -180,6 +181,60 @@ function ensureArrowGlyph(): void {
 
 ensureArrowGlyph();
 
+// Approach-fill tuning shared by the cut arrow and the flow anchor so they can't drift:
+// the outline snaps in over the first OUTLINE_SNAP of the approach, then a center-out
+// radial fill grows from FILL_START to hit time.
+const OUTLINE_SNAP = 0.12;
+const FILL_START   = 0.62;
+
+interface GlyphGlow {
+  rgb: string;
+  alpha: number;
+  blur: number;
+}
+
+// Shared render for the directional notes: a center-out radial fill clipped to the glyph
+// outline (Hidden = outline only) plus the outline stroke, with an optional soft glow on
+// the stroke. `fillMaxR` is the radius that fully covers the glyph (half its bounding
+// diagonal). Cut passes no glow (crisp); flow passes its blue glow (personality split).
+function drawApproachGlyph(
+  ctx: CanvasRenderingContext2D,
+  path: Path2D,
+  cx: number,
+  cy: number,
+  fillMaxR: number,
+  base: string,
+  darkBase: string,
+  appearProgress: number,
+  scale: number,
+  hidden: boolean,
+  glow?: GlyphGlow,
+): void {
+  const outlineAlpha = Math.min(appearProgress / OUTLINE_SNAP, 1);
+  const fillProgress = Math.max(0, (appearProgress - FILL_START) / (1 - FILL_START));
+
+  if (!hidden) {
+    ctx.save();
+    ctx.clip(path);
+    ctx.beginPath();
+    ctx.arc(cx, cy, fillProgress * fillMaxR, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(${base}, 1.0)`;
+    ctx.fill();
+    ctx.restore();
+  }
+
+  ctx.save();
+  if (glow) {
+    ctx.shadowColor = `rgba(${glow.rgb}, ${glow.alpha})`;
+    ctx.shadowBlur  = glow.blur;
+  }
+  ctx.strokeStyle = `rgba(${darkBase}, ${0.9 * outlineAlpha})`;
+  ctx.lineWidth = 2.5 * scale;
+  ctx.lineJoin  = "round";
+  ctx.stroke(path);
+  ctx.restore();
+}
+
 // appearProgress: 0 = faint outline just appearing, 1 = fully filled at hit time
 export function drawArrow(
   ctx: CanvasRenderingContext2D,
@@ -206,11 +261,6 @@ export function drawArrow(
 
   const { base, darkBase } = style.colors;
 
-  const OUTLINE_SNAP = 0.12;
-  const FILL_START   = 0.62;
-  const outlineAlpha = Math.min(appearProgress / OUTLINE_SNAP, 1);
-  const fillProgress = Math.max(0, (appearProgress - FILL_START) / (1 - FILL_START));
-
   ensureArrowGlyph();
   if (!arrowGlyph) {
     if (!arrowGlyphWarningShown) {
@@ -229,23 +279,76 @@ export function drawArrow(
   const path = new Path2D();
   path.addPath(arrowGlyph.path, matrix);
 
-  if (!hidden) {
-    ctx.save();
-    ctx.clip(path);
-    const fillMaxR = (Math.hypot(arrowGlyph.viewBoxW, arrowGlyph.viewBoxH) / 2) * s;
-    ctx.beginPath();
-    ctx.arc(cx, cy, fillProgress * fillMaxR, 0, Math.PI * 2);
-    ctx.fillStyle = `rgba(${base}, 1.0)`;
-    ctx.fill();
-    ctx.restore();
-  }
+  const fillMaxR = (Math.hypot(arrowGlyph.viewBoxW, arrowGlyph.viewBoxH) / 2) * s;
+  drawApproachGlyph(ctx, path, cx, cy, fillMaxR, base, darkBase, appearProgress, scale, hidden);
+}
 
-  ctx.save();
-  ctx.strokeStyle = `rgba(${darkBase}, ${0.9 * outlineAlpha})`;
-  ctx.lineWidth = 2.5 * scale;
-  ctx.lineJoin  = "round";
-  ctx.stroke(path);
-  ctx.restore();
+// Flow anchor: a smaller version of the cut arrowhead with the boxy shaft replaced by a
+// tail tapering to a single back point, ~FLOW_SCALE the size, with a soft blue glow that
+// sets flow apart from the crisp cut. Procedural (built from arrow.svg proportions) and
+// rotated to note.direction; reuses the shared approach fill/outline.
+const FLOW_SCALE      = 0.85;
+const FLOW_GLOW_ALPHA = 0.5;
+const FLOW_GLOW_BLUR  = 0.28; // × NOTE_RADIUS × scale
+
+// Arrow aspect ratio (height / width) from arrow.svg's viewBox, so the normalized glyph
+// keeps the arrowhead proportions instead of squashing toward a square.
+const FLOW_ASPECT = 59.231922 / 80.620979;
+
+// Flow glyph outline in a normalized viewBox (0..1, +x = note.direction). The head base
+// line sits at x = FLOW_HEAD_BASE_X; the tail body meets it between the two junctions and
+// tapers to a single back point at (0, 0.5). FLOW_HEAD_SCALE shrinks just the arrowhead
+// (tip length + barb spread) about its base centre (FLOW_HEAD_BASE_X, 0.5) so the head
+// reads lighter than the cut block arrow while the tail stays put; 1 = arrow.svg's head.
+const FLOW_HEAD_BASE_X = 0.573;
+const FLOW_HEAD_SCALE  = 0.85;
+// Clockwise: top barb → tip → bottom barb → bottom junction → tail back point → top junction.
+const FLOW_GLYPH: ReadonlyArray<readonly [number, number]> = [
+  [FLOW_HEAD_BASE_X,                                      0.5 + (0.017 - 0.5) * FLOW_HEAD_SCALE],
+  [FLOW_HEAD_BASE_X + (0.988 - FLOW_HEAD_BASE_X) * FLOW_HEAD_SCALE, 0.5],
+  [FLOW_HEAD_BASE_X,                                      0.5 + (0.983 - 0.5) * FLOW_HEAD_SCALE],
+  [FLOW_HEAD_BASE_X, 0.736],
+  [0.000,            0.500],
+  [FLOW_HEAD_BASE_X, 0.264],
+];
+
+export function drawFlowAnchor(
+  ctx: CanvasRenderingContext2D,
+  note: Note,
+  appearProgress: number,
+  scale: number,
+  hidden = false,
+  pulse = 1,
+): void {
+  const cx = note.x * scale;
+  const cy = note.y * scale;
+  const r  = NOTE_RADIUS * scale * pulse;
+  const { base, darkBase } = FLOW_STYLE.colors;
+
+  const w = r * FLOW_SCALE;
+  const h = w * FLOW_ASPECT;
+
+  const local = new Path2D();
+  FLOW_GLYPH.forEach(([px, py], i) => {
+    if (i === 0) local.moveTo(px, py);
+    else local.lineTo(px, py);
+  });
+  local.closePath();
+
+  const matrix = new DOMMatrix()
+    .translateSelf(cx, cy)
+    .rotateSelf((note.direction * 180) / Math.PI)
+    .scaleSelf(w, h)
+    .translateSelf(-0.5, -0.5);
+  const path = new Path2D();
+  path.addPath(local, matrix);
+
+  const fillMaxR = Math.hypot(w, h) / 2;
+  drawApproachGlyph(ctx, path, cx, cy, fillMaxR, base, darkBase, appearProgress, scale, hidden, {
+    rgb: base,
+    alpha: FLOW_GLOW_ALPHA,
+    blur: FLOW_GLOW_BLUR * NOTE_RADIUS * scale,
+  });
 }
 
 const LYRIC_FUNNEL_GLOW = "57, 197, 187";
@@ -377,7 +480,6 @@ export function drawLyricNote(
   const solidR = r * LYRIC_SOLID_RING_RATIO;
   const boundR = r * lyricBoundRadiusRatio(appearProgress, elapsedSinceHitMs);
 
-  const OUTLINE_SNAP = 0.12;
   const outlineAlpha = Math.min(appearProgress / OUTLINE_SNAP, 1);
 
   const { fontPx } = layoutLyricGlyphs(note.lyricChar, scale, visualScale);
@@ -510,43 +612,249 @@ export function drawLyricDemoFunnel(
   ctx.restore();
 }
 
-export function drawFlowRibbon(
-  ctx: CanvasRenderingContext2D,
-  from: Note,
-  to: Note,
-  scale: number,
-  alpha: number,
-): void {
-  const { base } = NOTE_STYLE.flow.colors;
+// Flow ribbons are drawn as ONE combined network (all visible segments + stubs), so overlapping
+// bands/caps where segments meet — and where a band passes under a hollow anchor — never stack
+// alpha. RIBBON_STEPS sets the per-segment polyline resolution (drawing + arc-length table).
+const RIBBON_STEPS      = 24;
+const RIBBON_BAND_ALPHA = 0.22;
+const RIBBON_CORE_ALPHA = 0.18;
+const RIBBON_BAND_WIDTH = 10; // × scale
+const RIBBON_CORE_WIDTH = 2;  // × scale
+// The actively-revealing frontier glows: over the last RIBBON_TIP_FRAC of the revealed length a
+// brightness ramps from 0 (seamless join into the body) up to these alphas at the tip, then
+// settles to nothing over the last RIBBON_GLOW_SETTLE of the reveal as the tip docks at its
+// anchor — so fully-revealed segments don't pile a bright tip at every waypoint.
+const RIBBON_TIP_FRAC       = 0.15;
+const RIBBON_TIP_BAND_ALPHA = 0.5;
+const RIBBON_TIP_CORE_ALPHA = 0.55;
+const RIBBON_GLOW_SETTLE    = 0.15;
+// Soft ends (the retracting erase tail, a stub's far tip) are feathered by carving alpha away
+// with a destination-out gradient over this length (fraction of the segment, capped in px).
+const RIBBON_FEATHER_FRAC   = 0.22;
+const RIBBON_FEATHER_MAX_PX = 60; // × scale
+// Post-hit erase (fixed wall-clock, NOT AR-locked): once the source anchor is hit, its band
+// retracts toward the next anchor — starting RIBBON_ERASE_LAG_MS after the hit and clearing over
+// RIBBON_ERASE_MS (smoothstep, mirroring the reveal). Exported so engine.ts derives the fraction.
+export const RIBBON_ERASE_LAG_MS = 70;
+export const RIBBON_ERASE_MS     = 260;
 
-  const ax = from.x, ay = from.y, bx = to.x, by = to.y;
-  const chordX = bx - ax, chordY = by - ay;
-  const tax = from.flowTanX ?? chordX, tay = from.flowTanY ?? chordY;
-  const tbx = to.flowTanX   ?? chordX, tby = to.flowTanY   ?? chordY;
-  const STEPS = 14;
+// One reusable Hermite polyline (canvas space) + cumulative arc-length table. `at` resolves a
+// point at a target arc length; `subPath` builds the sub-path between two arc lengths (following
+// the in-between vertices) for partial reveals/erases.
+interface RibbonPolyline {
+  total: number;
+  at(target: number): [number, number];
+  subPath(fromLen: number, toLen: number): Path2D;
+}
 
-  ctx.save();
-  ctx.lineCap = "round";
-  ctx.lineJoin = "round";
-  ctx.beginPath();
-  for (let i = 0; i <= STEPS; i++) {
-    const s  = i / STEPS;
+function buildHermitePolyline(
+  ax: number, ay: number, tax: number, tay: number,
+  bx: number, by: number, tbx: number, tby: number,
+  steps: number, scale: number,
+): RibbonPolyline {
+  const xs: number[] = [], ys: number[] = [], cum: number[] = [];
+  let total = 0;
+  for (let i = 0; i <= steps; i++) {
+    const s  = i / steps;
     const s2 = s * s, s3 = s2 * s;
     const h00 = 2 * s3 - 3 * s2 + 1;
     const h10 = s3 - 2 * s2 + s;
     const h01 = -2 * s3 + 3 * s2;
     const h11 = s3 - s2;
-    const px = (h00 * ax + h10 * tax + h01 * bx + h11 * tbx) * scale;
-    const py = (h00 * ay + h10 * tay + h01 * by + h11 * tby) * scale;
-    if (i === 0) ctx.moveTo(px, py); else ctx.lineTo(px, py);
+    const x = (h00 * ax + h10 * tax + h01 * bx + h11 * tbx) * scale;
+    const y = (h00 * ay + h10 * tay + h01 * by + h11 * tby) * scale;
+    if (i > 0) total += Math.hypot(x - xs[i - 1], y - ys[i - 1]);
+    xs.push(x); ys.push(y); cum.push(total);
   }
-  ctx.strokeStyle = `rgba(${base}, ${0.22 * alpha})`;
-  ctx.lineWidth = 10 * scale;
-  ctx.stroke();
-  ctx.strokeStyle = `rgba(255, 255, 255, ${0.18 * alpha})`;
-  ctx.lineWidth = 2 * scale;
-  ctx.stroke();
+
+  const at = (target: number): [number, number] => {
+    if (target <= 0) return [xs[0], ys[0]];
+    if (target >= total) return [xs[xs.length - 1], ys[ys.length - 1]];
+    let i = 1;
+    while (i < cum.length && cum[i] < target) i++;
+    const seg = cum[i] - cum[i - 1];
+    const f = seg > 0 ? (target - cum[i - 1]) / seg : 0;
+    return [xs[i - 1] + (xs[i] - xs[i - 1]) * f, ys[i - 1] + (ys[i] - ys[i - 1]) * f];
+  };
+
+  const subPath = (fromLen: number, toLen: number): Path2D => {
+    const path = new Path2D();
+    const [sx, sy] = at(fromLen);
+    path.moveTo(sx, sy);
+    for (let i = 0; i < cum.length; i++) {
+      if (cum[i] <= fromLen) continue;
+      if (cum[i] >= toLen) break;
+      path.lineTo(xs[i], ys[i]);
+    }
+    const [ex, ey] = at(toLen);
+    path.lineTo(ex, ey);
+    return path;
+  };
+
+  return { total, at, subPath };
+}
+
+// Cubic-Hermite ribbon polyline between two linked anchors (tangents default to the chord).
+function segmentPolyline(from: Note, to: Note, scale: number): RibbonPolyline {
+  const chordX = to.x - from.x, chordY = to.y - from.y;
+  const tax = from.flowTanX ?? chordX, tay = from.flowTanY ?? chordY;
+  const tbx = to.flowTanX   ?? chordX, tby = to.flowTanY   ?? chordY;
+  return buildHermitePolyline(from.x, from.y, tax, tay, to.x, to.y, tbx, tby, RIBBON_STEPS, scale);
+}
+
+export interface RibbonSegment {
+  from: Note;
+  to: Note;
+  revealFront: number; // 0..1 arc-length fraction revealed from `from`
+  eraseBack: number;   // 0..1 arc-length fraction erased (retracted) from `from`
+}
+
+export interface RibbonStub {
+  anchor: Note;
+  hint: Note;
+}
+
+// Draws the whole flow-ribbon network in a single combined stroke per layer (band, then core),
+// so overlapping segments where phrases meet — and bands passing under hollow anchors — never
+// stack alpha (a single ctx.stroke of a multi-subpath Path2D paints its union once). Per-segment
+// touches that must differ are layered on after: retracting erase tails and stub far tips are
+// feathered by carving alpha out (destination-out gradient), and only each segment's actively-
+// revealing frontier glows (settled, fully-revealed segments stay clean — no tip pile-up).
+export function drawFlowRibbons(
+  ctx: CanvasRenderingContext2D,
+  scale: number,
+  segments: RibbonSegment[],
+  stubs: RibbonStub[],
+): void {
+  const { base } = NOTE_STYLE.flow.colors;
+  const featherSpan = (total: number): number =>
+    Math.min(RIBBON_FEATHER_FRAC * total, RIBBON_FEATHER_MAX_PX * scale);
+
+  const netPath = new Path2D();
+  let drewAny = false;
+  // edgeLen = fully-carved end; inwardLen = no-carve end (alpha gradient between the two).
+  const feathers: { poly: RibbonPolyline; edgeLen: number; inwardLen: number }[] = [];
+  // glow at the revealing frontier; `settle` fades it out as the tip docks at the anchor.
+  const glows: { poly: RibbonPolyline; endLen: number; settle: number }[] = [];
+
+  for (const seg of segments) {
+    const front = clamp(seg.revealFront, 0, 1);
+    const back  = clamp(seg.eraseBack, 0, 1);
+    if (front <= back) continue;
+    const poly = segmentPolyline(seg.from, seg.to, scale);
+    if (poly.total <= 0) continue;
+    const startLen = back * poly.total;
+    const endLen   = front * poly.total;
+    netPath.addPath(poly.subPath(startLen, endLen));
+    drewAny = true;
+    if (back > 0) {
+      feathers.push({ poly, edgeLen: startLen, inwardLen: Math.min(startLen + featherSpan(poly.total), endLen) });
+    }
+    if (front < 1) {
+      const s = clamp((1 - front) / RIBBON_GLOW_SETTLE, 0, 1);
+      glows.push({ poly, endLen, settle: s * s * (3 - 2 * s) });
+    }
+  }
+
+  for (const stub of stubs) {
+    const poly = stubPolyline(stub.anchor, stub.hint, scale);
+    if (!poly || poly.total <= 0) continue;
+    netPath.addPath(poly.subPath(0, poly.total));
+    drewAny = true;
+    // Fade the whole stub from the anchor (solid) to its far tip (transparent).
+    feathers.push({ poly, edgeLen: poly.total, inwardLen: 0 });
+  }
+
+  if (!drewAny) return;
+
+  ctx.save();
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+
+  // Combined band + core: one stroke each, so alpha never stacks across the network.
+  ctx.strokeStyle = `rgba(${base}, ${RIBBON_BAND_ALPHA})`;
+  ctx.lineWidth = RIBBON_BAND_WIDTH * scale;
+  ctx.stroke(netPath);
+  ctx.strokeStyle = `rgba(255, 255, 255, ${RIBBON_CORE_ALPHA})`;
+  ctx.lineWidth = RIBBON_CORE_WIDTH * scale;
+  ctx.stroke(netPath);
+
+  // Soft ends: carve alpha away near retracting tails / stub tips (settled joins are mid-band, so
+  // they're untouched). Done before the glow so the glow isn't carved.
+  if (feathers.length) {
+    ctx.globalCompositeOperation = "destination-out";
+    ctx.lineWidth = (RIBBON_BAND_WIDTH + 1) * scale;
+    for (const f of feathers) {
+      const a = Math.min(f.edgeLen, f.inwardLen);
+      const b = Math.max(f.edgeLen, f.inwardLen);
+      if (b - a < 0.5) continue;
+      const [ex, ey] = f.poly.at(f.edgeLen);
+      const [ix, iy] = f.poly.at(f.inwardLen);
+      const grad = ctx.createLinearGradient(ex, ey, ix, iy);
+      grad.addColorStop(0, "rgba(0, 0, 0, 1)");
+      grad.addColorStop(1, "rgba(0, 0, 0, 0)");
+      ctx.strokeStyle = grad;
+      ctx.stroke(f.poly.subPath(a, b));
+    }
+    ctx.globalCompositeOperation = "source-over";
+  }
+
+  // Glow only the actively-revealing frontier of each segment (settled segments don't pile a
+  // bright tip at every anchor). Source-over over the band gives the same brighter leading edge.
+  for (const g of glows) {
+    const tipStart = Math.max(0, g.endLen - g.endLen * RIBBON_TIP_FRAC);
+    if (g.endLen - tipStart < 0.5) continue;
+    const [tsx, tsy] = g.poly.at(tipStart);
+    const [tex, tey] = g.poly.at(g.endLen);
+    const tip = g.poly.subPath(tipStart, g.endLen);
+
+    ctx.shadowColor = `rgba(${base}, ${0.6 * g.settle})`;
+    ctx.shadowBlur  = 6 * scale;
+
+    const bandGrad = ctx.createLinearGradient(tsx, tsy, tex, tey);
+    bandGrad.addColorStop(0, `rgba(${base}, 0)`);
+    bandGrad.addColorStop(1, `rgba(${base}, ${RIBBON_TIP_BAND_ALPHA * g.settle})`);
+    ctx.strokeStyle = bandGrad;
+    ctx.lineWidth = RIBBON_BAND_WIDTH * scale;
+    ctx.stroke(tip);
+
+    const coreGrad = ctx.createLinearGradient(tsx, tsy, tex, tey);
+    coreGrad.addColorStop(0, "rgba(255, 255, 255, 0)");
+    coreGrad.addColorStop(1, `rgba(255, 255, 255, ${RIBBON_TIP_CORE_ALPHA * g.settle})`);
+    ctx.strokeStyle = coreGrad;
+    ctx.lineWidth = RIBBON_CORE_WIDTH * scale;
+    ctx.stroke(tip);
+    ctx.shadowBlur = 0;
+  }
+
   ctx.restore();
+}
+
+// Lead-in/out stub polyline: a short Hermite from a phrase-boundary `anchor` toward an adjacent
+// non-flow `hint` (STUB_FRAC of the chord). Heads out along the anchor's ribbon tangent (flipped
+// to point at the hint) and arrives along the chord; the network feathers its far tip to 0 so it
+// reads as the phrase flowing into/out of that neighbour.
+const STUB_FRAC  = 0.35;
+const STUB_STEPS = 10;
+function stubPolyline(anchor: Note, hint: Note, scale: number): RibbonPolyline | null {
+  const cx = hint.x - anchor.x, cy = hint.y - anchor.y;
+  const chordLen = Math.hypot(cx, cy);
+  if (chordLen <= 0) return null;
+  const ucx = cx / chordLen, ucy = cy / chordLen;
+
+  let tx = anchor.flowTanX ?? cx, ty = anchor.flowTanY ?? cy;
+  const tlen = Math.hypot(tx, ty);
+  if (tlen > 0) { tx /= tlen; ty /= tlen; } else { tx = ucx; ty = ucy; }
+  if (tx * ucx + ty * ucy < 0) { tx = -tx; ty = -ty; }
+
+  // Logical units (buildHermitePolyline applies scale); tangents sized to the stub length.
+  const stubLen = STUB_FRAC * chordLen;
+  const ex = anchor.x + ucx * stubLen, ey = anchor.y + ucy * stubLen;
+  return buildHermitePolyline(
+    anchor.x, anchor.y, tx * stubLen, ty * stubLen,
+    ex, ey, ucx * stubLen, ucy * stubLen,
+    STUB_STEPS, scale,
+  );
 }
 
 export function drawCursorOrb(

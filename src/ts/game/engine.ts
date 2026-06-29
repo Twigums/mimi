@@ -1,5 +1,5 @@
 import { clamp } from "../core/utils";
-import { drawArrow, drawLyricDemoFunnel, drawLyricNote, drawFireworks, drawFlowRibbon, notePulseScale } from "./draw";
+import { drawArrow, drawFlowAnchor, drawFlowRibbons, drawLyricDemoFunnel, drawLyricNote, drawFireworks, notePulseScale, RIBBON_ERASE_LAG_MS, RIBBON_ERASE_MS } from "./draw";
 import { arToMs, loadAr, loadHitsoundVolume, subscribeHitsoundVolume, volToFactor, loadHiddenMod, subscribeHiddenMod } from "../core/settings";
 import { createCursorRenderer, type CursorRenderer } from "./cursor";
 import { lyricDemoFunnelOrigin, lyricFillProgress, lyricVisualScale } from "./lyricLayout";
@@ -66,6 +66,9 @@ export interface Note {
   flowTanX?: number;
   flowTanY?: number;
   flowShape?: number[];
+  // Flow only: wall-clock ms when this anchor was hit, driving the ribbon's post-hit erase
+  // (the tail retracting toward the next anchor while the band fades out). Cleared on reset.
+  flowHitMs?: number;
 }
 
 interface RawNote extends Omit<Note, "kind" | "state"> {
@@ -301,6 +304,9 @@ export function createGame(deps: GameDeps): GameHandle {
   let pendingStart = 0;
   let animations: HitAnimation[] = [];
   let animStart = 0;
+  // Indices of flow anchors whose post-hit ribbon erase is still in flight (the tail retracting
+  // toward the next anchor as the band fades out); culled in draw() once fully consumed.
+  let flowErasing: number[] = [];
   let score = 0;
   let tier3Count = 0;
   let tier2Count = 0;
@@ -536,6 +542,11 @@ export function createGame(deps: GameDeps): GameHandle {
         x: note.x, y: note.y, kind: note.kind, startMs: songMs,
         seed: Math.floor(note.x * 7919 + note.y * 6271),
       });
+      // A hit flow anchor with a linked successor starts its ribbon erasing toward it.
+      if (note.kind === "flow" && note.flowNextIndex !== undefined) {
+        note.flowHitMs = songMs;
+        flowErasing.push(noteIndex);
+      }
     }
     hitDetails.push({
       result,
@@ -562,6 +573,15 @@ export function createGame(deps: GameDeps): GameHandle {
       resolveMiss(n, songMs - n.time, "timing");
       lyricHoldStates.delete(i);
     }
+  };
+
+  // Ribbon reveal fraction (0..1) for a linked segment: keyed to the inter-anchor gap (starting
+  // when `from` appears) so the leading edge reaches `to` just as `to` appears — one approach
+  // window before to's hit — eased with smoothstep so the band settles gently into each anchor.
+  const ribbonReveal = (from: Note, to: Note, songMs: number): number => {
+    const gap = to.time - from.time;
+    const lin = gap > 0 ? clamp((songMs - from.time + approachMs) / gap, 0, 1) : 1;
+    return lin * lin * (3 - 2 * lin);
   };
 
   const draw = (songMs: number): void => {
@@ -593,17 +613,54 @@ export function createGame(deps: GameDeps): GameHandle {
     }
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     const scale = getScale();
+    // Flow ribbons (reveal + post-hit erase) and boundary stubs are collected, then drawn as one
+    // combined network (drawFlowRibbons) so overlapping segments/caps where phrases meet — and
+    // bands passing under hollow anchors — don't stack alpha, and only the active reveal frontier
+    // glows (settled anchors stay clean).
+    const ribbonSegments: { from: Note; to: Note; revealFront: number; eraseBack: number }[] = [];
+    const ribbonStubs: { anchor: Note; hint: Note }[] = [];
+    // Pending: each linked flow segment reveals toward its (still pending) next anchor.
     for (let i = pendingStart; i < notes.length; i++) {
       const note = notes[i];
       if (note.state !== "pending" || note.kind !== "flow" || note.flowNextIndex === undefined) continue;
       const next = notes[note.flowNextIndex];
       if (!next || next.state !== "pending") continue;
-      const dt = next.time - songMs;
+      const dtFrom = note.time - songMs;
+      if (dtFrom > approachMs) break;
+      if (next.time - songMs < -TIER1_MS) continue;
+      ribbonSegments.push({ from: note, to: next, revealFront: ribbonReveal(note, next, songMs), eraseBack: 0 });
+    }
+    // Erasing: a hit anchor's segment keeps drawing while its tail retracts toward the next anchor
+    // (smoothstep, fixed wall-clock; see RIBBON_* in draw.ts). Dropped once erase overtakes reveal.
+    const stillErasing: number[] = [];
+    for (const fromIdx of flowErasing) {
+      const from = notes[fromIdx];
+      const nextIdx = from?.flowNextIndex;
+      if (!from || nextIdx === undefined || from.flowHitMs === undefined) continue;
+      const next = notes[nextIdx];
+      if (!next) continue;
+      const el = songMs - from.flowHitMs;
+      const revealFront = ribbonReveal(from, next, songMs);
+      const eraseLin = clamp((el - RIBBON_ERASE_LAG_MS) / RIBBON_ERASE_MS, 0, 1);
+      const eraseBack = eraseLin * eraseLin * (3 - 2 * eraseLin);
+      if (eraseBack >= revealFront) continue;
+      ribbonSegments.push({ from, to: next, revealFront, eraseBack });
+      stillErasing.push(fromIdx);
+    }
+    flowErasing = stillErasing;
+    // Boundary stubs: a phrase-edge anchor flowing into/out of an adjacent non-flow note (a
+    // flowHint*Index — no flow link and no `break` that side) hints continuity with a short stub.
+    // A hard `break` clears the hint, so nothing is drawn.
+    for (let i = pendingStart; i < notes.length; i++) {
+      const note = notes[i];
+      if (note.state !== "pending" || note.kind !== "flow") continue;
+      const dt = note.time - songMs;
       if (dt > approachMs) break;
       if (dt < -TIER1_MS) continue;
-      const appearProgress = clamp(1 - dt / approachMs, 0, 1);
-      drawFlowRibbon(ctx, note, next, scale, appearProgress);
+      if (note.flowHintPrevIndex !== undefined) ribbonStubs.push({ anchor: note, hint: notes[note.flowHintPrevIndex] });
+      if (note.flowHintNextIndex !== undefined) ribbonStubs.push({ anchor: note, hint: notes[note.flowHintNextIndex] });
     }
+    drawFlowRibbons(ctx, scale, ribbonSegments, ribbonStubs);
     for (let i = pendingStart; i < notes.length; i++) {
       const note = notes[i];
       if (note.state !== "pending") continue;
@@ -638,7 +695,11 @@ export function createGame(deps: GameDeps): GameHandle {
       } else {
         if (dt < -TIER1_MS) continue;
         const appearProgress = clamp(1 - dt / approachMs, 0, 1);
-        drawArrow(ctx, note, appearProgress, scale, hiddenMod, notePulseScale(dt));
+        if (note.kind === "flow") {
+          drawFlowAnchor(ctx, note, appearProgress, scale, hiddenMod, notePulseScale(dt));
+        } else {
+          drawArrow(ctx, note, appearProgress, scale, hiddenMod, notePulseScale(dt));
+        }
       }
     }
     for (let i = animStart; i < animations.length; i++) {
@@ -666,6 +727,7 @@ export function createGame(deps: GameDeps): GameHandle {
       }
       notes = normalizeChartNotes(playable);
       pendingStart = 0;
+      flowErasing = [];
       debugDrawOnce = true;
       linkFlowPhrases();
       computeLyricHolds(notes, endTimes);
@@ -675,9 +737,10 @@ export function createGame(deps: GameDeps): GameHandle {
     reset(): void {
       skipExpiry = true;
       pendingStart = 0;
-      for (const n of notes) { n.state = "pending"; n.hitResult = undefined; }
+      for (const n of notes) { n.state = "pending"; n.hitResult = undefined; n.flowHitMs = undefined; }
       animations = [];
       animStart = 0;
+      flowErasing = [];
       score = 0;
       tier3Count = 0;
       tier2Count = 0;
