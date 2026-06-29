@@ -1,5 +1,5 @@
 import { clamp } from "../core/utils";
-import { drawArrow, drawFlowAnchor, drawLyricDemoFunnel, drawLyricNote, drawFireworks, drawFlowRibbon, notePulseScale, RIBBON_ERASE_LAG_MS, RIBBON_ERASE_MS } from "./draw";
+import { drawArrow, drawFlowAnchor, drawFlowStub, drawLyricDemoFunnel, drawLyricNote, drawFireworks, drawFlowRibbon, notePulseScale, RIBBON_ERASE_LAG_MS, RIBBON_ERASE_MS } from "./draw";
 import { arToMs, loadAr, loadHitsoundVolume, subscribeHitsoundVolume, volToFactor, loadHiddenMod, subscribeHiddenMod } from "../core/settings";
 import { createCursorRenderer, type CursorRenderer } from "./cursor";
 import { lyricDemoFunnelOrigin, lyricFillProgress, lyricVisualScale } from "./lyricLayout";
@@ -643,6 +643,19 @@ export function createGame(deps: GameDeps): GameHandle {
       stillErasing.push(fromIdx);
     }
     flowErasing = stillErasing;
+    // Boundary stubs: a phrase-edge anchor flowing into/out of an adjacent non-flow note (a
+    // flowHint*Index — no flow link and no `break` that side) shows a short faded stub toward
+    // that neighbour, hinting continuity. A hard `break` clears the hint, so nothing is drawn.
+    for (let i = pendingStart; i < notes.length; i++) {
+      const note = notes[i];
+      if (note.state !== "pending" || note.kind !== "flow") continue;
+      const dt = note.time - songMs;
+      if (dt > approachMs) break;
+      if (dt < -TIER1_MS) continue;
+      const appear = clamp(1 - dt / approachMs, 0, 1);
+      if (note.flowHintPrevIndex !== undefined) drawFlowStub(ctx, note, notes[note.flowHintPrevIndex], scale, appear);
+      if (note.flowHintNextIndex !== undefined) drawFlowStub(ctx, note, notes[note.flowHintNextIndex], scale, appear);
+    }
     for (let i = pendingStart; i < notes.length; i++) {
       const note = notes[i];
       if (note.state !== "pending") continue;

@@ -748,6 +748,70 @@ export function drawFlowRibbon(
   ctx.restore();
 }
 
+// Lead-in/out stub: a short faded continuation of the ribbon from a phrase-boundary `anchor`
+// toward an adjacent non-flow `hint` note (STUB_FRAC of the chord), fading to 0 at the tip so it
+// reads as the phrase flowing into/out of that neighbour. `appear` gates it to the approach.
+const STUB_FRAC  = 0.35;
+const STUB_STEPS = 10;
+export function drawFlowStub(
+  ctx: CanvasRenderingContext2D,
+  anchor: Note,
+  hint: Note,
+  scale: number,
+  appear: number,
+): void {
+  const a = Math.max(0, Math.min(1, appear));
+  if (a <= 0) return;
+  const cx = hint.x - anchor.x, cy = hint.y - anchor.y;
+  const chordLen = Math.hypot(cx, cy);
+  if (chordLen <= 0) return;
+  const ucx = cx / chordLen, ucy = cy / chordLen;
+
+  // Heading at the anchor (the ribbon's tangent there), flipped to point toward the hint.
+  let tx = anchor.flowTanX ?? cx, ty = anchor.flowTanY ?? cy;
+  const tlen = Math.hypot(tx, ty);
+  if (tlen > 0) { tx /= tlen; ty /= tlen; } else { tx = ucx; ty = ucy; }
+  if (tx * ucx + ty * ucy < 0) { tx = -tx; ty = -ty; }
+
+  // Short Hermite from the anchor (heading along its tangent) to the tip at STUB_FRAC of the
+  // chord (heading along the chord); tangents scaled to the stub length so it can't overshoot.
+  const stubLen = STUB_FRAC * chordLen * scale;
+  const ax = anchor.x * scale, ay = anchor.y * scale;
+  const ex = ax + ucx * stubLen, ey = ay + ucy * stubLen;
+  const t0x = tx * stubLen,  t0y = ty * stubLen;
+  const t1x = ucx * stubLen, t1y = ucy * stubLen;
+
+  const path = new Path2D();
+  path.moveTo(ax, ay);
+  for (let i = 1; i <= STUB_STEPS; i++) {
+    const s = i / STUB_STEPS, s2 = s * s, s3 = s2 * s;
+    const h00 = 2 * s3 - 3 * s2 + 1, h10 = s3 - 2 * s2 + s, h01 = -2 * s3 + 3 * s2, h11 = s3 - s2;
+    path.lineTo(
+      h00 * ax + h10 * t0x + h01 * ex + h11 * t1x,
+      h00 * ay + h10 * t0y + h01 * ey + h11 * t1y,
+    );
+  }
+
+  // Same band/core as the ribbon, but the gradient fades to 0 at the tip (no leading glow).
+  const { base } = NOTE_STYLE.flow.colors;
+  ctx.save();
+  ctx.lineCap = "round";
+  ctx.lineJoin = "round";
+  const bandGrad = ctx.createLinearGradient(ax, ay, ex, ey);
+  bandGrad.addColorStop(0, `rgba(${base}, ${RIBBON_BAND_ALPHA * a})`);
+  bandGrad.addColorStop(1, `rgba(${base}, 0)`);
+  ctx.strokeStyle = bandGrad;
+  ctx.lineWidth = 10 * scale;
+  ctx.stroke(path);
+  const coreGrad = ctx.createLinearGradient(ax, ay, ex, ey);
+  coreGrad.addColorStop(0, `rgba(255, 255, 255, ${RIBBON_CORE_ALPHA * a})`);
+  coreGrad.addColorStop(1, "rgba(255, 255, 255, 0)");
+  ctx.strokeStyle = coreGrad;
+  ctx.lineWidth = 2 * scale;
+  ctx.stroke(path);
+  ctx.restore();
+}
+
 export function drawCursorOrb(
   ctx: CanvasRenderingContext2D,
   x: number,
