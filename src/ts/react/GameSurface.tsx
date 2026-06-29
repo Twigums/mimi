@@ -124,11 +124,15 @@ export function GameSurface({ onReady, returnHref, onTryAgain }: Props) {
     const gameArea = gameAreaRef.current;
     if (!canvas || !gameArea) return;
 
-    const hitSoundUrl = document.body.dataset.hitSoundUrl;
+    const { hitSoundCut, hitSoundFlow, hitSoundLyric } = document.body.dataset;
     const game = createGame({
       canvas,
       gameArea,
-      hitSoundUrl,
+      hitSoundUrls: {
+        cut: hitSoundCut,
+        flow: hitSoundFlow,
+        lyric: hitSoundLyric,
+      },
       onAccuracy: setAccuracy,
       onComboChange: setCombo,
       onPlayingChange: setPlaying,

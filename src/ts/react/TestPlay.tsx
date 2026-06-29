@@ -75,7 +75,11 @@ export const TestPlay = forwardRef<TestPlayHandle, Props>(
         logicalW,
         logicalH,
         lyricDemoFunnel: true,
-        hitSoundUrl: withPath("/audio/snare.mp3"),
+        hitSoundUrls: {
+          cut:  withPath("/audio/snare.mp3"),
+          flow: withPath("/audio/flow.wav"),
+          lyric: withPath("/audio/lyric-end.wav"),
+        },
         onAccuracy:      () => {},
         onComboChange:   () => {},
         onPlayingChange: () => {},

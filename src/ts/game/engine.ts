@@ -30,6 +30,13 @@ export { MAX_POINTS, TIER1_POINTS, TIER2_POINTS, TIER3_POINTS } from "./judgemen
 export const LOGICAL_W = 800;
 export const LOGICAL_H = 600;
 
+/** Per-kind multiplier on top of the user hitsound volume (flow.wav is loud). */
+export const HIT_SOUND_KIND_GAIN: Record<NoteKind, number> = {
+  cut: 1,
+  flow: 0.4,
+  lyric: 1,
+};
+
 export const LYRIC_CHAR_MAX_DIST_MS = 80;
 
 // How far the ribbon bows through each flow anchor, as a fraction of the shorter
@@ -141,7 +148,7 @@ interface GameDeps {
   onFeedback:      (result: HitResult, x: number, y: number) => void;
   onComboChange:   (combo: number) => void;
   onPlayingChange: (playing: boolean) => void;
-  hitSoundUrl?:    string;
+  hitSoundUrls?:   Partial<Record<NoteKind, string>>;
   logicalW?:       number;
   logicalH?:       number;
   /** Draw a canvas lyric funnel (TestPlay/tutorial; song pages use the storyboard). */
@@ -207,20 +214,22 @@ export function createGame(deps: GameDeps): GameHandle {
   let hiddenMod  = loadHiddenMod();
 
   let audioCtx: AudioContext | null = null;
-  let hitSoundBuffer: AudioBuffer | null = null;
+  const hitSoundBuffers: Partial<Record<NoteKind, AudioBuffer>> = {};
   let hitsoundGain: GainNode | null = null;
 
-  const playHitSound = (result: HitResult): void => {
-    if (!audioCtx || !hitSoundBuffer || !hitsoundGain) return;
+  const playHitSound = (result: HitResult, kind: NoteKind): void => {
+    const buffer = hitSoundBuffers[kind];
+    if (!audioCtx || !buffer || !hitsoundGain) return;
     const source = audioCtx.createBufferSource();
     const resultGain = audioCtx.createGain();
-    source.buffer = hitSoundBuffer;
+    source.buffer = buffer;
     source.playbackRate.value = result === "tier3" ? 1.2
       : result === "tier2" ? 1.0
       : 0.85;
-    resultGain.gain.value = result === "tier3" ? 1.0
+    const tierGain = result === "tier3" ? 1.0
       : result === "tier2" ? 0.82
       : 0.6;
+    resultGain.gain.value = tierGain * HIT_SOUND_KIND_GAIN[kind];
     source.connect(resultGain);
     if (result === "tier3") {
       const bright = audioCtx.createBiquadFilter();
@@ -237,8 +246,8 @@ export function createGame(deps: GameDeps): GameHandle {
 
   let audioLoadCleanup: (() => void) | null = null;
 
-  if (deps.hitSoundUrl) {
-    const url = deps.hitSoundUrl;
+  const hitSoundUrls = deps.hitSoundUrls;
+  if (hitSoundUrls && Object.keys(hitSoundUrls).length > 0) {
     let loading = false;
     const loadSound = (): void => {
       if (loading) return;
@@ -247,11 +256,14 @@ export function createGame(deps: GameDeps): GameHandle {
       hitsoundGain = audioCtx.createGain();
       hitsoundGain.gain.value = volToFactor(loadHitsoundVolume());
       hitsoundGain.connect(audioCtx.destination);
-      fetch(url)
-        .then(r => r.arrayBuffer())
-        .then(buf => audioCtx!.decodeAudioData(buf))
-        .then(decoded => { hitSoundBuffer = decoded; })
-        .catch(err => console.error("[mimi] hitsound load failed:", err));
+      for (const [kind, url] of Object.entries(hitSoundUrls) as [NoteKind, string][]) {
+        if (!url) continue;
+        fetch(url)
+          .then(r => r.arrayBuffer())
+          .then(buf => audioCtx!.decodeAudioData(buf))
+          .then(decoded => { hitSoundBuffers[kind] = decoded; })
+          .catch(err => console.error(`[mimi] hitsound load failed (${kind}):`, err));
+      }
     };
     window.addEventListener("pointerdown", loadSound, { once: true });
     window.addEventListener("keydown",     loadSound, { once: true });
@@ -558,7 +570,7 @@ export function createGame(deps: GameDeps): GameHandle {
       issue,
     });
     onFeedback(result, note.x, note.y);
-    playHitSound(result);
+    playHitSound(result, note.kind);
   };
 
   const expireMisses = (songMs: number): void => {
