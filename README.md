@@ -8,6 +8,13 @@ Feel free to play using your PC’s mouse or tablet’s touchscreen!
 
 We currently showcase "Answer Me" by imie, but we hope to chart more songs in the future!
 
+### Supported Devices
+We primarily support horizontal PC screens. Mouse and touchscreen are supported.
+
+Depending on tablet environments, this game may also work. For example, iPad Pro 4th gen 13in on Firefox would work with tabs enabled. However, the same iPad on Safari will not work. This is due to the screen ratio. We added a warning breakpoint at 1.3:1 width to height ratio. Therefore, if you are able to, try to make your window flatter by having tabs or using "[Lok Board](https://apps.apple.com/us/app/lok-board/id1621242252)" (for iOS) or a similar application.
+
+We hope to support more devices after the judging process!
+
 ## Details
 
 **mimi** is a rhythm game web application built on primarily Typescript and compiled using Haskell via [Hakyll](https://jaspervdj.be/hakyll/). The `main` branch contains the source code to build the raw files, but the compiled docs will sit in the `docs` branch of this repository, which are built/served using GitHub Pages.
