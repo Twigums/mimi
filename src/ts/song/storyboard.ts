@@ -180,6 +180,18 @@ export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElem
   let approachMs = 2000;
   let hidden = loadHiddenMod();
   subscribeHiddenMod(v => { hidden = v; });
+
+  // Glyph size tracks the play-field width (logical 800), not the viewport, so
+  // lyric text stays a fixed fraction of the game area on every screen/resolution.
+  // `--sb-scale` feeds the `calc()` font-size in `_song.scss`.
+  const applyGlyphScale = (): void => {
+    const w = root.getBoundingClientRect().width;
+    if (w > 0) root.style.setProperty("--sb-scale", String(w / LOGICAL_W));
+  };
+  applyGlyphScale();
+  if (typeof ResizeObserver !== "undefined") {
+    new ResizeObserver(applyGlyphScale).observe(root);
+  }
   const reducedMotion = typeof window !== "undefined"
     && !!window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 
@@ -329,7 +341,10 @@ export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElem
       outer.dataset.displayStart = String(displayStart);
       const until = styleUntilMs(style);
       if (until !== null) outer.dataset.displayEnd = String(until);
-      if (style?.sticky) outer.dataset.sticky = "true";
+      // `until` holds the segment on screen until that time even past its phrase's end,
+      // so it must outlive phrase clearing like an explicit `sticky` (otherwise the phrase
+      // is torn down at phrase.endTime and the segment vanishes before `until`).
+      if (style?.sticky || until !== null) outer.dataset.sticky = "true";
       if (phrase.overlay) outer.classList.add("storyboard-line--overlay");
       if (pos) {
         outer.style.left = `${(pos.x / LOGICAL_W) * 100}%`;

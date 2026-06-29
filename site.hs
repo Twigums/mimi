@@ -138,6 +138,7 @@ Nothing <|> y = y
 data ChartStats = ChartStats
     { csLevel       :: Int
     , csAr          :: Maybe Double
+    , csMapper      :: String
     , csNoteCount   :: Int
     , csCutCount    :: Int
     , csFlowCount   :: Int
@@ -162,6 +163,7 @@ parseChartStats content =
     in ChartStats
         { csLevel       = parseMimiDifficulty content
         , csAr          = parseMimiAr content
+        , csMapper      = fromMaybe "" (lookupMimiHeader "mapper" content)
         , csNoteCount   = length noteRows
         , csCutCount    = countKind "cut"
         , csFlowCount   = countKind "flow"
@@ -221,6 +223,7 @@ renderDifficulty diffId stats =
     ++ "\"id\":\"" ++ diffId ++ "\","
     ++ "\"level\":" ++ show (csLevel stats) ++ ","
     ++ "\"ar\":" ++ jsonMaybeNumber (csAr stats) ++ ","
+    ++ "\"mapper\":\"" ++ escapeForJson (csMapper stats) ++ "\","
     ++ "\"noteCount\":" ++ show (csNoteCount stats) ++ ","
     ++ "\"cutCount\":" ++ show (csCutCount stats) ++ ","
     ++ "\"flowCount\":" ++ show (csFlowCount stats) ++ ","
@@ -249,7 +252,6 @@ buildManifest sitePath = do
                     titleJp  = lookupFM "song-name-jp" fm
                     authorEn = lookupFM "song-author" fm
                     authorJp = lookupFM "song-author-jp" fm
-                    mapper   = lookupFM "song-mapper" fm
                     sourceUrl = lookupFM "song-url" fm
 
                 avail <- filterM (\d -> doesFileExist $ songsDir </> songId </> d ++ ".mimi") difficultyIds
@@ -269,7 +271,6 @@ buildManifest sitePath = do
                         ++ "\"titleJp\":\"" ++ escapeForJson titleJp ++ "\","
                         ++ "\"authorEn\":\"" ++ escapeForJson authorEn ++ "\","
                         ++ "\"authorJp\":\"" ++ escapeForJson authorJp ++ "\","
-                        ++ "\"mapper\":\"" ++ escapeForJson mapper ++ "\","
                         ++ "\"sourceUrl\":\"" ++ escapeForJson sourceUrl ++ "\","
                         ++ "\"href\":\"" ++ href ++ "\","
                         ++ "\"bpm\":" ++ bpmJson ++ ","
@@ -385,7 +386,7 @@ rules sitePath origin = do
         compile $ do
             ident  <- getUnderlying
             let songId = takeBaseName (toFilePath ident)
-            (bpm, levels) <- unsafeCompiler $ do
+            (bpm, levels, mappers) <- unsafeCompiler $ do
                 let songDir = "src/songs" </> songId
                 avail    <- filterM (\d -> doesFileExist $ songDir </> d ++ ".mimi") difficultyIds
                 contents <- forM avail $ \d -> (,) d <$> readFile (songDir </> d ++ ".mimi")
@@ -396,12 +397,17 @@ rules sitePath origin = do
                                    [ "\"" ++ d ++ "\":" ++ show (parseMimiDifficulty c)
                                    | (d, c) <- contents ]
                                  ++ "}"
-                return (bpmStr, levelsJson)
+                    mappersJson = "{" ++ intercalate ","
+                                   [ "\"" ++ d ++ "\":\"" ++ escapeForJson (fromMaybe "" (lookupMimiHeader "mapper" c)) ++ "\""
+                                   | (d, c) <- contents ]
+                                 ++ "}"
+                return (bpmStr, levelsJson, mappersJson)
             let songCtx =
                   constField "textalive-token" textaliveToken <>
                   constField "song-chart-dir" (sitePath ++ "/songs/" ++ songId ++ "/") <>
                   constField "song-bpm" bpm <>
                   constField "song-levels" (escapeForAttr levels) <>
+                  constField "song-mappers" (escapeForAttr mappers) <>
                   baseCtx
             pandocCompiler
                 >>= loadAndApplyTemplate (makeIdentifier templateDir "song.html") songCtx

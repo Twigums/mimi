@@ -124,7 +124,7 @@ export interface GameHandle {
   reset(): void;
   start(): void;
   setPlaying(playing: boolean): void;
-  tick(songMs: number): void;
+  tick(songMs: number, judge?: boolean): void;
   getStats(): GameStats;
   setApproachMs(ms: number): void;
   spawnNote(spec: SpawnSpec): number;
@@ -760,23 +760,25 @@ export function createGame(deps: GameDeps): GameHandle {
       return index;
     },
 
-    tick(songMs: number): void {
-      recordPointerSample(songMs);
+    tick(songMs: number, judge = true): void {
       try {
-        updateLyricHoldTrackers(songMs);
-        for (let i = pendingStart; i < notes.length; i++) {
-          const n = notes[i];
-          if (n.time > songMs + TIER1_MS) break;
-          if (n.state === "pending") tryHit(n, songMs, i, notes[i - 1]?.time);
-        }
-        if (skipExpiry) {
-          if (songMs <= approachMs) skipExpiry = false;
-        } else {
-          expireMisses(songMs);
-        }
+        if (judge) {
+          recordPointerSample(songMs);
+          updateLyricHoldTrackers(songMs);
+          for (let i = pendingStart; i < notes.length; i++) {
+            const n = notes[i];
+            if (n.time > songMs + TIER1_MS) break;
+            if (n.state === "pending") tryHit(n, songMs, i, notes[i - 1]?.time);
+          }
+          if (skipExpiry) {
+            if (songMs <= approachMs) skipExpiry = false;
+          } else {
+            expireMisses(songMs);
+          }
 
-        // Advance past resolved notes
-        while (pendingStart < notes.length && notes[pendingStart].state !== "pending") pendingStart++;
+          // Advance past resolved notes
+          while (pendingStart < notes.length && notes[pendingStart].state !== "pending") pendingStart++;
+        }
       } catch (err) {
         if (!reportedUpdateError) {
           reportedUpdateError = true;

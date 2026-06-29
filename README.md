@@ -1,6 +1,18 @@
-# Mimi
+# mimi
 
-Mimi is a rhythm game web application built on primarily Typescript and compiled using Haskell via [Hakyll](https://jaspervdj.be/hakyll/). The `main` branch contains the source code to build the raw files, but the compiled docs will sit in the `docs` branch of this repository, which are built/served using GitHub Pages.
+Hatsune Miku has lost her lyrics, and she needs your help to collect missing words! Mimi is an easy-to-learn rhythm game with cut notes, flow notes, and lyric notes. The objective is to beautifully swipe through the cut and flow notes and hold onto the lyric notes. The lyric notes are how you can help retrieve Miku’s words. By collecting these words, you can make her voice shine!
+
+Customize your cursor color and game properties to fit the your preferred experience. Change between day and night-mode, change how fast each note appears on your screen, or change between English and Japanese! The choice is yours! The only thing we recommend is learning how mimi works through the tutorial.
+
+Feel free to play using your PC’s mouse or tablet’s touchscreen!
+
+We currently showcase "Answer Me" by imie, but we hope to chart more songs in the future!
+
+## Details
+
+**mimi** is a rhythm game web application built on primarily Typescript and compiled using Haskell via [Hakyll](https://jaspervdj.be/hakyll/). The `main` branch contains the source code to build the raw files, but the compiled docs will sit in the `docs` branch of this repository, which are built/served using GitHub Pages.
+
+If you would like to build the site from source, please follow the "How to Build" section shown below. Ideally, this should be done under a Linux environment for simplicity. Otherwise, the `docs` branch of this repository should contain a working version of the full website. You can download `docs` and host that separately.
 
 ## How to Build
 
@@ -16,11 +28,13 @@ Follow the instructions at [docs.haskellstack.org](https://docs.haskellstack.org
 
 There is no need to install GHC; Stack will download and use its own sandboxed GHC if there is no existing installation.
 
-Quick check: `node -v` and `stack --version` should both succeed.
+Before proceeding, `node -v` and `stack --version` should both succeed and return updated versions.
 
 ### Build Instructions
 
-1. Install dependencies + build haskell binary:
+Warning: building the Haskell binary will take a very long time.
+
+1. Install dependencies + build Haskell binary:
    ```bash
    npm run setup
    ```
@@ -32,16 +46,8 @@ Quick check: `node -v` and `stack --version` should both succeed.
    ```bash
    npm run watch (-- --host {IP_ADDRESS} --port {PORT})
    ```
-4. Deploy to GitHub Pages:
-   ```bash
-   git add -A
-   git commit -m "publish."
-   git push origin
-   ```
 
-The compiled site outputs to `./docs`. Configure GitHub Pages to serve from the `docs` folder on your main branch.
-
-Set `SITE_PATH=/sub-path` (or pass `--path /sub-path`) when hosting at a sub-path. The CI workflow sets this automatically from the repo name.
+The compiled site outputs to `./docs` by default. Running the third command will allow you to examine the site in `./docs`.
 
 ## Chart File Format
 
@@ -58,4 +64,8 @@ On WSL/Linux, `sh: 1: esbuild: Permission denied` or `sh: 1: sass: Permission de
 ```bash
 find node_modules/.bin -type l -exec sh -c 'chmod +x "$(readlink -f "$1")"' sh {} \;
 npm run rebuild
-``
+```
+
+## Credits
+
+Website Design: [Twigums](https://github.com/Twigums), [vekt0r](https://github.com/vekt0r-github)

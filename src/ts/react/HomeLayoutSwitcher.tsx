@@ -23,6 +23,7 @@ interface DifficultyInfo {
   labelJp: string;
   level: number;
   ar: number | null;
+  mapper: string;
   noteCount: number;
   cutCount: number;
   flowCount: number;
@@ -37,7 +38,6 @@ interface SongEntry {
   titleJp: string;
   authorEn: string;
   authorJp: string;
-  mapper: string;
   sourceUrl: string;
   href: string;
   bpm: number | null;
@@ -50,7 +50,6 @@ interface ManifestSong {
   titleJp: string;
   authorEn: string;
   authorJp: string;
-  mapper?: string;
   sourceUrl?: string;
   href: string;
   bpm: number | null;
@@ -58,6 +57,7 @@ interface ManifestSong {
     id: string;
     level: number;
     ar?: number | null;
+    mapper?: string;
     noteCount?: number;
     cutCount?: number;
     flowCount?: number;
@@ -85,7 +85,6 @@ function parseManifest(json: string): SongEntry[] {
       titleJp: s.titleJp,
       authorEn: s.authorEn,
       authorJp: s.authorJp,
-      mapper: s.mapper ?? "",
       sourceUrl: s.sourceUrl ?? "",
       href: s.href,
       bpm: s.bpm ?? null,
@@ -95,6 +94,7 @@ function parseManifest(json: string): SongEntry[] {
           id: d.id,
           level: d.level,
           ar: d.ar ?? null,
+          mapper: d.mapper ?? "",
           noteCount: d.noteCount ?? 0,
           cutCount: d.cutCount ?? d.flickCount ?? 0,
           flowCount: d.flowCount ?? d.streamCount ?? 0,
@@ -265,11 +265,12 @@ export function HomeLayoutSwitcher({ infoContent, infoContentJp, tutorialContent
                   {songs.map(song => (
                     <div key={song.id} className="song-list-entry">
                       <button
-                        className="btn-main"
+                        className="btn-main btn-main--song"
                         onClick={() => setSelectedSong(song)}
                       >
                         <span className="song-btn-title">{t(song.titleEn, song.titleJp)}</span>
                         <span className="song-btn-artist">{t(song.authorEn, song.authorJp)}</span>
+                        <span className="song-btn-note" aria-hidden="true" />
                       </button>
                       {song.bpm !== null && (
                         <span className="song-bpm">BPM: {song.bpm}</span>
@@ -297,7 +298,7 @@ export function HomeLayoutSwitcher({ infoContent, infoContentJp, tutorialContent
                   <span className="song-artist">{t(renderedSong.authorEn, renderedSong.authorJp)}</span>
                   <div className="song-static-meta">
                     {renderedSong.bpm !== null && <span>BPM {renderedSong.bpm}</span>}
-                    {renderedSong.mapper && <span>{t("Mapped by", "譜面")}: {renderedSong.mapper}</span>}
+                    {activeDiff?.mapper && <span>{t("Mapped by", "譜面")}: {activeDiff.mapper}</span>}
                     {renderedSong.sourceUrl && (
                       <a className="song-source-link" href={renderedSong.sourceUrl} target="_blank" rel="noreferrer">
                         {t("Source", "ソース")}
