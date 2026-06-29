@@ -132,6 +132,7 @@ export function HomeLayoutSwitcher({ infoContent, infoContentJp, tutorialContent
   const exitTimer       = useRef<ReturnType<typeof setTimeout> | null>(null);
   const tutorialRef     = useRef<TestPlayHandle>(null);
   const tutorialInfoRef = useRef<HTMLDivElement>(null);
+  const infoContentRef = useRef<HTMLDivElement>(null);
 
   const [tutorialHintHovered, setTutorialHintHovered] = useState(false);
   const mikuVariant = useMemo(() => (Math.random() < 0.5 ? "miku_A" : "miku_S"), []);
@@ -206,9 +207,11 @@ export function HomeLayoutSwitcher({ infoContent, infoContentJp, tutorialContent
   const activeInfoContent     = lang === "jp" && infoContentJp     ? infoContentJp     : infoContent;
   const activeTutorialContent = lang === "jp" && tutorialContentJp ? tutorialContentJp : tutorialContent;
 
+  // Top/bottom scroll fade for the tutorial text and the (equally scrollable) info text.
   useEffect(() => {
-    if (currentLayout !== "tutorial") return;
-    const el = tutorialInfoRef.current;
+    const el = currentLayout === "tutorial" ? tutorialInfoRef.current
+             : currentLayout === "info"     ? infoContentRef.current
+             : null;
     if (!el) return;
     const update = (): void => {
       const top    = el.scrollTop > 0;
@@ -227,7 +230,7 @@ export function HomeLayoutSwitcher({ infoContent, infoContentJp, tutorialContent
       el.removeEventListener("scroll", update);
       window.removeEventListener("resize", update);
     };
-  }, [currentLayout, activeTutorialContent]);
+  }, [currentLayout, activeTutorialContent, activeInfoContent]);
 
   const handlePlayClick = () => {
     setSelectedSong(null);
@@ -237,7 +240,7 @@ export function HomeLayoutSwitcher({ infoContent, infoContentJp, tutorialContent
 
   return (
     <>
-    <div className={`layout-container${currentLayout === "tutorial" ? " layout-container--tutorial" : ""}`}>
+    <div className={`layout-container${currentLayout === "tutorial" ? " layout-container--tutorial" : ""}${currentLayout === "info" ? " layout-container--info" : ""}`}>
       <OptionsPanel />
       <div className={`layout-pane${exiting ? " exiting" : ""}`} key={paneKey}>
         {currentLayout === "original" && (
@@ -353,6 +356,7 @@ export function HomeLayoutSwitcher({ infoContent, infoContentJp, tutorialContent
         {currentLayout === "info" && (
           <>
             <div
+              ref={infoContentRef}
               className="info-content"
               dangerouslySetInnerHTML={{ __html: activeInfoContent }}
             />
