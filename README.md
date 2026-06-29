@@ -69,3 +69,7 @@ npm run rebuild
 ## Credits
 
 Website Design: [Twigums](https://github.com/Twigums), [vekt0r](https://github.com/vekt0r-github)
+
+Art Design + Assets: [Twigums](https://github.com/Twigums), [acousticguichar](https://www.instagram.com/acousticguichar?igsh=eXc0NnZmYjRpMXp2)
+
+Mapping: [vekt0r-github](https://github.com/vekt0r-github), [IOException](https://osu.ppy.sh/users/2688103)
