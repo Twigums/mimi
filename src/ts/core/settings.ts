@@ -65,6 +65,7 @@ export const subscribeAr   = arSetting.subscribe;
 export const VOLUME_MIN     = 0;
 export const VOLUME_MAX     = 100;
 const VOLUME_DEFAULT = 100;
+const HITSOUND_VOLUME_DEFAULT = 50;
 export const VOLUME_STEP    = 1;
 
 function clampVolume(n: number): number {
@@ -78,7 +79,7 @@ export const loadVolume      = volSetting.load;
 export const saveVolume      = volSetting.save;
 export const subscribeVolume = volSetting.subscribe;
 
-const hitsoundSetting = createNumericSetting("hitsoundVolume", "hitsoundVolumeChange", clampVolume, VOLUME_DEFAULT);
+const hitsoundSetting = createNumericSetting("hitsoundVolume", "hitsoundVolumeChange", clampVolume, HITSOUND_VOLUME_DEFAULT);
 export const loadHitsoundVolume      = hitsoundSetting.load;
 export const saveHitsoundVolume      = hitsoundSetting.save;
 export const subscribeHitsoundVolume = hitsoundSetting.subscribe;
@@ -189,7 +190,7 @@ export const subscribeTrailDecay = (cb: (v: TrailDecay) => void): (() => void) =
 export function resetSettings(): void {
   saveAr(AR_DEFAULT);
   saveVolume(VOLUME_DEFAULT);
-  saveHitsoundVolume(VOLUME_DEFAULT);
+  saveHitsoundVolume(HITSOUND_VOLUME_DEFAULT);
   saveUiVolume(VOLUME_DEFAULT);
   saveHiddenMod(false);
   saveCursorSize(CURSOR_SIZE_DEFAULT);

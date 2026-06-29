@@ -21,7 +21,6 @@ export interface StoryStyle extends Record<string, string> {
   delay?: string;
   until?: string;
   sticky?: string;
-  /** Move anchor: lyric substring (exact kanji) that this `m` row positions. */
   text?: string;
 }
 
@@ -32,7 +31,6 @@ export interface StoryReactive  { type: "reactive";  modes: string[]; }
 export interface StoryLyric     { type: "lyric";     from: number; to: number; x: number; y: number; text: string; chars: number[]; style?: StoryStyle; }
 export type StoryEntry = StoryHighlight | StoryMove | StoryExclude | StoryReactive | StoryLyric;
 
-// Live song-map values applied by the reactive directives
 export interface ReactiveFrame {
   beatProgress: number;
   ampScale: number;
@@ -92,10 +90,8 @@ const collectPhrases = (video: TextAliveVideo): TextAlivePhrase[] => {
   return phrases;
 };
 
-/** Ms gap allowed between `text=` anchor onset and the authored move time. */
 const MOVE_TEXT_ALIGN_MS = 2000;
 
-/** Distance from move.time to the onset of `text=` inside a phrase (Infinity when no match). */
 const moveTextAnchorDist = (move: StoryMove, phrase: TextAlivePhrase): number => {
   const anchor = move.style?.text?.trim();
   if (!anchor) return Infinity;
@@ -116,7 +112,6 @@ const moveTextAnchorDist = (move: StoryMove, phrase: TextAlivePhrase): number =>
 const moveTextMatchesPhrase = (move: StoryMove, phrase: TextAlivePhrase): boolean =>
   moveTextAnchorDist(move, phrase) <= MOVE_TEXT_ALIGN_MS;
 
-/** Which phrase owns an `m` row — `text=` when phrases overlap; else `time` containment. */
 const moveOwnsPhrase = (move: StoryMove, phrase: TextAlivePhrase, phrases: TextAlivePhrase[]): boolean => {
   const anchor = move.style?.text?.trim();
   if (anchor) {
@@ -181,9 +176,6 @@ export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElem
   let hidden = loadHiddenMod();
   subscribeHiddenMod(v => { hidden = v; });
 
-  // Glyph size tracks the play-field width (logical 800), not the viewport, so
-  // lyric text stays a fixed fraction of the game area on every screen/resolution.
-  // `--sb-scale` feeds the `calc()` font-size in `_song.scss`.
   const applyGlyphScale = (): void => {
     const w = root.getBoundingClientRect().width;
     if (w > 0) root.style.setProperty("--sb-scale", String(w / LOGICAL_W));
@@ -341,9 +333,6 @@ export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElem
       outer.dataset.displayStart = String(displayStart);
       const until = styleUntilMs(style);
       if (until !== null) outer.dataset.displayEnd = String(until);
-      // `until` holds the segment on screen until that time even past its phrase's end,
-      // so it must outlive phrase clearing like an explicit `sticky` (otherwise the phrase
-      // is torn down at phrase.endTime and the segment vanishes before `until`).
       if (style?.sticky || until !== null) outer.dataset.sticky = "true";
       if (phrase.overlay) outer.classList.add("storyboard-line--overlay");
       if (pos) {
@@ -440,7 +429,7 @@ export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElem
     for (const els of mountedPhrases.values()) updateLineVisibility(els, songMs);
   };
 
-  // A word shines once every lyric note mapped into it has been hit.
+  // A word shines once every lyric note mapped into it has been hit
   const wordComplete = (word: TextAliveWord | null): boolean => {
     if (!word?.firstChar) return false;
     const ns = wordNotesByKey.get(charKey(word.firstChar));
@@ -464,8 +453,6 @@ export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElem
     return undefined;
   };
 
-  // Phrase lines slide in on appear; use their settled position when the segment
-  // is still pre-visible so early funnel flights launch from where the glyph will be.
   const glyphCenterPct = (glyph: HTMLElement, rect: DOMRect): { x: number; y: number } => {
     const gr = glyph.getBoundingClientRect();
     const container = glyph.closest<HTMLElement>(".storyboard-line, .storyboard-segment");
@@ -481,10 +468,7 @@ export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElem
     };
   };
 
-  // Spawn the funnel characters for a note: each flies from its source storyboard
-  // glyph to the note's logical position, staggered so multi-char notes land in order
-  // by the note time. The flying glyph carries the note's text (an override or the
-  // matched chars), originating at the source character it claimed.
+  // Spawn the funnel characters for a note
   const launchFlight = (note: Note, songMs: number): void => {
     const srcKeys = noteToMatchKeys.get(note) ?? [];
     const text = [...(note.lyricChar ?? "")];
@@ -616,7 +600,6 @@ export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElem
       // TextAlive phrase rendering
       if (video) {
         syncActivePhrases(songMs);
-        // Sticky segments outlive their parent phrase — keep checking visibility
         if (stickyEls.length > 0) {
           updateLineVisibility(stickyEls, songMs);
           stickyEls = stickyEls.filter(el => {

@@ -231,7 +231,6 @@ export function mergeChorusTimings(
   }
   linkPhraseNext(chorusPhraseNodes);
 
-  // ── Match video: lead + staff chorus chars (authored `char=` picks the line by text).
   const matchBaseChars = collectTextAliveChars(base).map(cloneChar);
   const chorusChars = chorusPhraseNodes.flatMap(p => walkPhraseChars(p)).map(cloneChar);
   const matchChars = [...matchBaseChars, ...chorusChars].sort(

@@ -12,7 +12,6 @@ import { GameFrame, useElementSize } from "./GameFrame";
 
 let _toastId = 0;
 
-// Re-trigger a one-shot CSS pop animation by removing the class, forcing reflow, re-adding.
 const retriggerPop = (el: HTMLElement | null, cls: string): void => {
   if (!el) return;
   el.classList.remove(cls);
