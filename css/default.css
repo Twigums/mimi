@@ -570,7 +570,7 @@ html.theme-dark .bg-sky .cloud-layer {
 .btn-main:hover::after {
   transform: translateY(-0.55rem) rotate(12deg);
 }
-.btn-main:not(.btn-main--play):not(.btn-main--tutorial):not(.btn-main--info):hover::after {
+.btn-main:not(.btn-main--play):not(.btn-main--tutorial):not(.btn-main--info):not(.btn-main--song):hover::after {
   background: var(--miku-teal);
 }
 .btn-main:active {
@@ -680,6 +680,7 @@ html.theme-dark .bg-sky .cloud-layer {
   background: inherit;
   border-radius: 50%;
   z-index: -1;
+  transition: background 0.2s;
 }
 .btn-back::before {
   width: 1.4rem;
@@ -739,6 +740,40 @@ html.theme-dark .bg-sky .cloud-layer {
   font-weight: normal;
   color: var(--ink-soft);
   letter-spacing: 0.08em;
+}
+
+.song-list-entry .btn-main::after {
+  width: 1.6rem;
+  height: 1.6rem;
+  top: -0.55rem;
+  border-radius: 50%;
+  background: inherit;
+  mask: none;
+  -webkit-mask: none;
+}
+
+.song-btn-note {
+  position: absolute;
+  width: 1.6rem;
+  height: 1.6rem;
+  top: -0.55rem;
+  left: 36%;
+  pointer-events: none;
+  background: currentColor;
+  color: transparent;
+  mask: url("../images/music_notes/eighth_note.svg") center/45% no-repeat;
+  -webkit-mask: url("../images/music_notes/eighth_note.svg") center/45% no-repeat;
+  transition: transform 0.3s var(--motion-ease-bouncy), color 0.2s;
+}
+
+.song-list-entry:nth-child(even) .song-btn-note {
+  left: auto;
+  right: 36%;
+}
+
+.song-list-entry .btn-main:hover .song-btn-note {
+  color: var(--miku-teal);
+  transform: translateY(-0.55rem) rotate(12deg);
 }
 
 .song-bpm {
@@ -1542,13 +1577,15 @@ html.theme-dark .song-page .bg-overlay::before {
   pointer-events: none;
   overflow: hidden;
   background: var(--game-dim);
+  --sb-scale: 1;
+  font-size: calc(var(--sb-scale) * 23px);
 }
 .song-storyboard .storyboard-line,
 .song-storyboard .storyboard-segment {
   writing-mode: vertical-rl;
   text-orientation: mixed;
   font-family: inherit;
-  font-size: clamp(1.4rem, 2.6vw, 2.4rem);
+  font-size: calc(var(--sb-scale) * 23px);
   font-weight: bold;
   color: var(--song-text);
   line-height: 1.6;
@@ -1571,7 +1608,7 @@ html.theme-dark .song-page .bg-overlay::before {
   right: auto;
   left: 1.25rem;
   max-height: calc(100% - 5rem);
-  font-size: clamp(1.1rem, 2.2vw, 2rem);
+  font-size: calc(var(--sb-scale) * 19px);
   color: var(--song-text-dim);
   transform: translateX(-12px);
 }
@@ -1683,7 +1720,11 @@ html.theme-dark .song-page .bg-overlay::before {
   height: 100%;
   width: 0%;
   background: rgba(255, 255, 255, 0.85);
-  transition: width 0.1s linear;
+  transition: width 0.1s linear, background-color 0.4s ease;
+}
+
+html.theme-dark .song-progress-bar .song-progress-fill {
+  background: var(--game-frame-fill);
 }
 
 .song-hud {
@@ -2116,12 +2157,28 @@ html.theme-dark .game-frame .frame-star {
   animation: combo-pop 0.8s var(--motion-ease-emphasized);
 }
 
+.accuracy-pop {
+  transform-origin: right center;
+  animation: accuracy-pop 0.6s var(--motion-ease-emphasized);
+}
+
 @keyframes combo-pop {
   0% {
     transform: scale(1);
   }
   25% {
     transform: scale(1.35);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+@keyframes accuracy-pop {
+  0% {
+    transform: scale(1);
+  }
+  25% {
+    transform: scale(1.15);
   }
   100% {
     transform: scale(1);
@@ -2272,7 +2329,7 @@ html.theme-dark .game-frame .frame-star {
   padding: 0 2rem;
 }
 
-@media (max-aspect-ratio: 11.5 / 7), (max-width: 400px), (max-height: 699px) {
+@media (max-aspect-ratio: 153 / 100), (max-width: 400px), (max-height: 699px) {
   .small-screen-warning {
     opacity: 1;
     pointer-events: all;
