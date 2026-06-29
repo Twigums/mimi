@@ -1,5 +1,5 @@
 import { clamp } from "../core/utils";
-import { drawArrow, drawFlowAnchor, drawFlowStub, drawLyricDemoFunnel, drawLyricNote, drawFireworks, drawFlowRibbon, notePulseScale, RIBBON_ERASE_LAG_MS, RIBBON_ERASE_MS } from "./draw";
+import { drawArrow, drawFlowAnchor, drawFlowRibbons, drawLyricDemoFunnel, drawLyricNote, drawFireworks, notePulseScale, RIBBON_ERASE_LAG_MS, RIBBON_ERASE_MS } from "./draw";
 import { arToMs, loadAr, loadHitsoundVolume, subscribeHitsoundVolume, volToFactor, loadHiddenMod, subscribeHiddenMod } from "../core/settings";
 import { createCursorRenderer, type CursorRenderer } from "./cursor";
 import { lyricDemoFunnelOrigin, lyricFillProgress, lyricVisualScale } from "./lyricLayout";
@@ -613,7 +613,13 @@ export function createGame(deps: GameDeps): GameHandle {
     }
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     const scale = getScale();
-    // Pending ribbons: each linked flow segment reveals toward its (still pending) next anchor.
+    // Flow ribbons (reveal + post-hit erase) and boundary stubs are collected, then drawn as one
+    // combined network (drawFlowRibbons) so overlapping segments/caps where phrases meet — and
+    // bands passing under hollow anchors — don't stack alpha, and only the active reveal frontier
+    // glows (settled anchors stay clean).
+    const ribbonSegments: { from: Note; to: Note; revealFront: number; eraseBack: number }[] = [];
+    const ribbonStubs: { anchor: Note; hint: Note }[] = [];
+    // Pending: each linked flow segment reveals toward its (still pending) next anchor.
     for (let i = pendingStart; i < notes.length; i++) {
       const note = notes[i];
       if (note.state !== "pending" || note.kind !== "flow" || note.flowNextIndex === undefined) continue;
@@ -622,11 +628,10 @@ export function createGame(deps: GameDeps): GameHandle {
       const dtFrom = note.time - songMs;
       if (dtFrom > approachMs) break;
       if (next.time - songMs < -TIER1_MS) continue;
-      drawFlowRibbon(ctx, note, next, scale, ribbonReveal(note, next, songMs));
+      ribbonSegments.push({ from: note, to: next, revealFront: ribbonReveal(note, next, songMs), eraseBack: 0 });
     }
-    // Erasing ribbons: a hit anchor's segment keeps drawing while its tail retracts toward the
-    // next anchor (smoothstep, fixed wall-clock; see RIBBON_* in draw.ts) and the band fades out,
-    // mirroring the reveal. A segment is dropped once the erase overtakes the revealed front.
+    // Erasing: a hit anchor's segment keeps drawing while its tail retracts toward the next anchor
+    // (smoothstep, fixed wall-clock; see RIBBON_* in draw.ts). Dropped once erase overtakes reveal.
     const stillErasing: number[] = [];
     for (const fromIdx of flowErasing) {
       const from = notes[fromIdx];
@@ -639,23 +644,23 @@ export function createGame(deps: GameDeps): GameHandle {
       const eraseLin = clamp((el - RIBBON_ERASE_LAG_MS) / RIBBON_ERASE_MS, 0, 1);
       const eraseBack = eraseLin * eraseLin * (3 - 2 * eraseLin);
       if (eraseBack >= revealFront) continue;
-      drawFlowRibbon(ctx, from, next, scale, revealFront, eraseBack);
+      ribbonSegments.push({ from, to: next, revealFront, eraseBack });
       stillErasing.push(fromIdx);
     }
     flowErasing = stillErasing;
     // Boundary stubs: a phrase-edge anchor flowing into/out of an adjacent non-flow note (a
-    // flowHint*Index — no flow link and no `break` that side) shows a short faded stub toward
-    // that neighbour, hinting continuity. A hard `break` clears the hint, so nothing is drawn.
+    // flowHint*Index — no flow link and no `break` that side) hints continuity with a short stub.
+    // A hard `break` clears the hint, so nothing is drawn.
     for (let i = pendingStart; i < notes.length; i++) {
       const note = notes[i];
       if (note.state !== "pending" || note.kind !== "flow") continue;
       const dt = note.time - songMs;
       if (dt > approachMs) break;
       if (dt < -TIER1_MS) continue;
-      const appear = clamp(1 - dt / approachMs, 0, 1);
-      if (note.flowHintPrevIndex !== undefined) drawFlowStub(ctx, note, notes[note.flowHintPrevIndex], scale, appear);
-      if (note.flowHintNextIndex !== undefined) drawFlowStub(ctx, note, notes[note.flowHintNextIndex], scale, appear);
+      if (note.flowHintPrevIndex !== undefined) ribbonStubs.push({ anchor: note, hint: notes[note.flowHintPrevIndex] });
+      if (note.flowHintNextIndex !== undefined) ribbonStubs.push({ anchor: note, hint: notes[note.flowHintNextIndex] });
     }
+    drawFlowRibbons(ctx, scale, ribbonSegments, ribbonStubs);
     for (let i = pendingStart; i < notes.length; i++) {
       const note = notes[i];
       if (note.state !== "pending") continue;
