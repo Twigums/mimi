@@ -67,7 +67,7 @@ export interface Note {
   flowTanY?: number;
   flowShape?: number[];
   // Flow only: wall-clock ms when this anchor was hit, driving the ribbon's post-hit erase
-  // (the tail retreating toward the next anchor, dissolving into a poof). Cleared on reset.
+  // (the tail retracting toward the next anchor while the band fades out). Cleared on reset.
   flowHitMs?: number;
 }
 
@@ -304,8 +304,8 @@ export function createGame(deps: GameDeps): GameHandle {
   let pendingStart = 0;
   let animations: HitAnimation[] = [];
   let animStart = 0;
-  // Indices of flow anchors whose post-hit ribbon erase is still in flight (the tail retreating
-  // toward the next anchor, dissolving into a poof); culled in draw() once fully consumed.
+  // Indices of flow anchors whose post-hit ribbon erase is still in flight (the tail retracting
+  // toward the next anchor as the band fades out); culled in draw() once fully consumed.
   let flowErasing: number[] = [];
   let score = 0;
   let tier3Count = 0;
@@ -624,9 +624,9 @@ export function createGame(deps: GameDeps): GameHandle {
       if (next.time - songMs < -TIER1_MS) continue;
       drawFlowRibbon(ctx, note, next, scale, ribbonReveal(note, next, songMs));
     }
-    // Erasing ribbons: a hit anchor's segment keeps drawing while its tail erases toward the next
-    // anchor (fixed wall-clock; see RIBBON_* in draw.ts), dissolving into a poof at the retreating
-    // edge. A segment is dropped once the erase overtakes the revealed front (fully consumed).
+    // Erasing ribbons: a hit anchor's segment keeps drawing while its tail retracts toward the
+    // next anchor (smoothstep, fixed wall-clock; see RIBBON_* in draw.ts) and the band fades out,
+    // mirroring the reveal. A segment is dropped once the erase overtakes the revealed front.
     const stillErasing: number[] = [];
     for (const fromIdx of flowErasing) {
       const from = notes[fromIdx];
@@ -636,7 +636,8 @@ export function createGame(deps: GameDeps): GameHandle {
       if (!next) continue;
       const el = songMs - from.flowHitMs;
       const revealFront = ribbonReveal(from, next, songMs);
-      const eraseBack = clamp((el - RIBBON_ERASE_LAG_MS) / RIBBON_ERASE_MS, 0, 1);
+      const eraseLin = clamp((el - RIBBON_ERASE_LAG_MS) / RIBBON_ERASE_MS, 0, 1);
+      const eraseBack = eraseLin * eraseLin * (3 - 2 * eraseLin);
       if (eraseBack >= revealFront) continue;
       drawFlowRibbon(ctx, from, next, scale, revealFront, eraseBack);
       stillErasing.push(fromIdx);

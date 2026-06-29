@@ -624,17 +624,17 @@ const RIBBON_TIP_FRAC       = 0.15;
 const RIBBON_TIP_BAND_ALPHA = 0.5;
 const RIBBON_TIP_CORE_ALPHA = 0.55;
 // Post-hit erase (fixed wall-clock, NOT AR-locked): once the source anchor is hit, its ribbon
-// tail retreats toward the next anchor — starting RIBBON_ERASE_LAG_MS after the hit and clearing
-// over RIBBON_ERASE_MS — dissolving into a soft poof at the retreating edge. Exported so engine.ts
-// derives the erase fraction it feeds back into drawFlowRibbon.
+// retracts toward the next anchor — starting RIBBON_ERASE_LAG_MS after the hit and clearing over
+// RIBBON_ERASE_MS — as a mirror of the reveal: smoothstep motion plus a fade-out over the last
+// RIBBON_FADE_IN of the erase. Exported so engine.ts derives the (smoothstepped) erase fraction.
 export const RIBBON_ERASE_LAG_MS = 70;
 export const RIBBON_ERASE_MS     = 260;
 
 // Drawn band bounded by arc-length fractions [eraseBack, revealFront] (each 0..1). During
 // approach the band reveals from `from` toward `to` (eraseBack 0) with a brighter, glowing
-// leading edge. After the source anchor is hit it erases: the tail retreats toward `to`
-// (eraseBack climbs) on a fixed wall-clock timescale, dissolving into a soft poof at the
-// retreating edge.
+// leading edge, fading up over the first RIBBON_FADE_IN. After the source anchor is hit it
+// mirrors that in reverse: the tail retracts toward `to` (eraseBack climbs) while the band fades
+// out over the last RIBBON_FADE_IN of the erase — no separate poof, the dissolve is the feedback.
 export function drawFlowRibbon(
   ctx: CanvasRenderingContext2D,
   from: Note,
@@ -647,10 +647,11 @@ export function drawFlowRibbon(
   const back  = Math.max(0, Math.min(1, eraseBack));
   if (front <= back) return;
 
-  // Fade a fresh segment up as it reveals (full by RIBBON_FADE_IN of the reveal) so it
-  // materialises softly instead of popping in at full opacity.
-  const ft   = Math.min(1, front / RIBBON_FADE_IN);
-  const fade = ft * ft * (3 - 2 * ft);
+  // Fade the band up over the first RIBBON_FADE_IN of the reveal and back down over the last
+  // RIBBON_FADE_IN of the erase, so it materialises and dissolves softly (both smoothstep).
+  const fi   = Math.min(1, front / RIBBON_FADE_IN);
+  const fo   = Math.min(1, (1 - back) / RIBBON_FADE_IN);
+  const fade = fi * fi * (3 - 2 * fi) * (fo * fo * (3 - 2 * fo));
 
   const { base } = NOTE_STYLE.flow.colors;
   const ax = from.x, ay = from.y, bx = to.x, by = to.y;
@@ -708,7 +709,7 @@ export function drawFlowRibbon(
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
 
-  // Drawn band [eraseBack, revealFront], faded in over the start of the reveal.
+  // Drawn band [eraseBack, revealFront], faded in on reveal and out on erase (see `fade` above).
   const body = subPath(startLen, endLen);
   ctx.strokeStyle = `rgba(${base}, ${RIBBON_BAND_ALPHA * fade})`;
   ctx.lineWidth = 10 * scale;
@@ -719,7 +720,7 @@ export function drawFlowRibbon(
 
   // Brightening ramp over the leading edge (additive; the gradient starts transparent so the
   // join into the body is seamless, and a soft glow blooms the front), clamped to the
-  // un-erased band so the rolling tail stays clean.
+  // un-erased band so the retracting tail stays clean.
   const tipStart = Math.max(startLen, endLen - endLen * RIBBON_TIP_FRAC);
   if (endLen - tipStart > 0.5) {
     const [tsx, tsy] = at(tipStart);
@@ -742,36 +743,6 @@ export function drawFlowRibbon(
     ctx.strokeStyle = coreGrad;
     ctx.lineWidth = 2 * scale;
     ctx.stroke(tip);
-  }
-
-  // Soft poof at the retreating erase edge: the ribbon dissolves into a small cloud-puff as it
-  // is consumed (no bead — the disappearance itself is the feedback). `pp` tracks how far the
-  // erase has eaten into the revealed band, so the puff swells and fades as the segment clears.
-  if (back > 0) {
-    const pp        = back / front;
-    const poofAlpha = Math.min(pp / 0.12, 1) * (1 - pp) * fade;
-    if (poofAlpha > 0.01) {
-      const [ex, ey] = at(startLen);
-      const spread   = (4 + pp * 8) * scale;
-      const puffR    = (6 + pp * 5) * scale;
-      ctx.shadowColor = `rgba(${base}, ${0.5 * poofAlpha})`;
-      ctx.shadowBlur  = 8 * scale;
-      for (let k = 0; k < 4; k++) {
-        const ang = k === 0 ? 0 : (k - 1) * (Math.PI * 2 / 3) + pp * 1.5;
-        const d   = k === 0 ? 0 : spread;
-        const px  = ex + Math.cos(ang) * d;
-        const py  = ey + Math.sin(ang) * d;
-        const a   = poofAlpha * (k === 0 ? 0.9 : 0.6);
-        const puff = ctx.createRadialGradient(px, py, 0, px, py, puffR);
-        puff.addColorStop(0,    `rgba(255, 255, 255, ${0.7 * a})`);
-        puff.addColorStop(0.45, `rgba(${base}, ${0.8 * a})`);
-        puff.addColorStop(1,    `rgba(${base}, 0)`);
-        ctx.fillStyle = puff;
-        ctx.beginPath();
-        ctx.arc(px, py, puffR, 0, Math.PI * 2);
-        ctx.fill();
-      }
-    }
   }
 
   ctx.restore();
