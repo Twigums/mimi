@@ -32,3 +32,8 @@ package-lock.json
 docs/
 
 staging/
+
+# CapRover deploy (local-only)
+how_to_deploy_mimi.local.md
+deploy/.docs-worktree/
+deploy/mimi-caprover.tar

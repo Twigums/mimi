@@ -1,0 +1,16 @@
+.git
+.github
+docs
+staging
+node_modules
+.stack-work
+_cache
+_tmp
+**/.ipynb_checkpoints
+patch.txt
+patch-rest.txt
+FLOW_NOTE_REDESIGN_PLAN.md
+wiki
+test
+notes
+deploy/.docs-worktree

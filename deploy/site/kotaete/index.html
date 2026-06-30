@@ -1,0 +1,209 @@
+<!doctype html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>mimi - Answer Me</title>
+    <meta name = "site-path" content = "">
+<script>
+    (function () {
+        try {
+            var saved = localStorage.getItem("theme");
+            var dark = saved === "dark" || (saved === null && window.matchMedia("(prefers-color-scheme: dark)").matches);
+            document.documentElement.classList.toggle("theme-dark", dark);
+            document.documentElement.style.colorScheme = dark ? "dark" : "light";
+        } catch (_) {}
+    }());
+</script>
+<link rel = "stylesheet" href = "/css/default.css" />
+<link rel = "preconnect" href = "https://fonts.googleapis.com">
+<link rel = "preconnect" href = "https://fonts.gstatic.com" crossorigin>
+<link href = "https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400;1,700&family=JetBrains+Mono:ital,wght@0,100..800;1,100..800&family=M+PLUS+Rounded+1c:wght@400;700;800&family=Yomogi&display=swap" rel = "stylesheet">
+
+
+    <!-- Song-load critical path is all third-party: warm up DNS/TLS to the SDK CDN,
+         Songle analysis API, TextAlive backend, and Piapro audio host so the
+         handshakes overlap page parse instead of stacking before createFromSongUrl. -->
+    <link rel="preconnect" href="https://unpkg.com" crossorigin>
+    <link rel="preconnect" href="https://api.songle.jp" crossorigin>
+    <link rel="preconnect" href="https://api.textalive.jp" crossorigin>
+    <link rel="preconnect" href="https://piapro.jp" crossorigin>
+    <link rel="dns-prefetch" href="https://unpkg.com">
+    <link rel="dns-prefetch" href="https://api.songle.jp">
+    <link rel="dns-prefetch" href="https://api.textalive.jp">
+    <link rel="dns-prefetch" href="https://piapro.jp">
+
+    <!-- Deferred in <head> so the SDK downloads during parse (ordered: axios -> textalive -> main);
+         defer still runs main.js after the DOM is parsed, matching the old end-of-body placement. -->
+    <script defer src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <script defer src="https://unpkg.com/textalive-app-api/dist/index.js"></script>
+    <script defer src="/js/main.js"></script>
+</head>
+
+<body class="song-page"
+    data-hit-sound-cut="/audio/snare.mp3"
+    data-hit-sound-flow="/audio/flow.wav"
+    data-hit-sound-lyric="/audio/lyric-end.wav"
+    data-song-url="https://piapro.jp/t/6W2N/20251215164617"
+    data-song-chart-dir="/songs/kotaete/"
+    data-song-bpm="130"
+    data-song-levels="{&quot;easy&quot;:4,&quot;hard&quot;:9}"
+    data-textalive-token="N6S7A1HvahiwDLUg"
+    data-textalive-beat-id="4827293"
+    data-textalive-chord-id="2963754"
+    data-textalive-repetitive-segment-id="3086261"
+    data-textalive-lyric-id="126519"
+    data-textalive-lyric-diff-id="28645"
+    data-lyric-chorus-timings="songs/kotaete/chorus-timings.jsonc"
+    data-song-name="Answer Me"
+    data-song-name-jp="こたえて"
+    data-song-author="imie"
+    data-song-author-jp="imie"
+    data-song-mappers="{&quot;easy&quot;:&quot;IOException&quot;,&quot;hard&quot;:&quot;vekt0r&quot;}">
+
+    <div id="loading-screen">
+        <span class="loading-note" aria-hidden="true"></span>
+        <div class="loading-bar-track">
+            <div class="loading-bar-fill" id="loading-bar-fill"></div>
+        </div>
+        <span class="loading-text" data-en="Loading..." data-jp="ローディング...">Loading...</span>
+        <span class="loading-hint" data-en="This is taking a while... try refreshing?" data-jp="少し時間がかかってる…　更新してみ？">This is taking a while... try refreshing?</span>
+    </div>
+
+    <div id="textalive-media"></div>
+    <div class="bg-overlay"></div>
+
+    <div class="song-progress-bar">
+        <div class="song-progress-fill" id="progress-fill"></div>
+    </div>
+
+    <div class="song-hud">
+        <button class="btn-hud-toggle" id="btn-hud-toggle" aria-label="Menu" title="Menu">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <polyline points="6 9 12 15 18 9"/>
+            </svg>
+        </button>
+        <div class="hud-panel">
+            <div class="hud-top-row">
+                <button class = "lang-toggle" id = "lang-toggle" type = "button"
+        role = "switch" aria-checked = "false"
+        aria-label = "Toggle language between English and Japanese">
+    <span class = "lang-option lang-en active" data-lang = "en">EN</span>
+    <span class = "lang-option lang-jp" data-lang = "jp" data-compact = "JA">JA</span>
+</button>
+                <button class = "settings-btn theme-toggle" id = "theme-toggle" type = "button"
+        role = "switch" aria-checked = "false"
+        aria-label = "Toggle between light and dark theme"
+        data-title-en = "Theme" data-title-jp = "テーマ"
+        title = "Theme">
+    <svg xmlns = "http://www.w3.org/2000/svg" viewBox = "0 0 24 24" aria-hidden = "true">
+        <mask id = "theme-moon-mask">
+            <rect x = "0" y = "0" width = "24" height = "24" fill = "white"/>
+            <circle class = "theme-mask-bite" cx = "27" cy = "-3" r = "6" fill = "black"/>
+        </mask>
+        <circle class = "theme-icon-core" cx = "12" cy = "12" r = "5" mask = "url(#theme-moon-mask)"/>
+        <g class = "theme-icon-rays">
+            <path d = "M12 2.5 V5"/>
+            <path d = "M12 19 V21.5"/>
+            <path d = "M2.5 12 H5"/>
+            <path d = "M19 12 H21.5"/>
+            <path d = "M5.3 5.3 L7 7"/>
+            <path d = "M17 17 L18.7 18.7"/>
+            <path d = "M17 7 L18.7 5.3"/>
+            <path d = "M5.3 18.7 L7 17"/>
+        </g>
+    </svg>
+</button>
+
+                <button class = "settings-btn" id = "settings-btn" type = "button"
+        aria-label = "Open options"
+        data-title-en = "Options" data-title-jp = "オプション"
+        title = "Options">
+    <svg xmlns = "http://www.w3.org/2000/svg" viewBox = "0 0 24 24" fill = "currentColor" aria-hidden = "true">
+        <path d = "M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/>
+    </svg>
+</button>
+            </div>
+        </div>
+    </div>
+
+    <a href="/" class="site-name-link" aria-label="mimi">
+        <svg class="site-logo" viewBox="0 0 95.670403 58.208942" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <g id="site-logo-mark" transform="translate(-34.579449,-33.037518)">
+    <path
+      d="m 85.84799,42.833561 c -2.288423,0.0023 -4.142336,1.858092 -4.142383,4.146517 1.43e-4,0.0024 0,0.0048 0,0.0072 v 27.928527 c 6.52e-4,-0.01154 0.0014,-0.02308 0.0021,-0.03462 -7.69e-4,0.01378 -0.0015,0.02756 -0.0021,0.04134 4.8e-5,2.290038 1.856479,4.146469 4.146517,4.146517 2.290038,-4.8e-5 4.146469,-1.856479 4.146517,-4.146517 V 50.543652 c 0,0 1.666437,-2.000912 2.705778,-2.000912 0.939508,0 1.676205,1.288527 1.81901,3.877283 V 85.92237 c -1.34e-4,2.285346 1.852386,4.138098 4.137732,4.13825 2.285549,1.34e-4 4.138249,-1.852702 4.138249,-4.13825 v -0.003 -5.2e-4 -38.935671 -0.0031 c -1.5e-4,-2.285345 -1.8529,-4.137866 -4.138249,-4.137732 h -0.0047 c -0.0526,0.0026 -0.105149,0.0062 -0.157613,0.01085 -0.04621,0.0023 -0.09238,0.0054 -0.138493,0.0093 -0.466707,0.03752 -1.36844,0.198071 -2.232938,0.873848 -0.12921,0.101004 -0.286064,0.234569 -0.465088,0.393258 -1.768635,1.567738 -5.663737,5.619812 -5.663737,5.619812 v -2.76934 c -4.8e-5,-2.290038 -1.856479,-4.146469 -4.146517,-4.146517 z"
+      fill="var(--site-logo-wordmark, currentColor)"
+      stroke="var(--site-logo-wordmark, currentColor)"
+      stroke-width="0.01"
+      stroke-linecap="round" />
+    <path
+      d="m 38.726835,42.834046 c -2.288423,0.0023 -4.142336,1.858092 -4.142383,4.146517 1.43e-4,0.0024 0,0.0048 0,0.0072 V 74.91629 c 6.52e-4,-0.01154 0.0014,-0.02308 0.0021,-0.03462 -7.69e-4,0.01378 -0.0015,0.02756 -0.0021,0.04134 4.8e-5,2.290038 1.856479,4.146469 4.146517,4.146517 2.290038,-4.8e-5 4.146469,-1.856479 4.146517,-4.146517 V 50.544137 c 0,0 1.666437,-2.000912 2.705778,-2.000912 0.939508,0 1.676205,1.288527 1.81901,3.877283 v 33.502355 c -1.34e-4,2.285346 1.852386,4.138098 4.137732,4.13825 2.285548,1.34e-4 4.138249,-1.852702 4.138249,-4.13825 v -0.003 -5.2e-4 -38.935679 -0.0031 c -1.52e-4,-2.285345 -1.852904,-4.137866 -4.138249,-4.137732 h -0.0047 c -0.0526,0.0026 -0.105149,0.0062 -0.157613,0.01085 -0.04621,0.0023 -0.09238,0.0054 -0.138493,0.0093 -0.466707,0.03752 -1.36844,0.198071 -2.232938,0.873848 -0.12921,0.101004 -0.286064,0.234569 -0.465088,0.393258 -1.768635,1.567738 -5.663737,5.619812 -5.663737,5.619812 v -2.76934 c -4.8e-5,-2.290038 -1.856479,-4.146469 -4.146517,-4.146517 z"
+      fill="var(--site-logo-wordmark, currentColor)"
+      stroke="var(--site-logo-wordmark, currentColor)"
+      stroke-width="0.01"
+      stroke-linecap="round" />
+    <path
+      d="m 64.377466,42.826326 c -1.142245,0.0011 -2.176173,0.464312 -2.925403,1.21233 0.02588,-0.02161 -3.16787,3.035516 -3.306258,3.181201 0.0099,-0.01009 0.02062,-0.01944 0.03152,-0.02842 -0.08808,0.07268 -0.144177,0.182745 -0.144177,0.305924 0,0.218985 0.177373,0.396358 0.396358,0.396358 0.0306,0 0.06028,-0.0033 0.08888,-0.0098 0.04966,-0.0094 0.779175,-0.140382 1.087272,0.229443 0.379324,0.455322 0.627699,2.031211 0.629419,5.233273 6e-6,0.01116 0,0.02239 0,0.03359 v 17.948258 c 0,0 0.0104,2.041231 0.210323,4.894792 0.464337,6.627528 2.347087,14.131949 7.821228,14.925699 5.901604,0.855732 11.956342,-4.525741 12.329997,-5.123201 v -5.1e-4 c 0.682013,-0.7378 1.099158,-1.72465 1.099158,-2.80862 v -0.003 c 0,-2.28434 -1.853909,-4.135281 -4.138249,-4.135148 -1.293954,8.6e-5 -2.444609,0.598169 -3.208073,1.524458 -0.387772,0.470473 -5.488652,6.24829 -5.82135,-7.701859 V 46.972843 c -4.8e-5,-2.290038 -1.856479,-4.146469 -4.146517,-4.146517 z"
+      fill="var(--site-logo-wordmark, currentColor)"
+      stroke="var(--site-logo-wordmark, currentColor)"
+      stroke-width="0.0109829"
+      stroke-linecap="round" />
+    <path
+      d="m 111.48105,42.833561 c -1.14224,0.0011 -2.17617,0.464311 -2.9254,1.212329 0.0259,-0.02161 -3.16787,3.035516 -3.30626,3.181201 0.01,-0.01009 0.0206,-0.01944 0.0315,-0.02842 -0.0881,0.07268 -0.14417,0.182746 -0.14417,0.305925 0,0.218985 0.17736,0.396358 0.39635,0.396358 0.0306,0 0.0603,-0.0033 0.0889,-0.0098 0.0497,-0.0094 0.77917,-0.140382 1.08727,0.229443 0.37932,0.455322 0.6277,2.03121 0.62942,5.233272 v 0.03359 14.0224 5.16e-4 c 0,2.290255 1.85678,4.146792 4.14703,4.146517 2.28985,-2.94e-4 4.146,-1.856664 4.146,-4.146517 v -0.0036 c -0.006,-0.139892 0,-20.426697 0,-20.426697 -5e-5,-2.290038 -1.85648,-4.146469 -4.14652,-4.146517 z"
+      fill="var(--site-logo-wordmark, currentColor)"
+      stroke="var(--site-logo-wordmark, currentColor)"
+      stroke-width="0.0109829"
+      stroke-linecap="round" />
+    <path
+      d="m 69.390597,33.045011 -0.797368,4.879289 -0.03307,0.203605 -0.596346,3.64939 1.283643,-0.74104 c 0,0 0.170226,0.196089 0.449585,0.547253 1.242795,1.562242 4.648735,6.187865 4.872571,10.21023 8.3e-5,0.21907 0.177805,0.396561 0.396875,0.396358 0.193143,-8.1e-5 0.358128,-0.139315 0.390673,-0.329696 0.11473,-0.556413 1.987353,-9.740889 1.4087,-13.67255 -0.02903,-0.197214 -0.06404,-0.381326 -0.105937,-0.550354 -0.05523,-0.209054 -0.126764,-0.413457 -0.21394,-0.611332 l 1.397847,-0.806669 z"
+      fill="var(--site-logo-cut-fill, #ff5252)"
+      stroke="var(--site-logo-cut-stroke, #c03e3e)"
+      stroke-width="0.611"
+      stroke-linecap="round"
+      stroke-linejoin="round" />
+    <path
+      d="m 116.03891,38.29637 c -0.0697,0 -0.13812,0.01836 -0.19844,0.05323 -0.17138,0.09921 -0.24329,0.309651 -0.16846,0.492993 -0.002,-0.0039 -0.003,-0.0079 -0.005,-0.01188 0.17929,0.54055 3.14943,9.429647 5.6162,12.54497 0.12372,0.156258 0.24612,0.298325 0.3669,0.423747 0.15236,0.153339 0.31651,0.294504 0.49093,0.422197 l -0.80667,1.39733 8.90798,-1.476912 -1.74925,-4.624007 -0.0734,-0.19327 -1.30845,-3.458704 -0.74104,1.283643 c 0,0 -0.24545,-0.08514 -0.663,-0.249597 -1.85748,-0.731575 -7.12002,-3.033786 -9.32502,-6.405294 -0.0707,-0.122672 -0.20152,-0.198309 -0.34313,-0.198438 z"
+      fill="var(--site-logo-flow-fill, #52a2ff)"
+      stroke="var(--site-logo-flow-stroke, #3e7abf)"
+      stroke-width="0.611"
+      stroke-linecap="round"
+      stroke-linejoin="round" />
+    </g>
+  </defs>
+  <use class="site-logo__shadow" href="#site-logo-mark" />
+  <use class="site-logo__face" href="#site-logo-mark" />
+</svg>
+
+    </a>
+
+    <div class="small-screen-warning">
+        <p data-en="Please play in fullscreen or increase your window size."
+           data-jp="フルスクリーンで再生するか、ウィンドウサイズを大きくしてください。">Please play in fullscreen or increase your window size.</p>
+    </div>
+
+    <div id="game-root"></div>
+
+    <div class="song-page-footer">
+        <button class="btn-fullscreen" id="btn-fullscreen" title="Fullscreen">
+            <svg class="icon-fullscreen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <g class="corner corner-tl"><path d="M3 9 L3 3 L9 3"/></g>
+                <g class="corner corner-tr"><path d="M15 3 L21 3 L21 9"/></g>
+                <g class="corner corner-br"><path d="M21 15 L21 21 L15 21"/></g>
+                <g class="corner corner-bl"><path d="M9 21 L3 21 L3 15"/></g>
+            </svg>
+            <svg class="icon-exit-fullscreen" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <g class="corner corner-tl"><path d="M3 9 L9 9 L9 3"/></g>
+                <g class="corner corner-tr"><path d="M15 3 L15 9 L21 9"/></g>
+                <g class="corner corner-br"><path d="M21 15 L15 15 L15 21"/></g>
+                <g class="corner corner-bl"><path d="M9 21 L9 15 L3 15"/></g>
+            </svg>
+        </button>
+        <a href="/" class="btn-back" data-en="Back" data-jp="戻る">Back</a>
+    </div>
+
+</body>
+
+</html>

@@ -1,0 +1,56 @@
+# agents collected from https://darkvisitors.com/agents
+
+User-agent: AI2Bot
+Disallow: /
+User-agent: anthropic-ai
+Disallow: /
+User-agent: Applebot-Extended
+Disallow: /
+User-agent: Bytespider
+Disallow: /
+User-agent: CCBot
+Disallow: /
+User-agent: ClaudeBot
+Disallow: /
+User-agent: Claude
+Disallow: /-Web
+User-agent: cohere-ai
+Disallow: /
+User-agent: cohere-training-data-crawler
+Disallow: /
+User-agent: Cotoyogi
+Disallow: /
+User-agent: Datenbank Crawler
+Disallow: /
+User-agent: Diffbot
+Disallow: /
+User-agent: FacebookBot
+Disallow: /
+User-agent: Factset_spyderbot
+Disallow: /
+User-agent: Google-Extended
+Disallow: /
+User-agent: GPTBot
+Disallow: /
+User-agent: ICC-Crawler
+Disallow: /
+User-agent: KangarooBot
+Disallow: /
+User-agent: Meta-ExternalAgent
+Disallow: /
+User-agent: netEstate Imprint Crawler
+Disallow: /
+User-agent: omgili
+Disallow: /
+User-agent: PanguBot
+Disallow: /
+User-agent: PetalBot
+Disallow: /
+User-agent: PerplexityBot
+Disallow: /
+User-agent: SemrushBot-OCOB
+Disallow: /
+User-agent: Timpibot
+Disallow: /
+User-agent: Webzio-Extended
+Disallow: /
