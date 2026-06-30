@@ -28,7 +28,10 @@ $diff-colors: (
 // Song HUD responsive breakpoints
 $song-hud-collapse-ratio: '13 / 7';
 $song-footer-stack-ratio: '12 / 7';
-$song-warning-ratio:      '153 / 100';
+
+// Minimum viewport before the small-screen overlay blocks play
+$song-min-width:  400px;
+$song-min-height: 699px;
 
 // css
 :root {

@@ -78,6 +78,27 @@ html body.song-page {
   overflow: hidden;
   background-color: var(--song-page-bg);
   color: var(--song-text);
+
+  // Per-side clearance for fixed chrome + frame puff overflow (GameFrame.tsx).
+  // Width/height limits use these directly so sizing transitions smoothly — no aspect-ratio jumps.
+  --game-clear-left:   3rem;
+  --game-clear-right:  3rem;
+  --game-clear-top:    2rem;
+  --game-clear-bottom: 4rem;
+  // the horizontal distance from the edge when it start to go diagonal
+  --game-clear-diagonal: 12rem;
+
+  // Logo corner (.site-name-link): linear bound so the play-field TL corner slides
+  // diagonally while resizing.
+  --game-logo-size:   clamp(3.6rem, 7vw, 5rem);
+  --game-logo-zone-x: calc(1.5rem + var(--game-logo-size) + 0.75rem);
+  --game-logo-zone-y: calc(1rem + var(--game-logo-size) + 0.75rem);
+
+  --game-fit-w: min(
+    calc(100vw - var(--game-clear-left) - var(--game-clear-right)),
+    calc((100vh - var(--game-clear-top) - var(--game-clear-bottom)) * 4 / 3),
+    calc(0.5 * 100vw + (2 / 3) * 100vh - var(--game-clear-diagonal))
+  );
 }
 
 .song-page .bg-overlay {
@@ -467,8 +488,9 @@ html.theme-dark .game-frame .frame-star {
   left: 50%;
   transform: translate(-50%, -50%);
   aspect-ratio: 4 / 3;
-  height: calc(100vh - 6rem);
-  max-width: calc((100vh - 6rem) * 4 / 3);
+  width: var(--game-fit-w);
+  height: auto;
+  max-height: calc(100vh - var(--game-clear-top) - var(--game-clear-bottom));
 }
 
 .game-area {
@@ -477,8 +499,9 @@ html.theme-dark .game-frame .frame-star {
   left: 50%;
   transform: translate(-50%, -50%);
   aspect-ratio: 4 / 3;
-  height: calc(100vh - 6rem);
-  max-width: calc((100vh - 6rem) * 4 / 3);
+  width: var(--game-fit-w);
+  height: auto;
+  max-height: calc(100vh - var(--game-clear-top) - var(--game-clear-bottom));
   border: 2px solid var(--surface-hud-line);
   border-radius: var(--radius-card);
   box-shadow: 0 0 28px var(--cloud-glow);
@@ -920,7 +943,7 @@ html.theme-dark .game-frame .frame-star {
   }
 }
 
-@media (max-aspect-ratio: #{$song-warning-ratio}), (max-width: 400px), (max-height: 699px) {
+@media (max-width: #{$song-min-width}), (max-height: #{$song-min-height}) {
   .small-screen-warning {
     opacity: 1;
     pointer-events: all;
@@ -942,11 +965,6 @@ html.theme-dark .game-frame .frame-star {
 }
 
 @media (max-width: 600px) {
-  .game-area {
-    height: calc(100vh - 0.5rem);
-    max-width: calc((100vh - 0.5rem) * 4 / 3);
-  }
-
   .song-hud {
     right: 0.75rem;
     top: 0.5rem;
