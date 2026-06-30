@@ -9,7 +9,7 @@ import {
 import { loadHiddenMod, subscribeHiddenMod } from "../core/settings";
 import { collectTextAliveChars, walkPhraseChars } from "./charLookup";
 
-export interface StoryStyle extends Record<string, string> {
+export interface StoryStyle extends Record<string, string | undefined> {
   color?: string;
   font?: string;
   scale?: string;
@@ -480,7 +480,7 @@ export function createStoryboardRenderer(root: HTMLElement, flightRoot: HTMLElem
     const scale = rect.width / LOGICAL_W;
     const layout = layoutLyricGlyphs(note.lyricChar ?? "", scale);
     const fontPx = layout.fontPx;
-    const dy = (note.y / LOGICAL_H) * 100 + (lyricFunnelDestOffsetYPx(fontPx, true) / rect.height) * 100;
+    const dy = (note.y / LOGICAL_H) * 100 + (lyricFunnelDestOffsetYPx(fontPx) / rect.height) * 100;
     for (let i = 0; i < n; i++) {
       const srcKey = srcKeys[Math.min(i, srcKeys.length - 1)];
       const glyph = srcKey ? sourceGlyph(srcKey) : undefined;

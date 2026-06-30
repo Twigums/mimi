@@ -287,7 +287,7 @@ export function createGame(deps: GameDeps): GameHandle {
   };
   resize();
 
-  const pointer = { x: 0, y: 0, prevX: 0, prevY: 0 };
+  const pointer = { x: 0, y: 0 };
   const pointerSamples: PointerSample[] = [];
   const lyricHoldStates = new Map<number, LyricHoldState>();
 
@@ -876,8 +876,6 @@ export function createGame(deps: GameDeps): GameHandle {
           console.error("[mimi] cursor render failed:", err);
         }
       }
-      pointer.prevX = pointer.x;
-      pointer.prevY = pointer.y;
     },
 
     destroy(): void {

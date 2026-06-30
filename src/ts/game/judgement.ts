@@ -417,10 +417,6 @@ function selectBestCandidate(
   return best;
 }
 
-export function getGesturePhrase(note: JudgementNote, pointerSamples: PointerSample[]): GesturePhrase | null {
-  return selectBestCandidate(note, pointerSamples)?.gesture ?? null;
-}
-
 function canStillImprove(
   candidate: Candidate,
   latestSongMs: number,

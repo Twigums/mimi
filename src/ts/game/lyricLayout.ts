@@ -9,8 +9,6 @@ export const LYRIC_FUNNEL_BLEND_MS = 180;
 export const LYRIC_APPROACH_FILL_START = 0.62;
 /** Logical px the aura gradient extends past the visible disc edge. */
 export const LYRIC_AURA_EXTEND_PX = 25;
-/** Ms after hit time to ease the approach wash into hold greyscale. */
-export const LYRIC_HOLD_GREY_SETTLE_MS = 0;
 /** Hold window tail when the aura shifts greyscale → blue to cue release. */
 export const LYRIC_RELEASE_CUE_MS = 500;
 /** Ms at hold end for the release burst swell (inside the release-cue window). */
@@ -53,8 +51,8 @@ export function lyricGlyphOffsetYPx(fontPx: number): number {
 }
 
 /** Canvas-pixel offset for the storyboard funnel destination (song gameplay only). */
-export function lyricFunnelDestOffsetYPx(fontPx: number, gameplay: boolean): number {
-  return gameplay ? LYRIC_FUNNEL_DEST_Y_OFFSET_EM * fontPx : 0;
+export function lyricFunnelDestOffsetYPx(fontPx: number): number {
+  return LYRIC_FUNNEL_DEST_Y_OFFSET_EM * fontPx;
 }
 
 export function lyricFunnelStep(charCount: number, approachMs: number): number {

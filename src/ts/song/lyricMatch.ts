@@ -100,9 +100,18 @@ export function matchLyrics(
   notes: Note[],
   excludes: ExcludeRange[],
 ): LyricMatchResult {
-  const video = isVideo(charsOrVideo) ? charsOrVideo : null;
-  const chars = video ? flattenChars(video) : charsOrVideo;
-  const phrases = video ? collectPhrases(video) : null;
+  let video: TextAliveVideo | null;
+  let chars: TextAliveChar[];
+  let phrases: TextAlivePhrase[] | null;
+  if (isVideo(charsOrVideo)) {
+    video = charsOrVideo;
+    chars = flattenChars(charsOrVideo);
+    phrases = collectPhrases(charsOrVideo);
+  } else {
+    video = null;
+    chars = charsOrVideo;
+    phrases = null;
+  }
   const charToNote = new Map<TextAliveChar, Note>();
   const consumed = new Set<TextAliveChar>();
   const excluded = new Set<TextAliveChar>();
