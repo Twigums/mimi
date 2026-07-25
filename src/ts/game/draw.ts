@@ -7,7 +7,6 @@ import {
   LYRIC_AURA_EXTEND_PX,
   LYRIC_END_BURST_MS,
   LYRIC_FUNNEL_BLEND_MS,
-  LYRIC_HOLD_GREY_SETTLE_MS,
   LYRIC_RADIUS,
   LYRIC_RELEASE_CUE_MS,
   LYRIC_SOLID_RING_RATIO,
@@ -396,7 +395,7 @@ function drawLyricDisc(
   }
 
   if (whisperAlpha > 0.005) {
-    const auraR = boundR + LYRIC_AURA_EXTEND_PX * scale * breath;
+    const auraR = boundR + LYRIC_AURA_EXTEND_PX * scale;
     const grad = ctx.createRadialGradient(cx, cy, boundR * 0.92, cx, cy, auraR);
     grad.addColorStop(0, `rgba(${rgb}, ${whisperAlpha})`);
     grad.addColorStop(1, "rgba(255, 255, 255, 0)");
@@ -495,10 +494,7 @@ export function drawLyricNote(
 
   if (holdProgress > 0) {
     const holdBright = holding ? 1 : 0.55;
-    const elapsedMs = holdMs > 0 ? holdProgress * holdMs : 0;
-    const greyBlend = easeOutCubic(
-      holdMs > 0 ? elapsedMs / LYRIC_HOLD_GREY_SETTLE_MS : holdProgress / 0.3,
-    );
+    const greyBlend = holdMs > 0 ? 1 : easeOutCubic(holdProgress / 0.3);
     const blueBlend = lyricHoldBlueBlend(holdProgress, remainingMs, holdMs);
 
     const sustainRgb = mixRgb(LYRIC_INVITE, LYRIC_HOLD_GREY, greyBlend);

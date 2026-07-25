@@ -134,6 +134,25 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPre
   let chartApplied = false;
   let chorusTimingsReady = !chorusTimingsPath;
 
+  const isEndMarker = (note: Note): boolean => (note.kind as string).toLowerCase() === "end";
+  const playableNotes = (notes: Note[]): Note[] => notes.filter(note => !isEndMarker(note));
+  const endMarkerTimes = (notes: Note[]): number[] =>
+    notes.flatMap(note => isEndMarker(note) && typeof note.time === "number" ? [note.time] : []);
+
+  const tryApplyChart = (): void => {
+    if (chartApplied || !loadedNotes || storyPending) return;
+    if (hasVideoIds && !videoForMatch) return;
+    if (chorusTimingsPath && !chorusTimingsReady) return;
+    const playable = playableNotes(loadedNotes);
+    computeLyricHolds(playable, endMarkerTimes(loadedNotes));
+    if (videoForMatch) {
+      const { charToNote } = matchLyrics(videoForMatch, playable, excludeRanges);
+      storyboard?.setLyricMap(charToNote);
+    }
+    game.setChart(loadedNotes);
+    chartApplied = true;
+  };
+
   const publishVideoForMatch = (): void => {
     if (!rawVideo) return;
     if (chorusTimingsPath && !chorusTimingsReady) return;
@@ -161,25 +180,6 @@ export function initSongPage({ game, onSongFinish, hideResult, onSongInfo, onPre
       }
     })();
   }
-
-  const isEndMarker = (note: Note): boolean => (note.kind as string).toLowerCase() === "end";
-  const playableNotes = (notes: Note[]): Note[] => notes.filter(note => !isEndMarker(note));
-  const endMarkerTimes = (notes: Note[]): number[] =>
-    notes.flatMap(note => isEndMarker(note) && typeof note.time === "number" ? [note.time] : []);
-
-  const tryApplyChart = (): void => {
-    if (chartApplied || !loadedNotes || storyPending) return;
-    if (hasVideoIds && !videoForMatch) return;
-    if (chorusTimingsPath && !chorusTimingsReady) return;
-    const playable = playableNotes(loadedNotes);
-    computeLyricHolds(playable, endMarkerTimes(loadedNotes));
-    if (videoForMatch) {
-      const { charToNote } = matchLyrics(videoForMatch, playable, excludeRanges);
-      storyboard?.setLyricMap(charToNote);
-    }
-    game.setChart(loadedNotes);
-    chartApplied = true;
-  };
 
   // Reactive storyboard directives
   let reactiveModes = new Set<string>();

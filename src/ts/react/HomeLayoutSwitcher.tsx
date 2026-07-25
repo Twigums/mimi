@@ -61,8 +61,6 @@ interface ManifestSong {
     noteCount?: number;
     cutCount?: number;
     flowCount?: number;
-    flickCount?: number;
-    streamCount?: number;
     lyricCount?: number;
     playableMs?: number | null;
     density?: number | null;
@@ -76,6 +74,18 @@ const DIFF_LABELS: Record<string, { labelEn: string; labelJp: string }> = {
   expert: { labelEn: "EXPERT", labelJp: "EXPERT" },
 };
 
+// Song source URLs come from build-time chart frontmatter. Allow only http(s) so a
+// malformed or hostile `song-url` (e.g. `javascript:`) can never become a live href.
+function safeHttpUrl(url: string | undefined): string {
+  if (!url) return "";
+  try {
+    const u = new URL(url);
+    return u.protocol === "http:" || u.protocol === "https:" ? url : "";
+  } catch {
+    return "";
+  }
+}
+
 function parseManifest(json: string): SongEntry[] {
   try {
     const data = JSON.parse(json) as { songs?: ManifestSong[] };
@@ -85,7 +95,7 @@ function parseManifest(json: string): SongEntry[] {
       titleJp: s.titleJp,
       authorEn: s.authorEn,
       authorJp: s.authorJp,
-      sourceUrl: s.sourceUrl ?? "",
+      sourceUrl: safeHttpUrl(s.sourceUrl),
       href: s.href,
       bpm: s.bpm ?? null,
       difficulties: s.difficulties
@@ -96,8 +106,8 @@ function parseManifest(json: string): SongEntry[] {
           ar: d.ar ?? null,
           mapper: d.mapper ?? "",
           noteCount: d.noteCount ?? 0,
-          cutCount: d.cutCount ?? d.flickCount ?? 0,
-          flowCount: d.flowCount ?? d.streamCount ?? 0,
+          cutCount: d.cutCount ?? 0,
+          flowCount: d.flowCount ?? 0,
           lyricCount: d.lyricCount ?? 0,
           playableMs: d.playableMs ?? null,
           density: d.density ?? null,

@@ -190,17 +190,13 @@ parseChartStats content =
         case map safeTrim (splitOn ',' line) of
             (k:t:_:_:_:_) ->
                 let kind = case map toLower k of
-                        "c"      -> "cut"
-                        "cut"    -> "cut"
-                        "click"  -> "cut"
-                        "f"      -> "cut"
-                        "flick"  -> "cut"
-                        "s"      -> "flow"
-                        "flow"   -> "flow"
-                        "stream" -> "flow"
-                        "l"      -> "lyric"
-                        "lyric"  -> "lyric"
-                        other    -> other
+                        "c"     -> "cut"
+                        "cut"   -> "cut"
+                        "f"     -> "flow"
+                        "flow"  -> "flow"
+                        "l"     -> "lyric"
+                        "lyric" -> "lyric"
+                        other   -> other
                 in Just $ NoteRow kind (parseMimiNumber t >>= toMs)
             _ -> Nothing
 
@@ -408,7 +404,9 @@ rules sitePath origin = do
                   constField "song-bpm" bpm <>
                   constField "song-levels" (escapeForAttr levels) <>
                   constField "song-mappers" (escapeForAttr mappers) <>
-                  baseCtx
+                  baseCtx <>
+                  -- Optional: songs without chorus timings fall back to empty.
+                  constField "lyric-chorus-timings" ""
             pandocCompiler
                 >>= loadAndApplyTemplate (makeIdentifier templateDir "song.html") songCtx
 

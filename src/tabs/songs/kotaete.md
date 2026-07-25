@@ -10,5 +10,4 @@ textalive-chord-id: 2963754
 textalive-repetitive-segment-id: 3086261
 textalive-lyric-id: 126519
 textalive-lyric-diff-id: 28645
-lyric-chorus-timings: songs/kotaete/chorus-timings.jsonc
 ---

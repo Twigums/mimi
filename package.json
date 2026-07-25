@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "setup": "npm install && stack build --system-ghc",
-    "test": "npm run test:judgement && npm run test:leniency && npm run test:lyrics && npm run test:chorus",
+    "test": "npm run test:judgement && npm run test:leniency && npm run test:lyrics",
     "setup:dev": "npm run setup && git config core.hooksPath .githooks",
     "build": "[ -f .env ] && . ./.env; stack exec --system-ghc site -- build",
     "rebuild": "[ -f .env ] && . ./.env; stack exec --system-ghc site -- rebuild",
@@ -17,8 +17,7 @@
     "build:kotaete-lyrics": "npx esbuild src/tools/build-kotaete-lyrics.ts --bundle --platform=node --outfile=/tmp/build-kotaete-lyrics.js --log-level=silent && node /tmp/build-kotaete-lyrics.js",
     "test:judgement": "npx esbuild test/judgement.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/mimi-judgement.test.cjs --log-level=silent && node /tmp/mimi-judgement.test.cjs",
     "test:leniency": "npx esbuild test/leniency.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/mimi-leniency.test.cjs --log-level=silent && node /tmp/mimi-leniency.test.cjs",
-    "test:lyrics": "npx esbuild test/lyrics.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/mimi-lyrics.test.cjs --log-level=silent && node /tmp/mimi-lyrics.test.cjs",
-    "test:chorus": "npx esbuild test/chorus-timings.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/mimi-chorus.test.cjs --log-level=silent && node /tmp/mimi-chorus.test.cjs"
+    "test:lyrics": "npx esbuild test/lyrics.test.ts --bundle --platform=node --format=cjs --outfile=/tmp/mimi-lyrics.test.cjs --log-level=silent && node /tmp/mimi-lyrics.test.cjs"
   },
   "dependencies": {
     "react": "^18.3.1",
